@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <arpa/inet.h>
 #include <cstdio>
+#include <cstring>
 #include <dlfcn.h>
 #include <filesystem>
 #include <format>
@@ -13,23 +14,13 @@
 
 #include "dlfcn.h"
 
-#include "plugin.h"
 #include "packetline.h"
+#include "plugin.h"
+#include "utils.h"
 
-std::string stringify_ip(ip_addr_t addr) {
-  if (addr.type == INET_ADDR_V4) {
-    struct in_addr to_convert{};
-    char buff[128];
+#include <unistd.h>
 
-    to_convert.s_addr = addr.addr.ipv4.s_addr;
-    auto stringed = inet_ntop(AF_INET, &to_convert, buff, 128);
-
-    return std::string{stringed};
-
-  } else if (addr.type == INET_ADDR_V6) {
-  }
-  return "";
-}
+#include <errno.h>
 
 class Plugin {
 public:
@@ -55,16 +46,14 @@ public:
     return false;
   }
 
-  std::string name() {
-    return m_name;
-  }
+  std::string name() { return m_name; }
 
-  maybe_generate_result_t generate() {
+  maybe_generate_result_t generate(ip_addr_t source_ip, ip_addr_t destination_ip, body_p body) {
     if (m_generator) {
 
-      auto result = m_generator(ip_addr_t{}, body_p{});
+      auto result = m_generator(source_ip, destination_ip, body);
 
-      auto target_addr = stringify_ip(result.address);
+      auto target_addr = stringify_ip(result.destination);
 
       std::cout << std::format("Target address: {}\n", target_addr);
       return result;
@@ -95,7 +84,8 @@ public:
         Plugin p{v};
 
         if (p.load()) {
-          std::cout << std::format("Successfully loaded --{}-- plugin.\n", p.name());
+          std::cout << std::format("Successfully loaded --{}-- plugin.\n",
+                                   p.name());
           loaded_plugins.push_back(p);
         } else {
           std::cerr << "Load failed!\n";

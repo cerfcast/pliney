@@ -22,21 +22,24 @@ typedef struct {
     struct in_addr ipv4;
     struct in6_addr ipv6;
   } addr;
-
+  uint16_t port;
 } ip_addr_t;
 
 typedef struct {
-  ip_addr_t address;
+  ip_addr_t destination;
+  ip_addr_t source;
   body_p body;
 } generate_result_t;
 
 char *name();
 int load();
-generate_result_t generate(ip_addr_t addr, body_p body);
+generate_result_t generate(ip_addr_t source, ip_addr_t target, body_p body);
 
 typedef char *(*name_t)();
 typedef int (*load_t)();
-typedef generate_result_t (*generate_t)(ip_addr_t, body_p);
+typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, body_p);
+
+const char *stringify_ip(ip_addr_t addr);
 
 #ifdef __cplusplus
 }
