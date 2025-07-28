@@ -102,32 +102,89 @@ private:
 
 class PipelineExecutor {
 public:
-  void virtual execute(std::vector<Plugin> plugins) = 0;
+  virtual maybe_generate_result_t execute(std::vector<Plugin> plugins) = 0;
 };
 
 class SerialPipelineExecutor : public PipelineExecutor {
 public:
-  void execute(std::vector<Plugin> plugins) {
-    std::ranges::for_each(plugins, [](auto p) {
-      auto result = p.generate();
+  maybe_generate_result_t execute(std::vector<Plugin> plugins) override {
+
+    ip_addr_t target_ip{};
+    ip_addr_t source_ip{};
+    body_p body{};
+
+    for (auto plugin : plugins) {
+
+      auto result = plugin.generate(source_ip, target_ip, body);
 
       if (std::holds_alternative<generate_result_t>(result)) {
         std::cout << "Got a result!\n";
+        generate_result_t x = std::get<generate_result_t>(result);
+        target_ip = x.destination;
+        body = x.body;
       } else {
         std::cout << std::format("There was an error: {}\n",
                                  std::get<std::string>(result));
+        return std::get<std::string>(result);
       }
-    });
+    }
+
+    return generate_result_t{target_ip, source_ip, body};
   }
 };
 
 int main() {
   auto plugin_path = std::filesystem::path("./build");
-
   auto plugins = PluginDir{plugin_path};
+  auto loaded_plugins = plugins.plugins();
+
+  if (loaded_plugins.empty()) {
+    std::cerr << "No plugins loaded.\n";
+    return 1;
+  }
 
   auto executor = SerialPipelineExecutor{};
+  auto maybe_result = executor.execute(loaded_plugins);
 
-  auto loaded_plugins = plugins.plugins();
-  executor.execute(loaded_plugins);
+  if (std::holds_alternative<generate_result_t>(maybe_result)) {
+
+    auto actual_result = std::get<generate_result_t>(maybe_result);
+    auto skt = ip_to_socket(actual_result.destination);
+
+    if (skt < 0) {
+      std::cerr << std::format("Error occurred sending data: could not open the socket: \n", strerror(errno));
+      return -1;
+    }
+
+    struct sockaddr *destination = nullptr;
+    int destination_len = ip_to_sockaddr(actual_result.destination, &destination);
+    if (destination_len < 0) {
+      std::cerr << "Error occurred converting generated destination into system-compatible destination.\n";
+      close(skt);
+      return -1;
+    }
+
+    auto connect_result = connect(skt, destination, destination_len);
+    if (connect_result < 0) {
+      std::cerr << std::format("Error occurred sending data: could not connect the socket: \n", strerror(errno));
+      close(skt);
+      return -1;
+    }
+
+    int write_result = write(skt, actual_result.body.data, actual_result.body.len);
+
+    if (write_result < 0) {
+      std::cerr << std::format("Error occurred sending data: could not write to the socket: \n", strerror(errno));
+      close(skt);
+      return -1;
+    }
+
+    close(skt);
+
+    return 0;
+  }
+
+  std::cerr << std::format("An error occurred processing the packet pipeline: {}\n", std::get<std::string>(maybe_result));
+
+  return 1;
 }
