@@ -48,7 +48,8 @@ public:
 
   std::string name() { return m_name; }
 
-  maybe_generate_result_t generate(ip_addr_t source_ip, ip_addr_t destination_ip, body_p body) {
+  maybe_generate_result_t generate(ip_addr_t source_ip,
+                                   ip_addr_t destination_ip, body_p body) {
     if (m_generator) {
 
       auto result = m_generator(source_ip, destination_ip, body);
@@ -152,29 +153,38 @@ int main() {
     auto skt = ip_to_socket(actual_result.destination);
 
     if (skt < 0) {
-      std::cerr << std::format("Error occurred sending data: could not open the socket: \n", strerror(errno));
+      std::cerr << std::format(
+          "Error occurred sending data: could not open the socket: \n",
+          strerror(errno));
       return -1;
     }
 
     struct sockaddr *destination = nullptr;
-    int destination_len = ip_to_sockaddr(actual_result.destination, &destination);
+    int destination_len =
+        ip_to_sockaddr(actual_result.destination, &destination);
     if (destination_len < 0) {
-      std::cerr << "Error occurred converting generated destination into system-compatible destination.\n";
+      std::cerr << "Error occurred converting generated destination into "
+                   "system-compatible destination.\n";
       close(skt);
       return -1;
     }
 
     auto connect_result = connect(skt, destination, destination_len);
     if (connect_result < 0) {
-      std::cerr << std::format("Error occurred sending data: could not connect the socket: \n", strerror(errno));
+      std::cerr << std::format(
+          "Error occurred sending data: could not connect the socket: \n",
+          strerror(errno));
       close(skt);
       return -1;
     }
 
-    int write_result = write(skt, actual_result.body.data, actual_result.body.len);
+    int write_result =
+        write(skt, actual_result.body.data, actual_result.body.len);
 
     if (write_result < 0) {
-      std::cerr << std::format("Error occurred sending data: could not write to the socket: \n", strerror(errno));
+      std::cerr << std::format(
+          "Error occurred sending data: could not write to the socket: \n",
+          strerror(errno));
       close(skt);
       return -1;
     }
@@ -184,7 +194,9 @@ int main() {
     return 0;
   }
 
-  std::cerr << std::format("An error occurred processing the packet pipeline: {}\n", std::get<std::string>(maybe_result));
+  std::cerr << std::format(
+      "An error occurred processing the packet pipeline: {}\n",
+      std::get<std::string>(maybe_result));
 
   return 1;
 }
