@@ -1,10 +1,13 @@
 #ifndef _PACKETLINE_H
 #define _PACKETLINE_H
 
-#include "plugin.h"
 #include <string>
 #include <variant>
+#include "api/plugin.h"
+
+class Invocations;
 
 using maybe_generate_result_t = std::variant<generate_result_t, std::string>;
+using maybe_invocation_t = std::variant<Invocations, std::string>;
 
 #endif

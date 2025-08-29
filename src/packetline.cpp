@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <arpa/inet.h>
 #include <cstdio>
 #include <cstring>
@@ -7,119 +6,71 @@
 #include <format>
 #include <iostream>
 #include <netinet/in.h>
-#include <regex>
 #include <sys/socket.h>
 #include <variant>
 #include <vector>
 
-#include "dlfcn.h"
-
-#include "packetline.h"
-#include "plugin.h"
-#include "utils.h"
+#include "api/plugin.h"
+#include "packetline/logger.h"
+#include "packetline/packetline.h"
+#include "packetline/pipeline.h"
+#include "packetline/utils.h"
 
 #include <unistd.h>
 
 #include <errno.h>
 
-class Plugin {
-public:
-  explicit Plugin(std::filesystem::path path) : m_path(path) {}
+extern int errno;
 
-  bool load() {
-    void *loaded = dlopen(m_path.c_str(), RTLD_NOW);
+#if 0
+template <typename W>
+class Trimit : public std::ranges::range_adaptor_closure<Trimit<W>> {
+  const W m_of_what;
 
-    if (loaded) {
-      load_t load_function = (load_t)dlsym(loaded, "load");
-
-      name_t name_function = (name_t)dlsym(loaded, "name");
-      m_name = name_function();
-
-      m_generator = (generate_t)dlsym(loaded, "generate");
-
-      std::cout << std::format("Load of --{}-- plugin was successful!\n",
-                               m_name);
-      return load_function();
-    }
-    std::cout << std::format("Could not load the plugin library: {}\n",
-                             dlerror());
-    return false;
+  template <typename T>
+  static std::string trim(T &&to_trim, W of_what) {
+    const auto not_space = [of_what](const char c) { return c != of_what; };
+    const auto first_non_space =
+        std::find_if(to_trim.begin(), to_trim.end(), not_space);
+    const auto last_non_space =
+        std::find_if(to_trim.rbegin(), to_trim.rend(), not_space);
+    return std::string(first_non_space, last_non_space.base());
   }
 
-  std::string name() { return m_name; }
-
-  maybe_generate_result_t generate(ip_addr_t source_ip,
-                                   ip_addr_t destination_ip, body_p body) {
-    if (m_generator) {
-
-      auto result = m_generator(source_ip, destination_ip, body);
-
-      auto target_addr = stringify_ip(result.destination);
-
-      std::cout << std::format("Target address: {}\n", target_addr);
-      return result;
-    }
-    return "No generator available";
-  }
-
-private:
-  std::filesystem::path m_path;
-  std::string m_name;
-  generate_t m_generator{nullptr};
-};
-
-class PluginDir {
 public:
-  explicit PluginDir(std::filesystem::path p) : m_path(p) {}
+  Trimit(W of_what) : m_of_what(of_what) {}
 
-  std::vector<Plugin> plugins() {
-    auto dir = std::filesystem::directory_iterator{m_path};
-    auto plugin_matcher = std::regex{"lib.*.so"};
-    auto loaded_plugins = std::vector<Plugin>{};
-
-    std::ranges::for_each(dir, [&](auto v) {
-      if (std::regex_match(v.path().filename().generic_string(),
-                           plugin_matcher)) {
-        std::cout << std::format("Attempting to load plugin at {} ...\n",
-                                 v.path().filename().generic_string());
-        Plugin p{v};
-
-        if (p.load()) {
-          std::cout << std::format("Successfully loaded --{}-- plugin.\n",
-                                   p.name());
-          loaded_plugins.push_back(p);
-        } else {
-          std::cerr << "Load failed!\n";
-        };
-      }
-    });
-
-    return loaded_plugins;
-  };
-
-private:
-  std::filesystem::path m_path;
+  template <std::ranges::range T> constexpr auto operator()(const T &&x) {
+    return std::ranges::transform_view(
+        x, [this](auto x) { return trim(x, m_of_what); });
+  }
 };
+#endif
+;
 
 class PipelineExecutor {
 public:
-  virtual maybe_generate_result_t execute(std::vector<Plugin> plugins) = 0;
+  virtual maybe_generate_result_t execute(Pipeline &&plugins) = 0;
 };
 
 class SerialPipelineExecutor : public PipelineExecutor {
 public:
-  maybe_generate_result_t execute(std::vector<Plugin> plugins) override {
+  maybe_generate_result_t execute(Pipeline &&pipeline) override {
 
     ip_addr_t target_ip{};
     ip_addr_t source_ip{};
     body_p body{};
 
-    for (auto plugin : plugins) {
+    auto debug_logger = Logger::active_logger(Logger::DEBUG);
 
-      auto result = plugin.generate(source_ip, target_ip, body);
+    for (auto invocation : pipeline) {
+
+      auto result = invocation.plugin.generate(source_ip, target_ip, body,
+                                               invocation.cookie);
 
       if (std::holds_alternative<generate_result_t>(result)) {
-        std::cout << "Got a result!\n";
+        debug_logger.log(std::format("Got a result from '{}' plugin!\n",
+                                     invocation.plugin.name()));
         generate_result_t x = std::get<generate_result_t>(result);
         target_ip = x.destination;
         body = x.body;
@@ -134,7 +85,7 @@ public:
   }
 };
 
-int main() {
+int main(int argc, const char **argv) {
   auto plugin_path = std::filesystem::path("./build");
   auto plugins = PluginDir{plugin_path};
   auto loaded_plugins = plugins.plugins();
@@ -144,8 +95,13 @@ int main() {
     return 1;
   }
 
+  auto pipeline = Pipeline{argv + 1, std::move(loaded_plugins)};
+
   auto executor = SerialPipelineExecutor{};
-  auto maybe_result = executor.execute(loaded_plugins);
+  auto maybe_result = executor.execute(std::move(pipeline));
+
+  auto debug_logger = Logger::active_logger(Logger::DEBUG);
+  auto error_logger = Logger::active_logger(Logger::ERROR);
 
   if (std::holds_alternative<generate_result_t>(maybe_result)) {
 
@@ -169,24 +125,31 @@ int main() {
       return -1;
     }
 
-    auto connect_result = connect(skt, destination, destination_len);
-    if (connect_result < 0) {
-      std::cerr << std::format(
-          "Error occurred sending data: could not connect the socket: \n",
-          strerror(errno));
-      close(skt);
-      return -1;
-    }
+    debug_logger.log(std::format("Trying to send a packet to {}\n",
+                                 stringify_ip(actual_result.destination)));
 
-    int write_result =
-        write(skt, actual_result.body.data, actual_result.body.len);
+    if (actual_result.destination.stream) {
 
-    if (write_result < 0) {
-      std::cerr << std::format(
-          "Error occurred sending data: could not write to the socket: \n",
-          strerror(errno));
-      close(skt);
-      return -1;
+      auto connect_result = connect(skt, destination, destination_len);
+      if (connect_result < 0) {
+        error_logger.log(std::format(
+            "Error occurred sending data: could not connect the socket: \n",
+            strerror(errno)));
+        close(skt);
+        return -1;
+      }
+    } else {
+      int write_result =
+          sendto(skt, actual_result.body.data, actual_result.body.len, 0,
+                 destination, destination_len);
+
+      if (write_result < 0) {
+        error_logger.log(std::format(
+            "Error occurred sending data: could not write to the socket: {}\n",
+            strerror(errno)));
+        close(skt);
+        return -1;
+      }
     }
 
     close(skt);
