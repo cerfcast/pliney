@@ -7,7 +7,6 @@
 #include <sys/socket.h>
 
 int load() {
-  printf("Loaded source plugin!\n");
   return 1;
 }
 
@@ -15,15 +14,14 @@ char *plugin_name = "source";
 
 char *name() { return plugin_name; }
 
-void *generate_configuration(const char **args) {
-  return NULL;
+configuration_result_t generate_configuration(int argc, const char **args) {
+  configuration_result_t configuration_result = {.configuration_cookie = NULL,
+                                                 .errstr = NULL};
+  return configuration_result;
 }
 
 generate_result_t generate(ip_addr_t source, ip_addr_t target, body_p body,
                            void *cookie) {
-
-  printf("I was given a source ip address: -%s-\n", stringify_ip(source));
-  printf("I was given a target ip address: -%s-\n", stringify_ip(target));
 
   generate_result_t result;
 

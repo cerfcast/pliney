@@ -6,15 +6,16 @@
 #include <format>
 #include <iostream>
 #include <netinet/in.h>
+#include <numeric>
 #include <sys/socket.h>
 #include <variant>
 #include <vector>
 
 #include "api/plugin.h"
-#include "packetline/logger.h"
-#include "packetline/packetline.h"
-#include "packetline/pipeline.h"
-#include "packetline/utils.h"
+#include "api/utils.h"
+#include "packetline/logger.hpp"
+#include "packetline/packetline.hpp"
+#include "packetline/pipeline.hpp"
 
 #include <unistd.h>
 
@@ -57,8 +58,8 @@ class SerialPipelineExecutor : public PipelineExecutor {
 public:
   maybe_generate_result_t execute(Pipeline &&pipeline) override {
 
-    ip_addr_t target_ip{};
-    ip_addr_t source_ip{};
+    ip_addr_t target_ip{.stream = INET_STREAM};
+    ip_addr_t source_ip{.stream = INET_STREAM};
     body_p body{};
 
     auto debug_logger = Logger::active_logger(Logger::DEBUG);
@@ -97,6 +98,20 @@ int main(int argc, const char **argv) {
 
   auto pipeline = Pipeline{argv + 1, std::move(loaded_plugins)};
 
+  if (!pipeline.ok()) {
+    auto pipeline_errs = std::accumulate(
+        pipeline.error_begin(), pipeline.error_end(), std::string{},
+        [](const std::string existing, const std::string next) {
+          if (existing.length()) {
+            return existing + "; " + next;
+          }
+          return next;
+        });
+    std::cerr << std::format("Error occurred configuring pipeline: {}\n",
+                             pipeline_errs);
+    return 1;
+  }
+
   auto executor = SerialPipelineExecutor{};
   auto maybe_result = executor.execute(std::move(pipeline));
 
@@ -128,7 +143,7 @@ int main(int argc, const char **argv) {
     debug_logger.log(std::format("Trying to send a packet to {}\n",
                                  stringify_ip(actual_result.destination)));
 
-    if (actual_result.destination.stream) {
+    if (actual_result.destination.stream == INET_STREAM) {
 
       auto connect_result = connect(skt, destination, destination_len);
       if (connect_result < 0) {
@@ -138,7 +153,7 @@ int main(int argc, const char **argv) {
         close(skt);
         return -1;
       }
-    } else {
+    } else if (actual_result.destination.stream == INET_DGRAM) {
       int write_result =
           sendto(skt, actual_result.body.data, actual_result.body.len, 0,
                  destination, destination_len);
@@ -150,6 +165,11 @@ int main(int argc, const char **argv) {
         close(skt);
         return -1;
       }
+    } else {
+      error_logger.log(
+          std::format("Error occurred sending data: the destination address "
+                      "had an invalid stream type.\n",
+                      strerror(errno)));
     }
 
     close(skt);

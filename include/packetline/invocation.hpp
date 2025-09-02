@@ -1,9 +1,10 @@
 #ifndef _INVOCATION_H
 #define _INVOCATION_H
 
-#include "packetline/plugin.h"
 #include <string>
 #include <vector>
+
+#include "plugin.hpp"
 
 class Invocation {
 public:

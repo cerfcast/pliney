@@ -16,6 +16,9 @@ typedef struct {
 #define INET_ADDR_V4 4
 #define INET_ADDR_V6 6
 
+#define INET_STREAM 1
+#define INET_DGRAM 2
+
 typedef struct {
   uint8_t family;
   uint8_t stream;
@@ -30,19 +33,26 @@ typedef struct {
   ip_addr_t destination;
   ip_addr_t source;
   body_p body;
+  uint8_t success;
 } generate_result_t;
+
+typedef struct {
+  void *configuration_cookie;
+  char *errstr;
+} configuration_result_t;
 
 char *name();
 int load();
 generate_result_t generate(ip_addr_t source, ip_addr_t target, body_p body, void*);
-void *generate_configuration(const char **args);
+configuration_result_t generate_configuration(int argc, const char **args);
 
 typedef char *(*name_t)();
 typedef int (*load_t)();
 typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, body_p, void*);
-typedef void* (*generate_configuration_t)(const char **);
-
+typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
 const char *stringify_ip(ip_addr_t addr);
+
+void debug(const char *fmt, ...);
 
 #ifdef __cplusplus
 }

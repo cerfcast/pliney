@@ -1,7 +1,8 @@
 #ifndef _PACKETLINE_PLUGIN_H
 #define _PACKETLINE_PLUGIN_H
 
-#include "packetline/packetline.h"
+#include "api/plugin.h"
+#include "packetline/packetline.hpp"
 
 #include <filesystem>
 #include <vector>
@@ -12,8 +13,8 @@ public:
 
   bool load();
 
-  void *generate_configuration(const char **args) {
-    return this->m_generate_configurationer(args);
+  configuration_result_t generate_configuration(int argc, const char **args) {
+    return this->m_generate_configurationer(argc, args);
   }
 
   std::string name() const { return m_name; }

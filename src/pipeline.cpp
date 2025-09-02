@@ -1,5 +1,6 @@
-#include "packetline/pipeline.h"
-#include "packetline/logger.h"
+#include "packetline/pipeline.hpp"
+#include "api/plugin.h"
+#include "packetline/logger.hpp"
 
 #include <ranges>
 
@@ -44,9 +45,20 @@ bool Pipeline::parse(const char **to_parse, Plugins &&plugins) {
       std::vector<const char *> argps{};
       std::transform(args.cbegin(), args.cend(), std::back_inserter(argps),
                      [&](auto &element) { return element.c_str(); });
-      void *invocation_cookie = plugin.generate_configuration(argps.data());
-      m_invocations.invocations.push_back(Invocation{
-          .plugin = *maybe_plugin, .args = args, .cookie = invocation_cookie});
+      configuration_result_t invocation_configuration_result =
+          plugin.generate_configuration(argps.size(), argps.data());
+
+      if (!invocation_configuration_result.errstr) {
+        m_invocations.invocations.push_back(Invocation{
+            .plugin = *maybe_plugin,
+            .args = args,
+            .cookie = invocation_configuration_result.configuration_cookie});
+      } else {
+        m_parse_errors.push_back(std::format(
+            "Error configuring plugin {} (pipeline position #{}): {}",
+            plugin_name, pipeline_count,
+            invocation_configuration_result.errstr));
+      }
     } else {
       m_parse_errors.push_back(
           std::format("Cannot find plugin for {} (pipeline #{})", plugin_name,

@@ -1,4 +1,4 @@
-#include "packetline/plugin.h"
+#include "packetline/plugin.hpp"
 
 #include <algorithm>
 #include <dlfcn.h>
@@ -34,10 +34,10 @@ maybe_generate_result_t Plugin::generate(ip_addr_t source_ip,
 
     auto result = m_generator(source_ip, destination_ip, body, cookie);
 
-    auto target_addr = stringify_ip(result.destination);
-
-    std::cout << std::format("Target address: {}\n", target_addr);
-    return result;
+    if (result.success) {
+      return result;
+    }
+    return "Error invoking plugin";
   }
   return "No generator available";
 }
