@@ -140,7 +140,7 @@ int main(int argc, const char **argv) {
       return -1;
     }
 
-    debug_logger.log(std::format("Trying to send a packet to {}\n",
+    debug_logger.log(std::format("Trying to send a packet to {}.\n",
                                  stringify_ip(actual_result.destination)));
 
     if (actual_result.destination.stream == INET_STREAM) {

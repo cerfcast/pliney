@@ -6,21 +6,34 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 
 #include <dlfcn.h>
 
+char stringify_buffer[46] = {
+    0,
+};
+/*
+ * Not safe for multiple threads.
+ */
 const char *stringify_ip(ip_addr_t addr) {
+  memset(stringify_buffer, 0, sizeof(char) * 46);
+
   if (addr.family == INET_ADDR_V4) {
     struct in_addr to_convert;
-    const char *buff = (const char *)malloc(sizeof(char) * 128);
-
     to_convert.s_addr = addr.addr.ipv4.s_addr;
-    const char *stringed = inet_ntop(AF_INET, &to_convert, (char *)buff, 128);
+    const char *stringed = inet_ntop(
+        AF_INET, &to_convert, (char *)stringify_buffer, 16 * sizeof(char));
     return stringed;
-
   } else if (addr.family == INET_ADDR_V6) {
+    struct in6_addr to_convert;
+    to_convert = addr.addr.ipv6;
+    const char *stringed = inet_ntop(
+        AF_INET6, &to_convert, (char *)stringify_buffer, 46 * sizeof(char));
+    return stringed;
   }
+  error("Attempted to stringify an IP address that was neither V4 nor V6.\n");
   return "";
 }
 
