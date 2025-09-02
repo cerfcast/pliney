@@ -52,7 +52,6 @@ typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, body_p, void*);
 typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
 const char *stringify_ip(ip_addr_t addr);
 
-void debug(const char *fmt, ...);
 
 #ifdef __cplusplus
 }

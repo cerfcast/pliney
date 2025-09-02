@@ -15,7 +15,10 @@ extern "C" {
 int ip_to_sockaddr(ip_addr_t addr, struct sockaddr **result);
 int ip_to_socket(ip_addr_t addr);
 int ip_parse(const char *to_parse, ip_addr_t *result);
-int debug_level();
+
+void debug(const char *fmt, ...);
+void warn(const char *fmt, ...);
+void error(const char *fmt, ...);
 
 #ifdef __cplusplus
 }
