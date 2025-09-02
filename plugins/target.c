@@ -7,9 +7,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-int load() {
-  return 1;
-}
+int load() { return 1; }
 
 char *plugin_name = "target";
 
