@@ -15,8 +15,6 @@ char *name() { return plugin_name; }
 
 configuration_result_t generate_configuration(int argc, const char **args) {
 
-  debug("Configuring the target plugin.\n");
-
   configuration_result_t configuration_result = {.configuration_cookie = NULL,
                                                  .errstr = NULL};
   ip_addr_t *addr = (ip_addr_t *)malloc(sizeof(ip_addr_t));
@@ -24,12 +22,15 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   if (argc > 1) {
     char *invalid = NULL;
     uint16_t port = strtol(args[1], &invalid, 10);
-    if (!invalid) {
+    if (invalid && *invalid == '\0') {
       addr->port = htons(port);
+    } else {
+      char *err = (char *)calloc(255, sizeof(char));
+      snprintf(err, 255, "Could not convert %s to a port number", args[1]);
+      configuration_result.errstr = err;
     }
-  }
-
-  if (addr->port == 0) {
+  } else {
+    warn("Target plugin using default port of 80.\n");
     addr->port = htons(80);
   }
 
