@@ -1,4 +1,4 @@
 build/*
 .cache/*
 compile_commands.json
-cicde/clang-format-sources
+cicd/clang-format-sources
