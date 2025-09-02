@@ -32,7 +32,7 @@ add_dependencies(packetline type)
 add_dependencies(packetline body)
 
 set(FORMATTABLE_FILES "${MAIN_SRCS}")
-list(APPEND FORMATTABLE_FILES plugins/target.c plugins/source.c)
+list(APPEND FORMATTABLE_FILES plugins/target.c plugins/source.c plugins/body.c)
 list(TRANSFORM FORMATTABLE_FILES PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE FORMATTABLE_FILES)
 list(JOIN FORMATTABLE_FILES "\n" FORMATTABLE_FILES)
 
