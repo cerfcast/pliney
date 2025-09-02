@@ -22,15 +22,24 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   configuration_result_t configuration_result = {.configuration_cookie = NULL,
                                                  .errstr = NULL};
 
-  int fd = open(args[0], O_RDONLY);
-
-  if (fd < 0) {
-    configuration_result.errstr = "Could not open data file";
+  if (argc < 1) {
+    configuration_result.errstr = "Must provide a data file whose contents "
+                                  "will be the body of the packet";
     return configuration_result;
   }
 
-  unsigned char *body_data = (unsigned char *)calloc(50, sizeof(char));
-  int body_size = read(fd, body_data, 50);
+  int fd = open(args[0], O_RDONLY);
+
+  if (fd < 0) {
+    char *err = (char *)calloc(255, sizeof(char));
+    snprintf(err, 255, "Could not open data file (%s)", args[0]);
+    configuration_result.errstr = err;
+    return configuration_result;
+  }
+
+  // TODO: Make the number of bytes to read configurable.
+  unsigned char *body_data = (unsigned char *)calloc(1500, sizeof(char));
+  int body_size = read(fd, body_data, 1500);
 
   body_p *body = (body_p *)malloc(sizeof(body_p));
   body->data = body_data;
