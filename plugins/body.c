@@ -3,10 +3,10 @@
 #include <stdlib.h>
 
 #include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <fcntl.h>
 #include <memory.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 int load() {
@@ -19,7 +19,8 @@ char *plugin_name = "body";
 char *name() { return plugin_name; }
 
 configuration_result_t generate_configuration(int argc, const char **args) {
-  configuration_result_t configuration_result = {.configuration_cookie = NULL, .errstr = NULL};
+  configuration_result_t configuration_result = {.configuration_cookie = NULL,
+                                                 .errstr = NULL};
 
   int fd = open(args[0], O_RDONLY);
 
@@ -28,10 +29,10 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  unsigned char *body_data = (unsigned char*)calloc(50, sizeof(char));
+  unsigned char *body_data = (unsigned char *)calloc(50, sizeof(char));
   int body_size = read(fd, body_data, 50);
 
-  body_p *body = (body_p*)malloc(sizeof(body_p));
+  body_p *body = (body_p *)malloc(sizeof(body_p));
   body->data = body_data;
   body->len = body_size;
 
