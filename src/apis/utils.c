@@ -10,8 +10,6 @@
 
 #include <dlfcn.h>
 
-bool has_ip(ip_addr_t addr) {}
-
 const char *stringify_ip(ip_addr_t addr) {
   if (addr.family == INET_ADDR_V4) {
     struct in_addr to_convert;
