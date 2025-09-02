@@ -71,12 +71,13 @@ int ip_to_sockaddr(ip_addr_t addr, struct sockaddr **result) {
     return sizeof(struct sockaddr_in);
   } else if (addr.family == INET_ADDR_V6) {
     struct sockaddr_in6 *saddr = (struct sockaddr_in6 *)saddr_raw;
+    saddr->sin6_addr = addr.addr.ipv6;
     saddr->sin6_family = AF_INET6;
-    assert(false); // TODO
+    saddr->sin6_port = addr.port;
     *result = (struct sockaddr *)saddr;
     return sizeof(struct sockaddr_in6);
   }
-  assert(false); // Handle errors.
+  return -1;
 }
 
 int _debug_level() {
