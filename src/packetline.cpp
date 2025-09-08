@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <bits/types/struct_iovec.h>
 #include <cstdio>
 #include <cstring>
 #include <dlfcn.h>
@@ -11,6 +12,7 @@
 #include <variant>
 #include <vector>
 
+#include "api/exthdrs.h"
 #include "api/plugin.h"
 #include "api/utils.h"
 #include "packetline/logger.hpp"
@@ -61,20 +63,24 @@ public:
     ip_addr_t target_ip{.stream = INET_STREAM};
     ip_addr_t source_ip{.stream = INET_STREAM};
     body_p body{};
+    extensions_p extensions{.extensions_count = 0, .extensions_values = NULL};
 
     auto debug_logger = Logger::active_logger(Logger::DEBUG);
 
     for (auto invocation : pipeline) {
 
-      auto result = invocation.plugin.generate(source_ip, target_ip, body,
-                                               invocation.cookie);
+      auto result = invocation.plugin.generate(source_ip, target_ip, extensions,
+                                               body, invocation.cookie);
 
       if (std::holds_alternative<generate_result_t>(result)) {
         debug_logger.log(std::format("Got a result from '{}' plugin!\n",
                                      invocation.plugin.name()));
         generate_result_t x = std::get<generate_result_t>(result);
         target_ip = x.destination;
+
+        // TODO: Make sure that we free the previous body/header.
         body = x.body;
+        extensions = x.extensions;
       } else {
         std::cout << std::format("There was an error: {}\n",
                                  std::get<std::string>(result));
@@ -82,7 +88,7 @@ public:
       }
     }
 
-    return generate_result_t{target_ip, source_ip, body};
+    return generate_result_t{target_ip, source_ip, extensions, body};
   }
 };
 
@@ -154,9 +160,91 @@ int main(int argc, const char **argv) {
         return -1;
       }
     } else if (actual_result.destination.stream == INET_DGRAM) {
-      int write_result =
-          sendto(skt, actual_result.body.data, actual_result.body.len, 0,
-                 destination, destination_len);
+
+      if (!coalesce_extensions(&actual_result.extensions, IPV6_HOPOPTS)) {
+        error_logger.log("Error occurred coalescing hop-by-hop options.\n");
+        close(skt);
+        return -1;
+      }
+
+      struct msghdr msg{};
+      struct iovec iov{};
+
+      memset(&msg, 0, sizeof(struct msghdr));
+      iov.iov_base = actual_result.body.data;
+      iov.iov_len = actual_result.body.len;
+
+      msg.msg_iov = &iov;
+      msg.msg_iovlen = 1;
+
+      msg.msg_name = destination;
+      msg.msg_namelen = destination_len;
+
+      if (actual_result.extensions.extensions_count > 0) {
+
+        // First, calculate _all_ the sizes for the extension headers.
+        size_t cmsg_space_len_needed = 0;
+        for (auto extension_i{0};
+             extension_i < actual_result.extensions.extensions_count;
+             extension_i++) {
+
+          auto extension_header_len =
+              ((2 /* for extension header T/L */ +
+                actual_result.extensions.extensions_values[extension_i]->len +
+                (8 - 1)) /
+               8) *
+              8;
+          debug_logger.log(
+              std::format("extension_header_len: {}\n", extension_header_len));
+
+          cmsg_space_len_needed += CMSG_LEN(extension_header_len);
+        }
+        auto cmsg_space_len = CMSG_ALIGN(cmsg_space_len_needed);
+        uint8_t *cmsg_buf = (uint8_t *)calloc(cmsg_space_len, sizeof(uint8_t));
+
+        msg.msg_control = cmsg_buf;
+        msg.msg_controllen = cmsg_space_len;
+
+        struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
+        for (auto extension_i{0};
+             extension_i < actual_result.extensions.extensions_count;
+             extension_i++, hdr = CMSG_NXTHDR(&msg, hdr)) {
+
+          auto extension_header_len =
+              ((2 /* for extension header T/L */ +
+                actual_result.extensions.extensions_values[extension_i]->len +
+                (8 - 1)) /
+               8) *
+              8;
+          hdr->cmsg_type =
+              actual_result.extensions.extensions_values[extension_i]->type;
+          hdr->cmsg_level = SOL_IPV6;
+          hdr->cmsg_len = CMSG_LEN(extension_header_len);
+
+          CMSG_DATA(hdr)[0] = 0; // Next header
+          CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
+
+          // HbH Extension Header Data.
+          memcpy(CMSG_DATA(hdr) + 2,
+                 actual_result.extensions.extensions_values[extension_i]->data,
+                 actual_result.extensions.extensions_values[extension_i]->len);
+        }
+      }
+
+      /*
+
+        msg.msg_control = cmsg_data.buf;
+        msg.msg_controllen = sizeof(cmsg_data);
+
+        struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
+        hdr->cmsg_type = 0x3b;
+        hdr->cmsg_level = SOL_IPV6;
+        hdr->cmsg_len = CMSG_LEN(8);
+        CMSG_DATA(hdr)[2] = 0x03;
+        CMSG_DATA(hdr)[3] = 0x04;
+      }
+      */
+      int write_result = sendmsg(skt, &msg, 0);
 
       if (write_result < 0) {
         error_logger.log(std::format(

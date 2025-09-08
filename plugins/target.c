@@ -28,6 +28,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
       char *err = (char *)calloc(255, sizeof(char));
       snprintf(err, 255, "Could not convert %s to a port number", args[1]);
       configuration_result.errstr = err;
+      return configuration_result;
     }
   } else {
     warn("Target plugin using default port of 80.\n");
@@ -44,9 +45,10 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(ip_addr_t source, ip_addr_t target, body_p body,
-                           void *cookie) {
+generate_result_t generate(ip_addr_t source, ip_addr_t target,
+                           extensions_p extensions, body_p body, void *cookie) {
   generate_result_t result;
+
 
   if (cookie != NULL) {
     ip_addr_t *parsed_target = (ip_addr_t *)cookie;
@@ -55,6 +57,7 @@ generate_result_t generate(ip_addr_t source, ip_addr_t target, body_p body,
     result.source = source;
     result.body = body;
     result.success = 1;
+    result.extensions = extensions;
 
     free(cookie);
 

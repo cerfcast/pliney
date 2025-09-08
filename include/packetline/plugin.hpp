@@ -20,7 +20,7 @@ public:
   std::string name() const { return m_name; }
 
   maybe_generate_result_t generate(ip_addr_t source_ip,
-                                   ip_addr_t destination_ip, body_p body,
+                                   ip_addr_t destination_ip, extensions_p header, body_p body,
                                    void *cookie) const;
 
 private:

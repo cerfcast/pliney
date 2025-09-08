@@ -112,9 +112,10 @@ void debug(const char *fmt, ...) {
 
   if (dl >= DEBUG_LEVEL) {
     va_list args;
-    va_start(args, fmt);
     printf("Debug: ");
-    printf(fmt, args);
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
   }
 }
 
@@ -123,9 +124,10 @@ void warn(const char *fmt, ...) {
 
   if (dl >= WARN_LEVEL) {
     va_list args;
-    va_start(args, fmt);
     printf("Warn: ");
-    printf(fmt, args);
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
   }
 }
 
@@ -133,9 +135,10 @@ void trace(const char *fmt, ...) {
   int dl = _debug_level();
 
   if (dl >= TRACE_LEVEL) {
+    printf("Trace: ");
     va_list args;
     va_start(args, fmt);
-    printf("Trace: ");
-    printf(fmt, args);
+    vprintf(fmt, args);
+    va_end(args);
   }
 }

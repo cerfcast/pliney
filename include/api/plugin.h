@@ -13,6 +13,17 @@ typedef struct {
   uint8_t *data;
 } body_p;
 
+typedef struct {
+  uint8_t type;
+  uint8_t len;
+  uint8_t *data;
+} extension_p;
+
+typedef struct {
+  size_t extensions_count;
+  extension_p **extensions_values;
+} extensions_p;
+
 #define INET_ADDR_V4 4
 #define INET_ADDR_V6 6
 
@@ -32,6 +43,7 @@ typedef struct {
 typedef struct {
   ip_addr_t destination;
   ip_addr_t source;
+  extensions_p extensions;
   body_p body;
   uint8_t success;
 } generate_result_t;
@@ -43,12 +55,12 @@ typedef struct {
 
 char *name();
 int load();
-generate_result_t generate(ip_addr_t source, ip_addr_t target, body_p body, void*);
+generate_result_t generate(ip_addr_t source, ip_addr_t target, extensions_p options, body_p body, void*);
 configuration_result_t generate_configuration(int argc, const char **args);
 
 typedef char *(*name_t)();
 typedef int (*load_t)();
-typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, body_p, void*);
+typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, extensions_p, body_p, void*);
 typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
 const char *stringify_ip(ip_addr_t addr);
 

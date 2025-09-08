@@ -34,15 +34,17 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(ip_addr_t source, ip_addr_t target, body_p body, void *cookie) {
+generate_result_t generate(ip_addr_t source, ip_addr_t target, extensions_p extensions, body_p body, void *cookie) {
 
   generate_result_t result;
+
 
   uint32_t stream_or_dgram = *(uint32_t*)cookie;
 
   result.destination = target;
   result.source = source;
   result.body = body;
+  result.extensions = extensions;
 
   if (stream_or_dgram != 0) {
     result.destination.stream = stream_or_dgram;

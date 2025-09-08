@@ -1,4 +1,5 @@
 #include "packetline/plugin.hpp"
+#include "api/plugin.h"
 
 #include <algorithm>
 #include <dlfcn.h>
@@ -28,11 +29,12 @@ bool Plugin::load() {
 }
 
 maybe_generate_result_t Plugin::generate(ip_addr_t source_ip,
-                                         ip_addr_t destination_ip, body_p body,
+                                         ip_addr_t destination_ip,
+                                         extensions_p extensions, body_p body,
                                          void *cookie) const {
   if (m_generator) {
 
-    auto result = m_generator(source_ip, destination_ip, body, cookie);
+    auto result = m_generator(source_ip, destination_ip, extensions, body, cookie);
 
     if (result.success) {
       return result;
