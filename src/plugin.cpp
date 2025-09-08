@@ -34,7 +34,8 @@ maybe_generate_result_t Plugin::generate(ip_addr_t source_ip,
                                          void *cookie) const {
   if (m_generator) {
 
-    auto result = m_generator(source_ip, destination_ip, extensions, body, cookie);
+    auto result =
+        m_generator(source_ip, destination_ip, extensions, body, cookie);
 
     if (result.success) {
       return result;

@@ -37,7 +37,8 @@ add_dependencies(packetline body)
 add_dependencies(packetline exthdr-padn)
 
 set(FORMATTABLE_FILES "${MAIN_SRCS}")
-list(APPEND FORMATTABLE_FILES plugins/target.c plugins/source.c plugins/body.c)
+list(APPEND FORMATTABLE_FILES "${PLUGIN_LIB_SRCS}")
+list(APPEND FORMATTABLE_FILES plugins/target.c plugins/source.c plugins/body.c plugins/exthdr-padn.c)
 list(TRANSFORM FORMATTABLE_FILES PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE FORMATTABLE_FILES)
 list(JOIN FORMATTABLE_FILES "\n" FORMATTABLE_FILES)
 

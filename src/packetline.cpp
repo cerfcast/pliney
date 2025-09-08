@@ -167,8 +167,8 @@ int main(int argc, const char **argv) {
         return -1;
       }
 
-      struct msghdr msg{};
-      struct iovec iov{};
+      struct msghdr msg {};
+      struct iovec iov {};
 
       memset(&msg, 0, sizeof(struct msghdr));
       iov.iov_base = actual_result.body.data;
