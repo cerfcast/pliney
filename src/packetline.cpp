@@ -61,17 +61,19 @@ class SerialPipelineExecutor : public PipelineExecutor {
 public:
   maybe_generate_result_t execute(Pipeline &&pipeline) override {
 
-    ip_addr_t target_ip{.stream = INET_STREAM};
-    ip_addr_t source_ip{.stream = INET_STREAM};
+    ip_addr_t target_ip{};
+    ip_addr_t source_ip{};
     body_p body{};
+    uint8_t connection_type{INET_STREAM};
     extensions_p extensions{.extensions_count = 0, .extensions_values = NULL};
 
     auto debug_logger = Logger::active_logger(Logger::DEBUG);
 
     for (auto invocation : pipeline) {
 
-      auto result = invocation.plugin.generate(source_ip, target_ip, extensions,
-                                               body, invocation.cookie);
+      auto result =
+          invocation.plugin.generate(source_ip, target_ip, connection_type,
+                                     extensions, body, invocation.cookie);
 
       if (std::holds_alternative<generate_result_t>(result)) {
         debug_logger.log(std::format("Got a result from '{}' plugin!\n",
@@ -79,6 +81,7 @@ public:
         generate_result_t x = std::get<generate_result_t>(result);
         target_ip = x.destination;
         source_ip = x.source;
+        connection_type = x.connection_type;
 
         // TODO: Make sure that we free the previous body/header.
         body = x.body;
@@ -90,7 +93,8 @@ public:
       }
     }
 
-    return generate_result_t{target_ip, source_ip, extensions, body};
+    return generate_result_t{target_ip, source_ip, extensions, connection_type,
+                             body};
   }
 };
 
@@ -129,7 +133,8 @@ int main(int argc, const char **argv) {
   if (std::holds_alternative<generate_result_t>(maybe_result)) {
 
     auto actual_result = std::get<generate_result_t>(maybe_result);
-    auto skt = ip_to_socket(actual_result.destination);
+    auto skt =
+        ip_to_socket(actual_result.destination, actual_result.connection_type);
 
     if (skt < 0) {
       std::cerr << std::format(
@@ -148,53 +153,50 @@ int main(int argc, const char **argv) {
       return -1;
     }
 
+    if (ip_set(actual_result.source)) {
+      sockaddr_storage saddr{};
+      size_t saddr_len{0};
+
+      if (actual_result.source.family == INET_ADDR_V4) {
+        sockaddr_in *source{reinterpret_cast<sockaddr_in *>(&saddr)};
+        saddr_len = sizeof(sockaddr_in);
+
+        source->sin_addr = actual_result.source.addr.ipv4;
+        source->sin_family = AF_INET;
+        source->sin_port = actual_result.source.port;
+
+      } else {
+        sockaddr_in6 *source{reinterpret_cast<sockaddr_in6 *>(&saddr)};
+        saddr_len = sizeof(sockaddr_in6);
+
+        source->sin6_addr = actual_result.source.addr.ipv6;
+        source->sin6_family = AF_INET6;
+        source->sin6_port = actual_result.source.port;
+        source->sin6_flowinfo = 0;
+        source->sin6_scope_id = 0;
+      }
+
+      if (bind(skt, (struct sockaddr *)&saddr, saddr_len) < 0) {
+        error_logger.log(std::format(
+            "Could not bind to a source address: {}!\n", std::strerror(errno)));
+        close(skt);
+        return -1;
+      }
+    }
+
     debug_logger.log(std::format("Trying to send a packet to {}.\n",
                                  stringify_ip(actual_result.destination)));
 
-    if (actual_result.destination.stream == INET_STREAM) {
-
+    if (actual_result.connection_type == INET_STREAM) {
       auto connect_result = connect(skt, destination, destination_len);
       if (connect_result < 0) {
         error_logger.log(std::format(
-            "Error occurred sending data: could not connect the socket: \n",
+            "Error occurred sending data: could not connect the socket: {}\n",
             strerror(errno)));
         close(skt);
         return -1;
       }
-    } else if (actual_result.destination.stream == INET_DGRAM) {
-
-      if (ip_set(actual_result.source)) {
-        sockaddr_in saddr{};
-        size_t saddr_len{0};
-
-        if (actual_result.source.family == INET_ADDR_V4) {
-          sockaddr_in *source{reinterpret_cast<sockaddr_in *>(&saddr)};
-          saddr_len = sizeof(sockaddr_in);
-
-          source->sin_addr = actual_result.source.addr.ipv4;
-          source->sin_family = AF_INET;
-          source->sin_port = actual_result.source.port;
-
-        } else {
-          sockaddr_in6 *source{reinterpret_cast<sockaddr_in6 *>(&saddr)};
-          saddr_len = sizeof(sockaddr_in6);
-
-          source->sin6_addr = actual_result.source.addr.ipv6;
-          source->sin6_family = AF_INET6;
-          source->sin6_port = actual_result.source.port;
-          source->sin6_flowinfo = 0;
-          source->sin6_scope_id = 0;
-        }
-
-        if (bind(skt, (struct sockaddr *)&saddr, saddr_len) < 0) {
-          error_logger.log(
-              std::format("Could not bind to a source address: {}!\n",
-                          std::strerror(errno)));
-          close(skt);
-          return -1;
-        }
-      }
-
+    } else if (actual_result.connection_type == INET_DGRAM) {
       if (!coalesce_extensions(&actual_result.extensions, IPV6_HOPOPTS)) {
         error_logger.log("Error occurred coalescing hop-by-hop options.\n");
         close(skt);
@@ -265,19 +267,6 @@ int main(int argc, const char **argv) {
         }
       }
 
-      /*
-
-        msg.msg_control = cmsg_data.buf;
-        msg.msg_controllen = sizeof(cmsg_data);
-
-        struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
-        hdr->cmsg_type = 0x3b;
-        hdr->cmsg_level = SOL_IPV6;
-        hdr->cmsg_len = CMSG_LEN(8);
-        CMSG_DATA(hdr)[2] = 0x03;
-        CMSG_DATA(hdr)[3] = 0x04;
-      }
-      */
       int write_result = sendmsg(skt, &msg, 0);
 
       if (write_result < 0) {

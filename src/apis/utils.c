@@ -49,18 +49,14 @@ int ip_set(ip_addr_t addr) {
   return addr.family != 0;
 }
 
-int ip_valid(ip_addr_t addr) {
-  return (addr.stream == INET_STREAM || addr.stream == INET_DGRAM);
-}
-
-int ip_to_socket(ip_addr_t addr) {
+int ip_to_socket(ip_addr_t addr, uint8_t type) {
   // Check whether the IP address is valid. If it is not, then return -1.
-  if (!ip_valid(addr)) {
+  if (!ip_set(addr)) {
     return -1;
   }
 
   return socket(addr.family == INET_ADDR_V4 ? AF_INET : AF_INET6,
-                addr.stream == INET_STREAM ? SOCK_STREAM : SOCK_DGRAM, 0);
+                type == INET_STREAM ? SOCK_STREAM : SOCK_DGRAM, 0);
 }
 
 int ip_parse(const char *to_parse, ip_addr_t *result) {

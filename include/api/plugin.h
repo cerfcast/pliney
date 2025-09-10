@@ -32,7 +32,6 @@ typedef struct {
 
 typedef struct {
   uint8_t family;
-  uint8_t stream;
   union {
     struct in_addr ipv4;
     struct in6_addr ipv6;
@@ -44,6 +43,7 @@ typedef struct {
   ip_addr_t destination;
   ip_addr_t source;
   extensions_p extensions;
+  uint8_t connection_type;
   body_p body;
   uint8_t success;
 } generate_result_t;
@@ -53,7 +53,7 @@ typedef struct {
   char *errstr;
 } configuration_result_t;
 
-typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, extensions_p, body_p, void*);
+typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, uint8_t, extensions_p, body_p, void*);
 typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
 
 typedef struct {
