@@ -68,15 +68,14 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(ip_addr_t source, ip_addr_t target,
+generate_result_t generate(ip_addr_t source, ip_addr_t target, uint8_t type,
                            extensions_p extensions, body_p body, void *cookie) {
   generate_result_t result;
 
-  result.extensions = extensions;
+  USE_GIVEN_IN_RESULT(result);
+
   if (cookie != NULL) {
     body_p *body = (body_p *)cookie;
-    result.destination = target;
-    result.source = source;
     result.body = *body;
 
     result.success = 1;
