@@ -53,17 +53,20 @@ typedef struct {
   char *errstr;
 } configuration_result_t;
 
-char *name();
-int load();
-generate_result_t generate(ip_addr_t source, ip_addr_t target, extensions_p options, body_p body, void*);
-configuration_result_t generate_configuration(int argc, const char **args);
-
-typedef char *(*name_t)();
-typedef int (*load_t)();
 typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, extensions_p, body_p, void*);
 typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
-const char *stringify_ip(ip_addr_t addr);
 
+typedef struct {
+  char *name;
+  generate_t generator;
+  generate_configuration_t configurator;
+} plugin_t;
+
+typedef bool (*load_t)(plugin_t *);
+
+bool load(plugin_t *info);
+
+const char *stringify_ip(ip_addr_t addr);
 
 #ifdef __cplusplus
 }

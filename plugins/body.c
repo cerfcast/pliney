@@ -10,14 +10,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int load() {
-  printf("Loaded body plugin!\n");
-  return 1;
-}
-
 char *plugin_name = "body";
-
-char *name() { return plugin_name; }
 
 #define DEFAULT_BODY_SIZE 1500
 
@@ -94,4 +87,11 @@ generate_result_t generate(ip_addr_t source, ip_addr_t target,
   }
 
   return result;
+}
+
+bool load(plugin_t *info) {
+  info->name = plugin_name;
+  info->configurator = generate_configuration;
+  info->generator = generate;
+  return true;
 }

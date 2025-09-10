@@ -6,8 +6,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-int load() { return 1; }
-
 char *plugin_name = "source";
 
 char *name() { return plugin_name; }
@@ -30,3 +28,11 @@ generate_result_t generate(ip_addr_t source, ip_addr_t target,
 
   return result;
 }
+
+bool load(plugin_t *info) {
+  info->name = plugin_name;
+  info->configurator = generate_configuration;
+  info->generator = generate;
+  return true;
+}
+

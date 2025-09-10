@@ -14,7 +14,7 @@ public:
   bool load();
 
   configuration_result_t generate_configuration(int argc, const char **args) {
-    return this->m_generate_configurationer(argc, args);
+    return this->info.configurator(argc, args);
   }
 
   std::string name() const { return m_name; }
@@ -26,8 +26,7 @@ public:
 private:
   std::filesystem::path m_path;
   std::string m_name;
-  generate_t m_generator{nullptr};
-  generate_configuration_t m_generate_configurationer{nullptr};
+  plugin_t info;
 };
 
 class Plugins {

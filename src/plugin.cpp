@@ -9,33 +9,39 @@
 bool Plugin::load() {
   void *loaded = dlopen(m_path.c_str(), RTLD_NOW);
 
-  if (loaded) {
-    load_t load_function = (load_t)dlsym(loaded, "load");
-
-    name_t name_function = (name_t)dlsym(loaded, "name");
-    m_name = name_function();
-
-    m_generator = (generate_t)dlsym(loaded, "generate");
-
-    m_generate_configurationer =
-        (generate_configuration_t)dlsym(loaded, "generate_configuration");
-
-    std::cout << std::format("Load of '{}' plugin was successful!\n", m_name);
-    return load_function();
+  if (!loaded) {
+    std::cout << std::format("Could not load the plugin library: {}\n",
+                             dlerror());
+    return false;
   }
-  std::cout << std::format("Could not load the plugin library: {}\n",
-                           dlerror());
-  return false;
+
+  load_t load_function = (load_t)dlsym(loaded, "load");
+
+  if (!load_function) {
+    std::cout << std::format("Could not find the load function for library: {}\n", m_path.c_str());
+    return false;
+  }
+
+  std::cout << std::format("Load of plugin at path {} was successful!\n",
+                           m_path.c_str());
+
+  auto load_result = load_function(&info);
+
+  if (load_result) {
+    m_name = info.name;
+  }
+
+  return load_result;
 }
 
 maybe_generate_result_t Plugin::generate(ip_addr_t source_ip,
                                          ip_addr_t destination_ip,
                                          extensions_p extensions, body_p body,
                                          void *cookie) const {
-  if (m_generator) {
+  if (info.generator) {
 
     auto result =
-        m_generator(source_ip, destination_ip, extensions, body, cookie);
+        info.generator(source_ip, destination_ip, extensions, body, cookie);
 
     if (result.success) {
       return result;
@@ -62,10 +68,9 @@ std::vector<Plugin> PluginDir::plugins() {
   auto loaded_plugins = std::vector<Plugin>{};
 
   std::ranges::for_each(dir, [&](auto v) {
-    if (std::regex_match(v.path().filename().generic_string(),
-                         plugin_matcher)) {
+    if (std::regex_match(v.path().filename().c_str(), plugin_matcher)) {
       std::cout << std::format("Attempting to load plugin at {} ...\n",
-                               v.path().filename().generic_string());
+                               v.path().filename().c_str());
       Plugin p{v};
 
       if (p.load()) {

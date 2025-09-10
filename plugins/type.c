@@ -7,13 +7,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
-int load() {
-  return 1;
-}
-
 char *plugin_name = "type";
-
-char *name() { return plugin_name; }
 
 configuration_result_t generate_configuration(int argc, const char **args) {
   configuration_result_t configuration_result = {.configuration_cookie = NULL, .errstr = NULL};
@@ -55,3 +49,12 @@ generate_result_t generate(ip_addr_t source, ip_addr_t target, extensions_p exte
 
   return result;
 }
+
+bool load(plugin_t *info) {
+  info->name = plugin_name;
+  info->configurator = generate_configuration;
+  info->generator = generate;
+  return true;
+}
+
+
