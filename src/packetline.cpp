@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <variant>
 #include <vector>
+#include <unistd.h>
 
 #include "api/exthdrs.h"
 #include "api/plugin.h"
@@ -196,6 +197,11 @@ int main(int argc, const char **argv) {
         close(skt);
         return -1;
       }
+      if (write(skt, actual_result.body.data, actual_result.body.len) < 0) {
+        error_logger.log(std::format(
+            "Error occurred sending data: could not write the body of the packet: {}\n",
+            strerror(errno)));
+      };
     } else if (actual_result.connection_type == INET_DGRAM) {
       if (!coalesce_extensions(&actual_result.extensions, IPV6_HOPOPTS)) {
         error_logger.log("Error occurred coalescing hop-by-hop options.\n");
