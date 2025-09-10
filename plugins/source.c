@@ -16,7 +16,8 @@ configuration_result_t generate_configuration(int argc, const char **args) {
                                                  .errstr = NULL};
 
   if (argc == 0) {
-    warn("Source plugin used without specifying either address or port -- Making no changes.\n");
+    warn("Source plugin used without specifying either address or port -- "
+         "Making no changes.\n");
     return configuration_result;
   }
 
@@ -55,8 +56,8 @@ generate_result_t generate(ip_addr_t source, ip_addr_t target, uint8_t type,
   USE_GIVEN_IN_RESULT(result);
 
   if (cookie) {
-    ip_addr_t *addr = (ip_addr_t*)cookie;
-    copy_ip(&result.source,addr);
+    ip_addr_t *addr = (ip_addr_t *)cookie;
+    copy_ip(&result.source, addr);
   }
 
   result.success = true;

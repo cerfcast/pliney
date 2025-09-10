@@ -36,14 +36,13 @@ bool Plugin::load() {
 }
 
 maybe_generate_result_t Plugin::generate(ip_addr_t source_ip,
-                                         ip_addr_t destination_ip,
-                                         uint8_t type,
+                                         ip_addr_t destination_ip, uint8_t type,
                                          extensions_p extensions, body_p body,
                                          void *cookie) const {
   if (info.generator) {
 
-    auto result =
-        info.generator(source_ip, destination_ip, type, extensions, body, cookie);
+    auto result = info.generator(source_ip, destination_ip, type, extensions,
+                                 body, cookie);
 
     if (result.success) {
       return result;

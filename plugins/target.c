@@ -50,7 +50,7 @@ generate_result_t generate(ip_addr_t source, ip_addr_t target, uint8_t type,
   if (cookie != NULL) {
     ip_addr_t *parsed_target = (ip_addr_t *)cookie;
 
-    copy_ip(&result.destination,parsed_target);
+    copy_ip(&result.destination, parsed_target);
     result.success = 1;
 
     free(cookie);
