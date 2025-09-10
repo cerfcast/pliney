@@ -45,14 +45,13 @@ generate_result_t generate(ip_addr_t source, ip_addr_t target,
                            extensions_p extensions, body_p body, void *cookie) {
   generate_result_t result;
 
+  USE_GIVEN_IN_RESULT(result);
+
   if (cookie != NULL) {
     ip_addr_t *parsed_target = (ip_addr_t *)cookie;
 
-    result.destination = *parsed_target;
-    result.source = source;
-    result.body = body;
+    copy_ip(&result.destination,parsed_target);
     result.success = 1;
-    result.extensions = extensions;
 
     free(cookie);
 

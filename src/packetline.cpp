@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <dlfcn.h>
+#include <endian.h>
 #include <filesystem>
 #include <format>
 #include <iostream>
@@ -77,6 +78,7 @@ public:
                                      invocation.plugin.name()));
         generate_result_t x = std::get<generate_result_t>(result);
         target_ip = x.destination;
+        source_ip = x.source;
 
         // TODO: Make sure that we free the previous body/header.
         body = x.body;
@@ -161,14 +163,46 @@ int main(int argc, const char **argv) {
       }
     } else if (actual_result.destination.stream == INET_DGRAM) {
 
+      if (ip_set(actual_result.source)) {
+        sockaddr_in saddr{};
+        size_t saddr_len{0};
+
+        if (actual_result.source.family == INET_ADDR_V4) {
+          sockaddr_in *source{reinterpret_cast<sockaddr_in *>(&saddr)};
+          saddr_len = sizeof(sockaddr_in);
+
+          source->sin_addr = actual_result.source.addr.ipv4;
+          source->sin_family = AF_INET;
+          source->sin_port = actual_result.source.port;
+
+        } else {
+          sockaddr_in6 *source{reinterpret_cast<sockaddr_in6 *>(&saddr)};
+          saddr_len = sizeof(sockaddr_in6);
+
+          source->sin6_addr = actual_result.source.addr.ipv6;
+          source->sin6_family = AF_INET6;
+          source->sin6_port = actual_result.source.port;
+          source->sin6_flowinfo = 0;
+          source->sin6_scope_id = 0;
+        }
+
+        if (bind(skt, (struct sockaddr *)&saddr, saddr_len) < 0) {
+          error_logger.log(
+              std::format("Could not bind to a source address: {}!\n",
+                          std::strerror(errno)));
+          close(skt);
+          return -1;
+        }
+      }
+
       if (!coalesce_extensions(&actual_result.extensions, IPV6_HOPOPTS)) {
         error_logger.log("Error occurred coalescing hop-by-hop options.\n");
         close(skt);
         return -1;
       }
 
-      struct msghdr msg {};
-      struct iovec iov {};
+      struct msghdr msg{};
+      struct iovec iov{};
 
       memset(&msg, 0, sizeof(struct msghdr));
       iov.iov_base = actual_result.body.data;

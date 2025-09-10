@@ -14,6 +14,7 @@
 char stringify_buffer[46] = {
     0,
 };
+
 /*
  * Not safe for multiple threads.
  */
@@ -35,6 +36,17 @@ const char *stringify_ip(ip_addr_t addr) {
   }
   error("Attempted to stringify an IP address that was neither V4 nor V6.\n");
   return "";
+}
+
+void copy_ip(ip_addr_t *dest, ip_addr_t *src) {
+  dest->addr = src->addr;
+  dest->port = src->port;
+  dest->family = src->family;
+}
+
+int ip_set(ip_addr_t addr) {
+  // Check whether the family is set -- that's our clue.
+  return addr.family != 0;
 }
 
 int ip_valid(ip_addr_t addr) {
@@ -141,4 +153,12 @@ void trace(const char *fmt, ...) {
     vprintf(fmt, args);
     va_end(args);
   }
+}
+
+void error(const char *fmt, ...) {
+  printf("Error: ");
+  va_list args;
+  va_start(args, fmt);
+  vprintf(fmt, args);
+  va_end(args);
 }
