@@ -102,6 +102,3 @@ bool load(plugin_t *info) {
   info->generator = generate;
   return true;
 }
-
-
-

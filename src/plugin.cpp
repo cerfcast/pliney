@@ -18,7 +18,8 @@ bool Plugin::load() {
   load_t load_function = (load_t)dlsym(loaded, "load");
 
   if (!load_function) {
-    std::cout << std::format("Could not find the load function for library: {}\n", m_path.c_str());
+    std::cout << std::format(
+        "Could not find the load function for library: {}\n", m_path.c_str());
     return false;
   }
 
