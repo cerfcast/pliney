@@ -24,6 +24,10 @@ typedef struct {
   extension_p **extensions_values;
 } extensions_p;
 
+typedef struct {
+  uint8_t priority;
+} header_p;
+
 #define INET_ADDR_V4 4
 #define INET_ADDR_V6 6
 
@@ -40,11 +44,15 @@ typedef struct {
 } ip_addr_t;
 
 typedef struct {
-  ip_addr_t destination;
   ip_addr_t source;
-  extensions_p extensions;
-  uint8_t connection_type;
+  ip_addr_t target;
+  header_p header;
+  extensions_p header_extensions;
   body_p body;
+} packet_t;
+
+typedef struct {
+  uint8_t connection_type;
   uint8_t success;
 } generate_result_t;
 
@@ -53,7 +61,7 @@ typedef struct {
   char *errstr;
 } configuration_result_t;
 
-typedef generate_result_t (*generate_t)(ip_addr_t, ip_addr_t, uint8_t, extensions_p, body_p, void*);
+typedef generate_result_t (*generate_t)(packet_t *packet, void*);
 typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
 
 typedef struct {

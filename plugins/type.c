@@ -1,5 +1,4 @@
 #include "api/plugin.h"
-#include "api/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -29,11 +28,9 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(ip_addr_t source, ip_addr_t target, uint8_t type, extensions_p extensions, body_p body, void *cookie) {
+generate_result_t generate(packet_t *packet, void *cookie) {
 
   generate_result_t result;
-
-  USE_GIVEN_IN_RESULT(result);
 
   uint32_t stream_or_dgram = *(uint32_t*)cookie;
 
@@ -44,6 +41,7 @@ generate_result_t generate(ip_addr_t source, ip_addr_t target, uint8_t type, ext
     result.success = 0;
   }
 
+  free(cookie);
   return result;
 }
 

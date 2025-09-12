@@ -19,9 +19,7 @@ public:
 
   std::string name() const { return m_name; }
 
-  maybe_generate_result_t generate(ip_addr_t source_ip,
-                                   ip_addr_t destination_ip, uint8_t type, extensions_p header, body_p body,
-                                   void *cookie) const;
+  maybe_generate_result_t generate(packet_t *packet, void *cookie) const;
 
 private:
   std::filesystem::path m_path;

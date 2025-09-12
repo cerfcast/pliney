@@ -41,16 +41,13 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(ip_addr_t source, ip_addr_t target, uint8_t type,
-                           extensions_p extensions, body_p body, void *cookie) {
+generate_result_t generate(packet_t *packet, void *cookie) {
   generate_result_t result;
-
-  USE_GIVEN_IN_RESULT(result);
 
   if (cookie != NULL) {
     ip_addr_t *parsed_target = (ip_addr_t *)cookie;
 
-    copy_ip(&result.destination, parsed_target);
+    copy_ip(&packet->target, parsed_target);
     result.success = 1;
 
     free(cookie);

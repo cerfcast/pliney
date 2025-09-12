@@ -68,27 +68,25 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 };
 
-generate_result_t generate(ip_addr_t source, ip_addr_t target, uint8_t type,
-                           extensions_p extensions, body_p body, void *cookie) {
+generate_result_t generate(packet_t *packet, void *cookie) {
 
   generate_result_t result;
 
-  USE_GIVEN_IN_RESULT(result);
-
-  if (target.family != INET_ADDR_V6) {
+  if (packet->target.family != INET_ADDR_V6) {
     error("Can only set extension headers for IPv6 targets.");
     result.success = 0;
   }
 
   size_t new_extension_idx = 0;
-  if (!add_extension(&result.extensions, &new_extension_idx)) {
+  if (!add_extension(&packet->header_extensions, &new_extension_idx)) {
     result.success = 0;
+    return result;
   }
 
   result.success = 1;
 
   extension_p *extensions_from_cookie = (extension_p *)(cookie);
-  result.extensions.extensions_values[new_extension_idx] =
+  packet->header_extensions.extensions_values[new_extension_idx] =
       extensions_from_cookie;
 
   return result;

@@ -55,38 +55,29 @@ public:
 
 class PipelineExecutor {
 public:
-  virtual maybe_generate_result_t execute(Pipeline &&plugins) = 0;
+  virtual maybe_packet_t execute(Pipeline &&plugins) = 0;
 };
 
 class SerialPipelineExecutor : public PipelineExecutor {
 public:
-  maybe_generate_result_t execute(Pipeline &&pipeline) override {
+  maybe_packet_t execute(Pipeline &&pipeline) override {
 
-    ip_addr_t target_ip{};
-    ip_addr_t source_ip{};
-    body_p body{};
+    packet_t packet{};
+    packet.header_extensions = {.extensions_count = 0,
+                                .extensions_values = NULL};
     uint8_t connection_type{INET_STREAM};
-    extensions_p extensions{.extensions_count = 0, .extensions_values = NULL};
 
     auto debug_logger = Logger::active_logger(Logger::DEBUG);
 
     for (auto invocation : pipeline) {
 
-      auto result =
-          invocation.plugin.generate(source_ip, target_ip, connection_type,
-                                     extensions, body, invocation.cookie);
+      auto result = invocation.plugin.generate(&packet, invocation.cookie);
 
       if (std::holds_alternative<generate_result_t>(result)) {
         debug_logger.log(std::format("Got a result from '{}' plugin!\n",
                                      invocation.plugin.name()));
         generate_result_t x = std::get<generate_result_t>(result);
-        target_ip = x.destination;
-        source_ip = x.source;
         connection_type = x.connection_type;
-
-        // TODO: Make sure that we free the previous body/header.
-        body = x.body;
-        extensions = x.extensions;
       } else {
         std::cout << std::format("There was an error: {}\n",
                                  std::get<std::string>(result));
@@ -94,8 +85,7 @@ public:
       }
     }
 
-    return generate_result_t{target_ip, source_ip, extensions, connection_type,
-                             body};
+    return packet;
   }
 };
 
@@ -103,6 +93,8 @@ int main(int argc, const char **argv) {
   auto plugin_path = std::filesystem::path("./build");
   auto plugins = PluginDir{plugin_path};
   auto loaded_plugins = plugins.plugins();
+
+  uint8_t connection_type = INET_DGRAM;
 
   if (loaded_plugins.empty()) {
     std::cerr << "No plugins loaded.\n";
@@ -131,11 +123,10 @@ int main(int argc, const char **argv) {
   auto debug_logger = Logger::active_logger(Logger::DEBUG);
   auto error_logger = Logger::active_logger(Logger::ERROR);
 
-  if (std::holds_alternative<generate_result_t>(maybe_result)) {
+  if (std::holds_alternative<packet_t>(maybe_result)) {
 
-    auto actual_result = std::get<generate_result_t>(maybe_result);
-    auto skt =
-        ip_to_socket(actual_result.destination, actual_result.connection_type);
+    auto actual_result = std::get<packet_t>(maybe_result);
+    auto skt = ip_to_socket(actual_result.target, connection_type);
 
     if (skt < 0) {
       std::cerr << std::format(
@@ -145,8 +136,7 @@ int main(int argc, const char **argv) {
     }
 
     struct sockaddr *destination = nullptr;
-    int destination_len =
-        ip_to_sockaddr(actual_result.destination, &destination);
+    int destination_len = ip_to_sockaddr(actual_result.target, &destination);
     if (destination_len < 0) {
       std::cerr << "Error occurred converting generated destination into "
                    "system-compatible destination.\n";
@@ -186,9 +176,9 @@ int main(int argc, const char **argv) {
     }
 
     debug_logger.log(std::format("Trying to send a packet to {}.\n",
-                                 stringify_ip(actual_result.destination)));
+                                 stringify_ip(actual_result.target)));
 
-    if (actual_result.connection_type == INET_STREAM) {
+    if (connection_type == INET_STREAM) {
       auto connect_result = connect(skt, destination, destination_len);
       if (connect_result < 0) {
         error_logger.log(std::format(
@@ -202,8 +192,9 @@ int main(int argc, const char **argv) {
                                      "write the body of the packet: {}\n",
                                      strerror(errno)));
       };
-    } else if (actual_result.connection_type == INET_DGRAM) {
-      if (!coalesce_extensions(&actual_result.extensions, IPV6_HOPOPTS)) {
+    } else if (connection_type == INET_DGRAM) {
+      if (!coalesce_extensions(&actual_result.header_extensions,
+                               IPV6_HOPOPTS)) {
         error_logger.log("Error occurred coalescing hop-by-hop options.\n");
         close(skt);
         return -1;
@@ -222,17 +213,18 @@ int main(int argc, const char **argv) {
       msg.msg_name = destination;
       msg.msg_namelen = destination_len;
 
-      if (actual_result.extensions.extensions_count > 0) {
+      if (actual_result.header_extensions.extensions_count > 0) {
 
         // First, calculate _all_ the sizes for the extension headers.
         size_t cmsg_space_len_needed = 0;
         for (auto extension_i{0};
-             extension_i < actual_result.extensions.extensions_count;
+             extension_i < actual_result.header_extensions.extensions_count;
              extension_i++) {
 
           auto extension_header_len =
               ((2 /* for extension header T/L */ +
-                actual_result.extensions.extensions_values[extension_i]->len +
+                actual_result.header_extensions.extensions_values[extension_i]
+                    ->len +
                 (8 - 1)) /
                8) *
               8;
@@ -249,17 +241,19 @@ int main(int argc, const char **argv) {
 
         struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
         for (auto extension_i{0};
-             extension_i < actual_result.extensions.extensions_count;
+             extension_i < actual_result.header_extensions.extensions_count;
              extension_i++, hdr = CMSG_NXTHDR(&msg, hdr)) {
 
           auto extension_header_len =
               ((2 /* for extension header T/L */ +
-                actual_result.extensions.extensions_values[extension_i]->len +
+                actual_result.header_extensions.extensions_values[extension_i]
+                    ->len +
                 (8 - 1)) /
                8) *
               8;
           hdr->cmsg_type =
-              actual_result.extensions.extensions_values[extension_i]->type;
+              actual_result.header_extensions.extensions_values[extension_i]
+                  ->type;
           hdr->cmsg_level = SOL_IPV6;
           hdr->cmsg_len = CMSG_LEN(extension_header_len);
 
@@ -268,8 +262,10 @@ int main(int argc, const char **argv) {
 
           // HbH Extension Header Data.
           memcpy(CMSG_DATA(hdr) + 2,
-                 actual_result.extensions.extensions_values[extension_i]->data,
-                 actual_result.extensions.extensions_values[extension_i]->len);
+                 actual_result.header_extensions.extensions_values[extension_i]
+                     ->data,
+                 actual_result.header_extensions.extensions_values[extension_i]
+                     ->len);
         }
       }
 
@@ -282,12 +278,15 @@ int main(int argc, const char **argv) {
         close(skt);
         return -1;
       }
+
     } else {
       error_logger.log(
           std::format("Error occurred sending data: the destination address "
                       "had an invalid stream type.\n",
                       strerror(errno)));
     }
+
+    // TODO: Cleanup the allocations nested in the packet.
 
     close(skt);
 
