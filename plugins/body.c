@@ -12,8 +12,6 @@
 
 char *plugin_name = "body";
 
-#define DEFAULT_BODY_SIZE 1500
-
 configuration_result_t generate_configuration(int argc, const char **args) {
   configuration_result_t configuration_result = {.configuration_cookie = NULL,
                                                  .errstr = NULL};
@@ -24,7 +22,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  uint32_t body_size = DEFAULT_BODY_SIZE;
+  uint32_t body_size = 0;
 
   if (argc > 1) {
     char *invalid = NULL;
@@ -55,8 +53,15 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   unsigned char *body_data = (unsigned char *)calloc(body_size, sizeof(char));
   int actual_body_size = read(fd, body_data, body_size);
 
-  if (body_size != actual_body_size) {
-    warn("Configured body size and actual body size did not match.\n");
+  if (body_size != 0 && body_size != actual_body_size) {
+    if (actual_body_size < body_size) {
+      body_size = actual_body_size;
+    }
+    warn(
+        "Configured body size and actual body size did not match; using %lu.\n",
+        body_size);
+  } else {
+    body_size = actual_body_size;
   }
 
   body_p *body = (body_p *)malloc(sizeof(body_p));
