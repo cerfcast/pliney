@@ -4,6 +4,7 @@
 
 #include <ranges>
 
+
 bool Pipeline::parse(const char **to_parse, Plugins &&plugins) {
   auto debug_logger = Logger::active_logger(Logger::Level::DEBUG);
   auto error_logger = Logger::active_logger(Logger::Level::ERROR);

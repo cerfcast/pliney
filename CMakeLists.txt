@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(packetline DESCRIPTION "Make packets.")
 
-set(MAIN_SRCS src/packetline.cpp src/apis/utils.c src/logger.cpp src/pipeline.cpp src/plugin.cpp src/apis/exthdrs.c)
+set(MAIN_SRCS src/packetline.cpp src/apis/utils.c src/logger.cpp src/pipeline.cpp src/plugin.cpp src/apis/exthdrs.c src/cli.cpp)
 set(PLUGIN_LIB_SRCS src/apis/utils.c src/apis/exthdrs.c)
 add_executable(packetline ${MAIN_SRCS})
 target_include_directories(packetline PRIVATE include)

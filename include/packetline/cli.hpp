@@ -1,0 +1,14 @@
+#ifndef _OPTION_HPP
+#define _OPTION_HPP
+
+#include <cstddef>
+#include <cstdint>
+
+class Cli {
+public:
+  static bool find_pipeline_start(size_t argc, const char **args,
+                                  size_t *position);
+  static bool parse_connection_type(const char *maybe_stream_type,
+                                    uint8_t &type);
+};
+#endif

@@ -20,6 +20,7 @@
 #include "packetline/logger.hpp"
 #include "packetline/packetline.hpp"
 #include "packetline/pipeline.hpp"
+#include "packetline/cli.hpp"
 
 #include <unistd.h>
 
@@ -94,14 +95,55 @@ int main(int argc, const char **argv) {
   auto plugins = PluginDir{plugin_path};
   auto loaded_plugins = plugins.plugins();
 
-  uint8_t connection_type = INET_DGRAM;
+  uint8_t connection_type = INET_STREAM;
 
   if (loaded_plugins.empty()) {
     std::cerr << "No plugins loaded.\n";
     return 1;
   }
 
-  auto pipeline = Pipeline{argv + 1, std::move(loaded_plugins)};
+  // Determine where the pipeline starts ...
+  size_t pipeline_start{0};
+  auto pipeline_start_found =
+      Cli::find_pipeline_start(argc, argv, &pipeline_start);
+
+  if (!pipeline_start_found) {
+    std::cerr << "No pipeline found.\n";
+    return 1;
+  }
+
+  // Determine whether there are arguments for pliney, before the pipeline
+  // starts.
+  for (size_t pliney_arg_idx{1}; pliney_arg_idx < pipeline_start; pliney_arg_idx++) {
+
+#define HAS_ANOTHER_ARG                                                        \
+  if (pliney_arg_idx >= pipeline_start) {                                      \
+    std::cerr << std::format("Missing value for parameter {}\n", maybe_arg);   \
+    return 1;                                                                  \
+  } else { \
+    pliney_arg_idx++; \
+  }
+
+    std::string maybe_arg{argv[pliney_arg_idx]};
+
+    if (maybe_arg.starts_with('-')) {
+      std::string arg{maybe_arg.substr(1)};
+      if (arg == "stream") {
+        HAS_ANOTHER_ARG;
+        if (!Cli::parse_connection_type(argv[pliney_arg_idx], connection_type)) {
+          std::cerr << std::format("Invalid stream type given: {}", argv[pliney_arg_idx]);
+          return 1;
+        }
+        continue;
+      }
+    }
+    std::cerr << std::format("Unrecognized argument: {}\n",
+                             argv[pliney_arg_idx]);
+    return 1;
+  }
+
+  auto pipeline =
+      Pipeline{argv + pipeline_start + 1, std::move(loaded_plugins)};
 
   if (!pipeline.ok()) {
     auto pipeline_errs = std::accumulate(
@@ -200,8 +242,8 @@ int main(int argc, const char **argv) {
         return -1;
       }
 
-      struct msghdr msg {};
-      struct iovec iov {};
+      struct msghdr msg{};
+      struct iovec iov{};
 
       memset(&msg, 0, sizeof(struct msghdr));
       iov.iov_base = actual_result.body.data;
