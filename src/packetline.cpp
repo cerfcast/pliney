@@ -118,7 +118,7 @@ int main(int argc, const char **argv) {
        pliney_arg_idx++) {
 
 #define HAS_ANOTHER_ARG                                                        \
-  if (pliney_arg_idx >= pipeline_start) {                                      \
+  if (pliney_arg_idx + 1 >= pipeline_start) {                                  \
     std::cerr << std::format("Missing value for parameter {}\n", maybe_arg);   \
     return 1;                                                                  \
   } else {                                                                     \
@@ -129,11 +129,11 @@ int main(int argc, const char **argv) {
 
     if (maybe_arg.starts_with('-')) {
       std::string arg{maybe_arg.substr(1)};
-      if (arg == "stream") {
+      if (arg == "type") {
         HAS_ANOTHER_ARG;
         if (!Cli::parse_connection_type(argv[pliney_arg_idx],
                                         connection_type)) {
-          std::cerr << std::format("Invalid stream type given: {}",
+          std::cerr << std::format("Invalid connection type given: {}",
                                    argv[pliney_arg_idx]);
           return 1;
         }
