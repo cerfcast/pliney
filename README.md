@@ -19,25 +19,25 @@ Want an IPv6 UDP packet sent to `fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e` (port 
 header that contains 6 bytes of padding and the contents that come from the first 50 bytes of `my_data.bin`? Try _this_:
 
 ```bash
-$ pliney target fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e 8081  =\> type dgram =\> body my_data.bin 50 =\> exthdr-padn hbh 6
+$ pliney -type dgram \!\> target fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e 8081 =\> body my_data.bin 50 =\> exthdr-padn hbh 6
 ```
 
 ### Test Cases
 
-#### XXXX
+#### Send Data Over IPv6 And Include PadN Extension Headers
 
 ```bash
-target fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e 8081   =\> type dgram =\> body test_data/test_data.bin 50 =\> exthdr-padn hbh 4 fe =\> exthdr-padn hbh 6 ef =\> exthdr-padn dst 4 ab =\> source fd7a:115c:a1e0::5fa2:3b13
+$ path/to/pliney -type dgram \!\> target fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e 8081 =\> body test_data/test_data.bin 50 =\> exthdr-padn hbh 4 fe =\> exthdr-padn hbh 6 ef =\> exthdr-padn dst 4 ab =\> source fd7a:115c:a1e0::5fa2:3b13
 ```
 
-#### XXXX
+#### Send Data to Google DNS
 
 ```bash
-body ./test_data/test_data.bin 50 =\> target 8.8.8.8 80
+$ path/to/pliney -type dgram \!\> body ./test_data/test_data.bin 50 =\> target 8.8.8.8 53
 ```
 
-#### XXXX
+#### Attempt To Open HTTP Connection to cnn.com
 
 ```bash
-./build/packetline body ./test_data/test_data.bin 50 =\> target 151.101.3.5 80
+$ path/to/pliney \!\> body ./test_data/http_get =\> target 151.101.3.5 80
 ```
