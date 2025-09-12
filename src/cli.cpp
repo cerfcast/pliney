@@ -1,11 +1,11 @@
 #include "packetline/cli.hpp"
 #include "api/plugin.h"
 
-#include <string>
 #include <ranges>
+#include <string>
 
 bool Cli::find_pipeline_start(size_t argc, const char **args,
-                                size_t *position) {
+                              size_t *position) {
   *position = 0;
 
   auto result = std::ranges::find_if(
@@ -24,7 +24,8 @@ bool Cli::find_pipeline_start(size_t argc, const char **args,
   return false;
 }
 
-bool Cli::parse_connection_type(const char *maybe_stream_type_raw, uint8_t &type) {
+bool Cli::parse_connection_type(const char *maybe_stream_type_raw,
+                                uint8_t &type) {
   std::string maybe_stream_type{maybe_stream_type_raw};
 
   bool is_valid{true};
@@ -37,4 +38,3 @@ bool Cli::parse_connection_type(const char *maybe_stream_type_raw, uint8_t &type
   }
   return is_valid;
 }
-

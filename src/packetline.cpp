@@ -17,10 +17,10 @@
 #include "api/exthdrs.h"
 #include "api/plugin.h"
 #include "api/utils.h"
+#include "packetline/cli.hpp"
 #include "packetline/logger.hpp"
 #include "packetline/packetline.hpp"
 #include "packetline/pipeline.hpp"
-#include "packetline/cli.hpp"
 
 #include <unistd.h>
 
@@ -114,14 +114,15 @@ int main(int argc, const char **argv) {
 
   // Determine whether there are arguments for pliney, before the pipeline
   // starts.
-  for (size_t pliney_arg_idx{1}; pliney_arg_idx < pipeline_start; pliney_arg_idx++) {
+  for (size_t pliney_arg_idx{1}; pliney_arg_idx < pipeline_start;
+       pliney_arg_idx++) {
 
 #define HAS_ANOTHER_ARG                                                        \
   if (pliney_arg_idx >= pipeline_start) {                                      \
     std::cerr << std::format("Missing value for parameter {}\n", maybe_arg);   \
     return 1;                                                                  \
-  } else { \
-    pliney_arg_idx++; \
+  } else {                                                                     \
+    pliney_arg_idx++;                                                          \
   }
 
     std::string maybe_arg{argv[pliney_arg_idx]};
@@ -130,8 +131,10 @@ int main(int argc, const char **argv) {
       std::string arg{maybe_arg.substr(1)};
       if (arg == "stream") {
         HAS_ANOTHER_ARG;
-        if (!Cli::parse_connection_type(argv[pliney_arg_idx], connection_type)) {
-          std::cerr << std::format("Invalid stream type given: {}", argv[pliney_arg_idx]);
+        if (!Cli::parse_connection_type(argv[pliney_arg_idx],
+                                        connection_type)) {
+          std::cerr << std::format("Invalid stream type given: {}",
+                                   argv[pliney_arg_idx]);
           return 1;
         }
         continue;
@@ -242,8 +245,8 @@ int main(int argc, const char **argv) {
         return -1;
       }
 
-      struct msghdr msg{};
-      struct iovec iov{};
+      struct msghdr msg {};
+      struct iovec iov {};
 
       memset(&msg, 0, sizeof(struct msghdr));
       iov.iov_base = actual_result.body.data;
