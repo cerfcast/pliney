@@ -1,5 +1,6 @@
 #include "packetline/cli.hpp"
 #include "api/plugin.h"
+#include "packetline/logger.hpp"
 
 #include <ranges>
 #include <string>
@@ -37,4 +38,20 @@ bool Cli::parse_connection_type(const char *maybe_stream_type_raw,
     is_valid = false;
   }
   return is_valid;
+}
+
+bool Cli::parse_logger_level(const char *maybe_logger_level_raw,
+                             Logger::Level &level) {
+  std::string maybe_logger_level{maybe_logger_level_raw};
+  if (maybe_logger_level == "debug") {
+    level = Logger::DEBUG;
+    return true;
+  } else if (maybe_logger_level == "warn") {
+    level = Logger::WARN;
+    return true;
+  } else if (maybe_logger_level == "error") {
+    level = Logger::ERROR;
+    return true;
+  }
+  return false;
 }

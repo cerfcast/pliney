@@ -68,15 +68,14 @@ public:
                                 .extensions_values = NULL};
     uint8_t connection_type{INET_STREAM};
 
-    auto debug_logger = Logger::active_logger(Logger::DEBUG);
-
     for (auto invocation : pipeline) {
 
       auto result = invocation.plugin.generate(&packet, invocation.cookie);
 
       if (std::holds_alternative<generate_result_t>(result)) {
-        debug_logger.log(std::format("Got a result from '{}' plugin!\n",
-                                     invocation.plugin.name()));
+        Logger::ActiveLogger()->log(
+            Logger::DEBUG, std::format("Got a result from '{}' plugin!",
+                                       invocation.plugin.name()));
         generate_result_t x = std::get<generate_result_t>(result);
         connection_type = x.connection_type;
       } else {
@@ -101,6 +100,8 @@ int main(int argc, const char **argv) {
     std::cerr << "No plugins loaded.\n";
     return 1;
   }
+
+  Logger::Level initial_logger_level{Logger::ERROR};
 
   // Determine where the pipeline starts ...
   size_t pipeline_start{0};
@@ -133,7 +134,17 @@ int main(int argc, const char **argv) {
         HAS_ANOTHER_ARG;
         if (!Cli::parse_connection_type(argv[pliney_arg_idx],
                                         connection_type)) {
-          std::cerr << std::format("Invalid connection type given: {}",
+          std::cerr << std::format("Invalid connection type given: {}\n",
+                                   argv[pliney_arg_idx]);
+          return 1;
+        }
+        continue;
+      }
+      if (arg == "log") {
+        HAS_ANOTHER_ARG;
+        if (!Cli::parse_logger_level(argv[pliney_arg_idx],
+                                     initial_logger_level)) {
+          std::cerr << std::format("Invalid connection debug level given: {}\n",
                                    argv[pliney_arg_idx]);
           return 1;
         }
@@ -144,6 +155,11 @@ int main(int argc, const char **argv) {
                              argv[pliney_arg_idx]);
     return 1;
   }
+
+  auto logger = Logger::ActiveLogger();
+  // Now that the user had a chance to configure their preferred log level,
+  // let's set it.
+  logger->set_level(initial_logger_level);
 
   auto pipeline =
       Pipeline{argv + pipeline_start + 1, std::move(loaded_plugins)};
@@ -164,10 +180,6 @@ int main(int argc, const char **argv) {
 
   auto executor = SerialPipelineExecutor{};
   auto maybe_result = executor.execute(std::move(pipeline));
-
-  auto debug_logger = Logger::active_logger(Logger::DEBUG);
-  auto warn_logger = Logger::active_logger(Logger::WARN);
-  auto error_logger = Logger::active_logger(Logger::ERROR);
 
   if (std::holds_alternative<packet_t>(maybe_result)) {
 
@@ -214,8 +226,10 @@ int main(int argc, const char **argv) {
       }
 
       if (bind(skt, (struct sockaddr *)&saddr, saddr_len) < 0) {
-        error_logger.log(std::format(
-            "Could not bind to a source address: {}!\n", std::strerror(errno)));
+        Logger::ActiveLogger()->log(
+            Logger::ERROR,
+            std::format("Could not bind to a source address: {}!",
+                        std::strerror(errno)));
         close(skt);
         return -1;
       }
@@ -232,8 +246,10 @@ int main(int argc, const char **argv) {
           result = setsockopt(skt, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hoplimit,
                               sizeof(int));
         } else {
-          warn_logger.log("Setting the hoplimit on a non-dgram IPv6 socket is "
-                           "not supported.\n");
+          Logger::ActiveLogger()->log(
+              Logger::WARN,
+              "Setting the hoplimit on a non-dgram IPv6 socket is "
+              "not supported.");
         }
       } else {
         result = setsockopt(skt, IPPROTO_IP, IP_TTL, &hoplimit, sizeof(int));
@@ -248,33 +264,37 @@ int main(int argc, const char **argv) {
       }
     }
 
-    debug_logger.log(std::format("Trying to send a packet to {}.\n",
-                                 stringify_ip(actual_result.target)));
+    Logger::ActiveLogger()->log(
+        Logger::DEBUG, std::format("Trying to send a packet to {}.",
+                                   stringify_ip(actual_result.target)));
 
     if (connection_type == INET_STREAM) {
       auto connect_result = connect(skt, destination, destination_len);
       if (connect_result < 0) {
-        error_logger.log(std::format(
-            "Error occurred sending data: could not connect the socket: {}\n",
-            strerror(errno)));
+        Logger::ActiveLogger()->log(
+            Logger::ERROR, std::format("Error occurred sending data: could not "
+                                       "connect the socket: {}",
+                                       strerror(errno)));
         close(skt);
         return -1;
       }
       if (write(skt, actual_result.body.data, actual_result.body.len) < 0) {
-        error_logger.log(std::format("Error occurred sending data: could not "
-                                     "write the body of the packet: {}\n",
-                                     strerror(errno)));
+        Logger::ActiveLogger()->log(
+            Logger::ERROR, std::format("Error occurred sending data: could not "
+                                       "write the body of the packet: {}",
+                                       strerror(errno)));
       };
     } else if (connection_type == INET_DGRAM) {
       if (!coalesce_extensions(&actual_result.header_extensions,
                                IPV6_HOPOPTS)) {
-        error_logger.log("Error occurred coalescing hop-by-hop options.\n");
+        Logger::ActiveLogger()->log(
+            Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
         close(skt);
         return -1;
       }
 
-      struct msghdr msg{};
-      struct iovec iov{};
+      struct msghdr msg {};
+      struct iovec iov {};
 
       memset(&msg, 0, sizeof(struct msghdr));
       iov.iov_base = actual_result.body.data;
@@ -301,8 +321,9 @@ int main(int argc, const char **argv) {
                 (8 - 1)) /
                8) *
               8;
-          debug_logger.log(
-              std::format("extension_header_len: {}\n", extension_header_len));
+          Logger::ActiveLogger()->log(
+              Logger::DEBUG,
+              std::format("extension_header_len: {}", extension_header_len));
 
           cmsg_space_len_needed += CMSG_LEN(extension_header_len);
         }
@@ -345,17 +366,19 @@ int main(int argc, const char **argv) {
       int write_result = sendmsg(skt, &msg, 0);
 
       if (write_result < 0) {
-        error_logger.log(std::format(
-            "Error occurred sending data: could not write to the socket: {}\n",
-            strerror(errno)));
+        Logger::ActiveLogger()->log(
+            Logger::ERROR, std::format("Error occurred sending data: could not "
+                                       "write to the socket: {}",
+                                       strerror(errno)));
         close(skt);
         return -1;
       }
 
     } else {
-      error_logger.log(
+      Logger::ActiveLogger()->log(
+          Logger::ERROR,
           std::format("Error occurred sending data: the destination address "
-                      "had an invalid stream type.\n",
+                      "had an invalid stream type.",
                       strerror(errno)));
     }
 

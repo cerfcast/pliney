@@ -5,8 +5,6 @@
 #include <ranges>
 
 bool Pipeline::parse(const char **to_parse, Plugins &&plugins) {
-  auto debug_logger = Logger::active_logger(Logger::Level::DEBUG);
-  auto error_logger = Logger::active_logger(Logger::Level::ERROR);
 
   size_t pipeline_count{1};
 
@@ -28,14 +26,16 @@ bool Pipeline::parse(const char **to_parse, Plugins &&plugins) {
     }
 
     const auto plugin_name = pipeline_args.front();
-    debug_logger.log(std::format("Plugin name: {}\n", plugin_name));
+    Logger::ActiveLogger()->log(Logger::DEBUG,
+                                std::format("Plugin name: {}", plugin_name));
 
     std::vector<std::string> args{std::next(pipeline_args.begin()),
                                   pipeline_args.end()};
 
     for (auto i = 0; i < args.size(); i++) {
-      debug_logger.log(std::format("Plugin {}'s arg #{}: {}\n", plugin_name,
-                                   i + 1, args[i]));
+      Logger::ActiveLogger()->log(
+          Logger::DEBUG,
+          std::format("Plugin {}'s arg #{}: {}", plugin_name, i + 1, args[i]));
     }
 
     auto maybe_plugin = plugins.plugin_by_name(plugin_name);
