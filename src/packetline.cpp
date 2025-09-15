@@ -166,6 +166,7 @@ int main(int argc, const char **argv) {
   auto maybe_result = executor.execute(std::move(pipeline));
 
   auto debug_logger = Logger::active_logger(Logger::DEBUG);
+  auto warn_logger = Logger::active_logger(Logger::WARN);
   auto error_logger = Logger::active_logger(Logger::ERROR);
 
   if (std::holds_alternative<packet_t>(maybe_result)) {
@@ -220,6 +221,33 @@ int main(int argc, const char **argv) {
       }
     }
 
+    if (actual_result.header.priority != 0) {
+      // Put the hoplimit into an int -- IPv6 requires it and IPv4 is okay with
+      // it.
+      int hoplimit = actual_result.header.priority;
+      int result = 0;
+
+      if (actual_result.target.family == INET_ADDR_V6) {
+        if (connection_type == INET_DGRAM) {
+          result = setsockopt(skt, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hoplimit,
+                              sizeof(int));
+        } else {
+          warn_logger.log("Setting the hoplimit on a non-dgram IPv6 socket is "
+                           "not supported.\n");
+        }
+      } else {
+        result = setsockopt(skt, IPPROTO_IP, IP_TTL, &hoplimit, sizeof(int));
+      }
+
+      if (result < 0) {
+        std::cerr << std::format(
+            "There was an error setting the TTL on the socket: {}\n",
+            std::strerror(errno));
+        close(skt);
+        return -1;
+      }
+    }
+
     debug_logger.log(std::format("Trying to send a packet to {}.\n",
                                  stringify_ip(actual_result.target)));
 
@@ -245,8 +273,8 @@ int main(int argc, const char **argv) {
         return -1;
       }
 
-      struct msghdr msg {};
-      struct iovec iov {};
+      struct msghdr msg{};
+      struct iovec iov{};
 
       memset(&msg, 0, sizeof(struct msghdr));
       iov.iov_base = actual_result.body.data;
