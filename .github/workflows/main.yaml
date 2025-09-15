@@ -9,6 +9,5 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: |
-          clang-format --version
           cmake -B build -S .
           cmake --build build --target clang-format-check
