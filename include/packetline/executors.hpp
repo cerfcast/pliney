@@ -63,11 +63,16 @@ public:
     auto actual_result = packet;
 
     struct sockaddr *destination = nullptr;
-    int destination_len = ip_to_sockaddr(actual_result.target, &destination);
-    if (destination_len < 0) {
-      std::cerr << "Error occurred converting generated destination into "
-                   "system-compatible destination.\n";
-      return false;
+    int destination_len = 0;
+
+    if (ip_set(actual_result.target)) {
+
+      destination_len = ip_to_sockaddr(actual_result.target, &destination);
+      if (destination_len < 0) {
+        std::cerr << "Error occurred converting generated destination into "
+                     "system-compatible destination.\n";
+        return false;
+      }
     }
 
     if (actual_result.header.priority != 0) {
