@@ -22,22 +22,43 @@ header that contains 6 bytes of padding and the contents that come from the firs
 $ pliney -type dgram \!\> target fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e 8081 =\> body my_data.bin 50 =\> exthdr-padn hbh 6
 ```
 
+**But There's More**
+
+Pliney pipelines can also be used to modify packets send by other applications!
+
+> Note: Support for this use case is still very nascent.
+
+By loading the _Pliney Interstitial_ library and setting the `PLINEY_PIPELINE` environment variable, packets sent by applications
+using the `sendto` and `sendmsg` system call will be modified according to the semantics of the pipeline specified.
+
+For example, if you want to set the TTL to 12 on all DNS packets sent by `nslookup` to resolve `cnn.com`, you could
+
+```bash
+$ PLINEY_PIPELINE="ttl 12" LD_PRELOAD=/path/to/libplineyi.so nslookup cnn.com
+```
+
 ### Test Cases
 
-#### Send Data Over IPv6 And Include PadN Extension Headers
+#### Cli
+
+##### Send Data Over IPv6 And Include PadN Extension Headers
 
 ```bash
-$ path/to/pliney -type dgram \!\> target fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e 8081 =\> body test_data/test_data.bin 50 =\> exthdr-padn hbh 4 fe =\> exthdr-padn hbh 6 ef =\> exthdr-padn dst 4 ab =\> source fd7a:115c:a1e0::5fa2:3b13
+$ path/to/pliney -type dgram \!\> target fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e 8081 =\> body test/data/test_data.bin 50 =\> exthdr-padn hbh 4 fe =\> exthdr-padn hbh 6 ef =\> exthdr-padn dst 4 ab =\> source fd7a:115c:a1e0::5fa2:3b13
 ```
 
-#### Send Data to Google DNS
+##### Send Data to Google DNS
 
 ```bash
-$ path/to/pliney -type dgram \!\> body ./test_data/test_data.bin 50 =\> target 8.8.8.8 53
+$ path/to/pliney -type dgram \!\> body ./test/data/test_data.bin 50 =\> target 8.8.8.8 53
 ```
 
-#### Attempt To Open HTTP Connection to cnn.com
+##### Attempt To Open HTTP Connection to cnn.com
 
 ```bash
-$ path/to/pliney \!\> body ./test_data/http_get =\> target 151.101.3.5 80
+$ path/to/pliney \!\> body ./test/data/http_get =\> target 151.101.3.5 80
 ```
+
+#### Interstitial
+
+Coming soon.
