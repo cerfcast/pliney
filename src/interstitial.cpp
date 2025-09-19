@@ -59,7 +59,8 @@ __attribute__((constructor)) void pliney_initialize() {
 typedef ssize_t (*sendto_pt)(int sockfd, const void *buff, size_t len,
                              int flags, const struct sockaddr *dest,
                              socklen_t dest_len);
-typedef ssize_t (*sendmsg_pt)(int sockfd, const struct msghdr *msghdr, int flags);
+typedef ssize_t (*sendmsg_pt)(int sockfd, const struct msghdr *msghdr,
+                              int flags);
 
 ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
                const struct sockaddr *dest, socklen_t dest_len) {
@@ -72,8 +73,7 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
   }
 
   if (!maybe_pipeline) {
-    Logger::ActiveLogger()->log(Logger::WARN,
-                                "No pliney pipeline to execute.");
+    Logger::ActiveLogger()->log(Logger::WARN, "No pliney pipeline to execute.");
     return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
   }
 
@@ -95,7 +95,7 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
 
   packet_t initial_packet{};
 
-  initial_packet.body = body_p{.len = len, .data = (uint8_t*)buff};
+  initial_packet.body = body_p{.len = len, .data = (uint8_t *)buff};
   initial_packet.target = dest_pliney_addr;
 
   auto executor = SerialPipelineExecutor{initial_packet};
@@ -126,8 +126,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
   }
 
   if (!maybe_pipeline) {
-    Logger::ActiveLogger()->log(Logger::WARN,
-                                "No pliney pipeline to execute.");
+    Logger::ActiveLogger()->log(Logger::WARN, "No pliney pipeline to execute.");
     return orig_sendmsg(sockfd, hdr, flags);
   }
 
@@ -145,15 +144,17 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
 
   // Get the destination address.
   ip_addr_t dest_pliney_addr;
-  result = sockaddr_to_ip((const struct sockaddr*)hdr->msg_name, hdr->msg_namelen, &dest_pliney_addr);
+  result = sockaddr_to_ip((const struct sockaddr *)hdr->msg_name,
+                          hdr->msg_namelen, &dest_pliney_addr);
 
   packet_t initial_packet{};
 
   // Assume that the body has only one iov.
-  initial_packet.body = body_p{.len = hdr->msg_iov->iov_len, .data = (uint8_t*)hdr->msg_iov->iov_base};
+  initial_packet.body = body_p{.len = hdr->msg_iov->iov_len,
+                               .data = (uint8_t *)hdr->msg_iov->iov_base};
   initial_packet.target = dest_pliney_addr;
 
-  //TODO: Handle bodies.
+  // TODO: Handle bodies.
 
   auto executor = SerialPipelineExecutor{initial_packet};
   auto maybe_result = executor.execute(std::move(*maybe_pipeline));

@@ -79,16 +79,17 @@ int ip_parse(const char *to_parse, ip_addr_t *result) {
   return -1;
 }
 
-int sockaddr_to_ip(const struct sockaddr *saddr, socklen_t saddr_len, ip_addr_t *addr) {
+int sockaddr_to_ip(const struct sockaddr *saddr, socklen_t saddr_len,
+                   ip_addr_t *addr) {
 
   if (saddr_len == sizeof(struct sockaddr_in6)) {
-    struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)saddr;
+    struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)saddr;
     addr->addr.ipv6 = sin6->sin6_addr;
     addr->family = INET_ADDR_V6;
     addr->port = sin6->sin6_port;
     return 1;
   } else {
-    struct sockaddr_in *sin = (struct sockaddr_in*)saddr;
+    struct sockaddr_in *sin = (struct sockaddr_in *)saddr;
     addr->addr.ipv4 = sin->sin_addr;
     addr->family = INET_ADDR_V4;
     addr->port = sin->sin_port;
