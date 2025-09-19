@@ -3,6 +3,7 @@
 #include "packetline/logger.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <ranges>
 #include <string_view>
 
@@ -30,7 +31,7 @@ public:
 
 Pipeline::Pipeline(const char *source, Plugins &&plugins) {
   std::vector<std::string> args{};
-  std::vector<const char *> argv{};
+  std::vector<std::string_view> argv{};
 
   std::ranges::for_each(
       std::views::split(std::string_view(source), std::string_view(" ")) |
@@ -40,19 +41,23 @@ Pipeline::Pipeline(const char *source, Plugins &&plugins) {
       [&args](const auto x) { args.push_back((x)); });
 
   std::ranges::for_each(args,
-                        [&argv](const auto &x) { argv.push_back(x.c_str()); });
+                        [&argv](const auto &x) { argv.push_back(x); });
 
-  parse(argv.data(), std::move(plugins));
+  parse(argv, std::move(plugins));
 }
 
 bool Pipeline::parse(const char **to_parse, Plugins &&plugins) {
-
-  size_t pipeline_count{1};
 
   std::vector<std::string_view> args{};
   for (size_t i = 0; to_parse[i] != nullptr; i++) {
     args.push_back(to_parse[i]);
   }
+
+  return Pipeline::parse(args, std::move(plugins));
+}
+
+bool Pipeline::parse(const std::vector<std::string_view> args, Plugins &&plugins) {
+  size_t pipeline_count{1};
 
   for (const auto pipeline_args :
        std::views::split(args, std::string_view("=>"))) {

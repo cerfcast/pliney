@@ -73,6 +73,7 @@ public:
 
 private:
   bool parse(const char **to_parse, Plugins &&plugins);
+  bool parse(const std::vector<std::string_view> args, Plugins &&plugins);
 
 private:
   std::string m_raw;
