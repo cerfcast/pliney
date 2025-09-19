@@ -13,26 +13,32 @@ target_link_options(pliney PRIVATE "-Wl,--export-dynamic-symbol" "plugin_debug_l
 add_library(target SHARED "plugins/target.c" ${PLUGIN_LIB_SRCS})
 target_include_directories(target PRIVATE include)
 set_property(TARGET target PROPERTY C_STANDARD 23)
+set_property(TARGET target PROPERTY OUTPUT_NAME pliney_pl_target)
 
 add_library(source SHARED "plugins/source.c" ${PLUGIN_LIB_SRCS})
 target_include_directories(source PRIVATE include)
 set_property(TARGET source PROPERTY C_STANDARD 23)
+set_property(TARGET source PROPERTY OUTPUT_NAME pliney_pl_source)
 
 add_library(type SHARED "plugins/type.c" ${PLUGIN_LIB_SRCS})
 target_include_directories(type PRIVATE include)
 set_property(TARGET type PROPERTY C_STANDARD 23)
+set_property(TARGET type PROPERTY OUTPUT_NAME pliney_pl_type)
 
 add_library(body SHARED "plugins/body.c" ${PLUGIN_LIB_SRCS})
 target_include_directories(body PRIVATE include)
 set_property(TARGET body PROPERTY C_STANDARD 23)
+set_property(TARGET body PROPERTY OUTPUT_NAME pliney_pl_body)
 
 add_library(exthdr-padn SHARED "plugins/exthdr-padn.c" ${PLUGIN_LIB_SRCS})
 target_include_directories(exthdr-padn PRIVATE include)
 set_property(TARGET exthdr-padn PROPERTY C_STANDARD 23)
+set_property(TARGET exthdr-padn PROPERTY OUTPUT_NAME pliney_pl_exthdr_padn)
 
 add_library(ttl SHARED "plugins/ttl.c" ${PLUGIN_LIB_SRCS})
 target_include_directories(ttl PRIVATE include)
 set_property(TARGET ttl PROPERTY C_STANDARD 23)
+set_property(TARGET ttl PROPERTY OUTPUT_NAME pliney_pl_ttl)
 
 add_dependencies(pliney target)
 add_dependencies(pliney source)
