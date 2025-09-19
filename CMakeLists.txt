@@ -2,13 +2,21 @@ cmake_minimum_required(VERSION 3.21)
 
 project(pliney DESCRIPTION "Make packets.")
 
-set(MAIN_SRCS src/packetline.cpp src/apis/utils.c src/logger.cpp src/pipeline.cpp src/plugin.cpp src/apis/exthdrs.c src/cli.cpp)
+set(PLINEY_MAIN src/packetline.cpp)
+set(PLINEY_INTERSTITIAL src/interstitial.cpp)
+set(PLINEY_SRCS src/apis/utils.c src/logger.cpp src/pipeline.cpp src/plugin.cpp src/apis/exthdrs.c src/cli.cpp)
 set(PLUGIN_LIB_SRCS src/apis/utils.c src/apis/exthdrs.c)
-add_executable(pliney ${MAIN_SRCS})
+
+add_executable(pliney ${PLINEY_MAIN} ${PLINEY_SRCS})
 target_include_directories(pliney PRIVATE include)
 set_property(TARGET pliney PROPERTY CXX_STANDARD 23)
 set_property(TARGET pliney PROPERTY C_STANDARD 23)
 target_link_options(pliney PRIVATE "-Wl,--export-dynamic-symbol" "plugin_debug_level")
+
+add_library(plineyi SHARED ${PLINEY_INTERSTITIAL} ${PLINEY_SRCS})
+target_include_directories(plineyi PRIVATE include)
+set_property(TARGET plineyi PROPERTY CXX_STANDARD 23)
+set_property(TARGET plineyi PROPERTY C_STANDARD 23)
 
 add_library(target SHARED "plugins/target.c" ${PLUGIN_LIB_SRCS})
 target_include_directories(target PRIVATE include)
@@ -47,7 +55,11 @@ add_dependencies(pliney body)
 add_dependencies(pliney exthdr-padn)
 add_dependencies(pliney ttl)
 
-set(FORMATTABLE_FILES "${MAIN_SRCS}")
+add_subdirectory(test)
+
+set(FORMATTABLE_FILES "${PLINEY_SRCS}")
+list(APPEND FORMATTABLE_FILES "${PLINEY_MAIN}")
+list(APPEND FORMATTABLE_FILES "${PLINEY_INTERSTITIAL}")
 list(APPEND FORMATTABLE_FILES "${PLUGIN_LIB_SRCS}")
 list(APPEND FORMATTABLE_FILES plugins/target.c plugins/source.c plugins/body.c plugins/exthdr-padn.c)
 list(TRANSFORM FORMATTABLE_FILES PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE FORMATTABLE_FILES)

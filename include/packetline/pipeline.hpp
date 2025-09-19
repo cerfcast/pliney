@@ -8,7 +8,9 @@
 class Pipeline {
 public:
 
-  explicit Pipeline(const char **source, Plugins &&plugins) {
+  Pipeline(const char *source, Plugins &&plugins);
+
+  Pipeline(const char **source, Plugins &&plugins) {
     parse(source, std::move(plugins));
   };
 

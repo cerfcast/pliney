@@ -2,7 +2,48 @@
 #include "api/plugin.h"
 #include "packetline/logger.hpp"
 
+#include <algorithm>
 #include <ranges>
+#include <string_view>
+
+template <typename W>
+class Trimit : public std::ranges::range_adaptor_closure<Trimit<W>> {
+  const W m_of_what;
+
+  template <typename T> static std::string trim(T &&to_trim, W of_what) {
+    const auto not_space = [of_what](const char c) { return c != of_what; };
+    const auto first_non_space =
+        std::find_if(to_trim.begin(), to_trim.end(), not_space);
+    const auto last_non_space =
+        std::find_if(to_trim.rbegin(), to_trim.rend(), not_space);
+    return std::string(first_non_space, last_non_space.base());
+  }
+
+public:
+  Trimit(W of_what) : m_of_what(of_what) {}
+
+  template <std::ranges::range T> constexpr auto operator()(const T &&x) {
+    return std::ranges::transform_view(
+        x, [this](auto x) { return trim(x, m_of_what); });
+  }
+};
+
+Pipeline::Pipeline(const char *source, Plugins &&plugins) {
+  std::vector<std::string> args{};
+  std::vector<const char *> argv{};
+
+  std::ranges::for_each(
+      std::views::split(std::string_view(source), std::string_view(" ")) |
+          std::views::transform(
+              [](const auto x) { return std::string_view(x); }) |
+          Trimit(' '),
+      [&args](const auto x) { args.push_back((x)); });
+
+  std::ranges::for_each(args,
+                        [&argv](const auto &x) { argv.push_back(x.c_str()); });
+
+  parse(argv.data(), std::move(plugins));
+}
 
 bool Pipeline::parse(const char **to_parse, Plugins &&plugins) {
 

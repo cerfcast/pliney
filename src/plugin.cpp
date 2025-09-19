@@ -61,7 +61,7 @@ Plugins::plugin_by_name(const std::string_view &plugin_name) {
 
 std::vector<Plugin> PluginDir::plugins() {
   auto dir = std::filesystem::directory_iterator{m_path};
-  auto plugin_matcher = std::regex{"lib.*.so"};
+  auto plugin_matcher = std::regex{"libpliney_pl_.*.so"};
   auto loaded_plugins = std::vector<Plugin>{};
 
   std::ranges::for_each(dir, [&](auto v) {
