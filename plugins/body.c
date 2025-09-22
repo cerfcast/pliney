@@ -8,6 +8,7 @@
 #include <memory.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 char *plugin_name = "body";
@@ -49,24 +50,36 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  // TODO: Make the number of bytes to read configurable.
-  unsigned char *body_data = (unsigned char *)calloc(body_size, sizeof(char));
-  int actual_body_size = read(fd, body_data, body_size);
+  // If the user did not give a body size, infer it from a stat of the file.
+  if (!body_size) {
+    struct stat fd_stat;
+    int fstat_result = fstat(fd, &fd_stat);
 
-  if (body_size != 0 && body_size != actual_body_size) {
-    if (actual_body_size < body_size) {
-      body_size = actual_body_size;
+    if (fstat_result < 0) {
+      close(fd);
+      char *err = (char *)calloc(255, sizeof(char));
+      snprintf(err, 255, "Could not stat data file (%s)", args[0]);
+      configuration_result.errstr = err;
+      return configuration_result;
     }
-    warn(
-        "Configured body size and actual body size did not match; using %lu.\n",
-        body_size);
-  } else {
-    body_size = actual_body_size;
+    body_size = fd_stat.st_size;
+  }
+
+  // Try to read all the data.
+  unsigned char *body_data = (unsigned char *)calloc(body_size, sizeof(char));
+  int read_body_size = read(fd, body_data, body_size);
+
+  // If we got less data, alert the user.
+  if (read_body_size < body_size) {
+    warn("Expected body size %lu but could only read %lu; using "
+         "%lu.\n",
+         body_size, read_body_size, read_body_size);
+    body_size = read_body_size;
   }
 
   body_p *body = (body_p *)malloc(sizeof(body_p));
   body->data = body_data;
-  body->len = actual_body_size;
+  body->len = body_size;
 
   configuration_result.configuration_cookie = body;
 
