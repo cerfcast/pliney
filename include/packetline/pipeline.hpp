@@ -9,10 +9,7 @@ class Pipeline {
 public:
 
   Pipeline(const char *source, Plugins &&plugins);
-
-  Pipeline(const char **source, Plugins &&plugins) {
-    parse(source, std::move(plugins));
-  };
+  Pipeline(const char **source, Plugins &&plugins);
 
   class Iterator {
   public:
@@ -72,8 +69,7 @@ public:
   }
 
 private:
-  bool parse(const char **to_parse, Plugins &&plugins);
-  bool parse(const std::vector<std::string_view> args, Plugins &&plugins);
+  void parse(const std::vector<std::string_view> args, Plugins &&plugins);
 
 private:
   std::string m_raw;

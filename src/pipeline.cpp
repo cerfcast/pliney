@@ -39,23 +39,22 @@ Pipeline::Pipeline(const char *source, Plugins &&plugins) {
           Trimit(' '),
       [&args](const auto x) { args.push_back((x)); });
 
-  std::ranges::for_each(args,
-                        [&argv](const auto &x) { argv.push_back(x); });
+  std::ranges::for_each(args, [&argv](const auto &x) { argv.push_back(x); });
 
   parse(argv, std::move(plugins));
 }
 
-bool Pipeline::parse(const char **to_parse, Plugins &&plugins) {
-
+Pipeline::Pipeline(const char **source, Plugins &&plugins) {
   std::vector<std::string_view> args{};
-  for (size_t i = 0; to_parse[i] != nullptr; i++) {
-    args.push_back(to_parse[i]);
+  for (size_t i = 0; source[i] != nullptr; i++) {
+    args.push_back(source[i]);
   }
 
-  return Pipeline::parse(args, std::move(plugins));
+  Pipeline::parse(args, std::move(plugins));
 }
 
-bool Pipeline::parse(const std::vector<std::string_view> args, Plugins &&plugins) {
+void Pipeline::parse(const std::vector<std::string_view> args,
+                     Plugins &&plugins) {
   size_t pipeline_count{1};
 
   for (const auto pipeline_args :
@@ -67,7 +66,7 @@ bool Pipeline::parse(const std::vector<std::string_view> args, Plugins &&plugins
       m_parse_errors.push_back(std::format(
           "Empty pipeline configurations are invalid (pipeline #{})",
           pipeline_count));
-      return false;
+      return;
     }
 
     const auto plugin_name = pipeline_args.front();
@@ -112,5 +111,4 @@ bool Pipeline::parse(const std::vector<std::string_view> args, Plugins &&plugins
 
     pipeline_count++;
   }
-  return true;
 }
