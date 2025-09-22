@@ -2,18 +2,20 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <dlfcn.h>
+#include <format>
 #include <netinet/in.h>
 #include <numeric>
 #include <optional>
 #include <sys/socket.h>
+#include <variant>
 
 #include "api/plugin.h"
 #include "api/utils.h"
 #include "packetline/executors.hpp"
 #include "packetline/logger.hpp"
+#include "packetline/packetline.hpp"
 #include "packetline/pipeline.hpp"
-
-#include <dlfcn.h>
 
 static bool configured = false;
 static std::optional<Pipeline> maybe_pipeline{};
@@ -116,6 +118,27 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
   return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
 }
 
+maybe_packet_t msghdr_to_packet(const struct msghdr *hdr) {
+  packet_t packet{};
+
+  packet.body = body_p{.len = hdr->msg_iov->iov_len,
+                       .data = (uint8_t *)hdr->msg_iov->iov_base};
+
+  if (hdr->msg_name != 0) {
+    // Get the destination address.
+    ip_addr_t dest_pliney_addr;
+    int result = sockaddr_to_ip((const struct sockaddr *)hdr->msg_name,
+                                hdr->msg_namelen, &dest_pliney_addr);
+    if (result < 0) {
+      return std::format("Could not convert the address in the message header "
+                         "to a pliney IP address.");
+    }
+    packet.target = dest_pliney_addr;
+  }
+
+  return packet;
+}
+
 ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
   static auto orig_sendmsg = (sendmsg_pt)dlsym(RTLD_NEXT, "sendmsg");
 
@@ -142,21 +165,18 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
     connection_type = INET_STREAM;
   }
 
-  packet_t initial_packet{};
+  maybe_packet_t maybe_initial_packet{msghdr_to_packet(hdr)};
 
-  // Assume that the body has only one iov.
-  // TODO: Handle bodies that are longer.
-  initial_packet.body = body_p{.len = hdr->msg_iov->iov_len,
-                               .data = (uint8_t *)hdr->msg_iov->iov_base};
-
-  if (hdr->msg_name != 0) {
-    // Get the destination address.
-    ip_addr_t dest_pliney_addr;
-    result = sockaddr_to_ip((const struct sockaddr *)hdr->msg_name,
-                            hdr->msg_namelen, &dest_pliney_addr);
-
-    initial_packet.target = dest_pliney_addr;
+  if (std::holds_alternative<std::string>(maybe_initial_packet)) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR,
+        std::format("Error occurred converting the msg (sendmsg) into a pliney "
+                    "packet: {}\n",
+                    std::get<std::string>(maybe_initial_packet)));
+    return orig_sendmsg(sockfd, hdr, flags);
   }
+
+  auto initial_packet = std::get<packet_t>(maybe_initial_packet);
 
   auto executor = SerialPipelineExecutor{initial_packet};
   auto maybe_result = executor.execute(std::move(*maybe_pipeline));
