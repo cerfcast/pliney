@@ -37,6 +37,20 @@ For example, if you want to set the TTL to 12 on all DNS packets sent by `nslook
 $ PLINEY_PIPELINE="ttl 12" LD_PRELOAD=/path/to/libplineyi.so nslookup cnn.com
 ```
 
+### Using
+
+#### Cli
+
+More coming soon!
+
+#### Interstitial
+
+More coming soon!
+
+**Warnings**:
+1. When retargeting packets (i.e., a pliney pipeline uses the `target` plugin), if the connection on which packets are being retargeted was created on a socket
+   that cannot route to the specified new target, then those packets will not be transmitted.
+
 ### Test Cases
 
 #### Cli
@@ -59,6 +73,23 @@ $ path/to/pliney -type dgram \!\> body ./test/data/test_data.bin 50 =\> target 8
 $ path/to/pliney \!\> body ./test/data/http_get =\> target 151.101.3.5 80
 ```
 
+##### DNS Query For cnn.com
+
+```bash
+$ path/to/pliney \!\> body ./test/data/dns_cnn =\> target 127.0.0.53 53
+```
+
 #### Interstitial
 
-Coming soon.
+##### Redirect nslookup to 8.8.8.8
+
+```bash
+$ PLINEY_PIPELINE="target 8.8.8.8 53" LD_PRELOAD=build/libplineyi.so  nslookup cnn.com 1.1.1.1
+```
+
+##### Rewrite nslookup from Google to CNN
+
+```bash
+$ PLINEY_PIPELINE="body test/data/dns_cnn" LD_PRELOAD=build/libplineyi.so  nslookup google.com
+```
+
