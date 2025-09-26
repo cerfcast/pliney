@@ -93,3 +93,13 @@ $ PLINEY_PIPELINE="target 8.8.8.8 53" LD_PRELOAD=build/libplineyi.so  nslookup c
 $ PLINEY_PIPELINE="body test/data/dns_cnn" LD_PRELOAD=build/libplineyi.so  nslookup google.com
 ```
 
+### Warnings/Notes
+
+#### Linux Behavior For IPv6 Extension Headers
+
+1. PadN TLV length must be less than 7 bytes in length.[^padn-length]
+2. PadN TLV bodies can only contain 0s.[^padn-zeros]
+
+[^padn-length]: "Linux source code (v6.16.9) - Bootlin Elixir Cross Referencer" Available: https://elixir.bootlin.com/linux/v6.16.9/source/net/ipv6/exthdrs.c#L150. [Accessed: Sep. 26, 2025]
+ 
+[^padn-zeros]: "Linux source code (v6.16.9) - Bootlin Elixir Cross Referencer" Available: https://elixir.bootlin.com/linux/v6.16.9/source/net/ipv6/exthdrs.c#L159. [Accessed: Sep. 26, 2025]
