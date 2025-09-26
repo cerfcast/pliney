@@ -4,7 +4,7 @@ project(pliney DESCRIPTION "Make packets.")
 
 set(PLINEY_MAIN src/packetline.cpp)
 set(PLINEY_INTERSTITIAL src/interstitial.cpp)
-set(PLINEY_SRCS src/apis/utils.c src/logger.cpp src/pipeline.cpp src/plugin.cpp src/apis/exthdrs.c src/cli.cpp src/executors.cpp)
+set(PLINEY_SRCS src/apis/utils.c src/logger.cpp src/pipeline.cpp src/plugin.cpp src/apis/exthdrs.c src/cli.cpp src/executors.cpp src/utilities.cpp)
 set(PLUGIN_LIB_SRCS src/apis/utils.c src/apis/exthdrs.c)
 
 add_executable(pliney ${PLINEY_MAIN} ${PLINEY_SRCS})
