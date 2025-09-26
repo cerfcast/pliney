@@ -34,13 +34,13 @@ int main(int argc, char **argv) {
     saddr_len = sizeof(struct sockaddr_in6);
     int inet_pton_result =
         inet_pton(AF_INET6, "fd7a:115c:a1e0::5fa2:3b13", &sin6->sin6_addr);
-    sin6->sin6_port = 53;
+    sin6->sin6_port = htons(53);
     sin6->sin6_family = AF_INET6;
   } else {
     struct sockaddr_in *sin = (struct sockaddr_in *)&saddr;
     saddr_len = sizeof(struct sockaddr_in);
     int inet_pton_result = inet_pton(AF_INET, "8.8.8.8", &sin->sin_addr);
-    sin->sin_port = 53;
+    sin->sin_port = htons(53);
     sin->sin_family = AF_INET;
   }
 
