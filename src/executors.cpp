@@ -1,6 +1,7 @@
 #include "packetline/executors.hpp"
 
 #include "api/exthdrs.h"
+#include "api/plugin.h"
 #include "api/utils.h"
 #include "packetline/logger.hpp"
 #include "packetline/packetline.hpp"
@@ -35,22 +36,9 @@ maybe_packet_t SerialPipelineExecutor::execute(Pipeline &&pipeline) {
   return packet;
 }
 
-bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
-                                          packet_t packet) {
+bool NetworkExecutor::execute(int socket, int connection_type,
+                              packet_t packet) {
   auto actual_result = packet;
-
-  struct sockaddr *destination = nullptr;
-  int destination_len = 0;
-
-  if (ip_set(actual_result.target)) {
-
-    destination_len = ip_to_sockaddr(actual_result.target, &destination);
-    if (destination_len < 0) {
-      std::cerr << "Error occurred converting generated destination into "
-                   "system-compatible destination.\n";
-      return false;
-    }
-  }
 
   if (actual_result.header.priority != 0) {
     // Put the hoplimit into an int -- IPv6 requires it and IPv4 is okay with
@@ -78,67 +66,88 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
       return false;
     }
   }
+  return true;
+}
+
+bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
+                                          packet_t packet) {
+
+  if (!NetworkExecutor::execute(socket, connection_type, packet)) {
+    return false;
+  }
+
+  struct sockaddr *destination = nullptr;
+  int destination_len = ip_to_sockaddr(packet.target, &destination);
+  if (destination_len < 0) {
+    std::cerr << "Error occurred converting generated destination into "
+                 "system-compatible destination.\n";
+    close(socket);
+    return false;
+  }
 
   if (connection_type == INET_STREAM) {
     Logger::ActiveLogger()->log(Logger::DEBUG,
                                 "Interstitial executor does nothing for "
-                                "stream-oriented sockets (yet)\n");
+                                "stream-oriented sockets (yet)");
 
   } else if (connection_type == INET_DGRAM) {
     Logger::ActiveLogger()->log(Logger::DEBUG,
                                 "Interstitial executor does nothing for "
-                                "datagram-oriented sockets (yet)\n");
+                                "datagram-oriented sockets (yet)");
 
-    if (!coalesce_extensions(&actual_result.header_extensions, IPV6_HOPOPTS)) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
-      return false;
-    }
-
-    memset(&m_msg, 0, sizeof(struct msghdr));
-    m_iov.iov_base = actual_result.body.data;
-    m_iov.iov_len = actual_result.body.len;
-
-    m_msg.msg_iov = &m_iov;
-    m_msg.msg_iovlen = 1;
-
-    m_msg.msg_name = destination;
-    m_msg.msg_namelen = destination_len;
-    m_msg.msg_control = nullptr;
-    m_msg.msg_controllen = 0;
-
-    if (actual_result.header_extensions.extensions_count > 0) {
-      for (auto extension_i{0};
-           extension_i < actual_result.header_extensions.extensions_count;
-           extension_i++) {
-
-        auto extension_header_len =
-            ((2 /* for extension header T/L */ +
-              actual_result.header_extensions.extensions_values[extension_i]
-                  ->len +
-              (8 - 1)) /
-             8) *
-            8;
+    if (packet.target.family == INET_ADDR_V6) {
+      if (!coalesce_extensions(&packet.header_extensions,
+                               IPV6_HOPOPTS)) {
         Logger::ActiveLogger()->log(
-            Logger::DEBUG,
-            std::format("extension_header_len: {}", extension_header_len));
+            Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
+        return false;
+      }
 
-        extend_cmsg(&m_msg, extension_header_len);
+      memset(&m_msg, 0, sizeof(struct msghdr));
+      m_iov.iov_base = packet.body.data;
+      m_iov.iov_len = packet.body.len;
 
-        struct cmsghdr *hdr = CMSG_FIRSTHDR(&m_msg);
-        hdr->cmsg_level = SOL_IPV6;
-        hdr->cmsg_type =
-            actual_result.header_extensions.extensions_values[extension_i]
-                ->type;
-        CMSG_DATA(hdr)[0] = 0; // Next header
-        CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
+      m_msg.msg_iov = &m_iov;
+      m_msg.msg_iovlen = 1;
 
-        // HbH Extension Header Data.
-        memcpy(CMSG_DATA(hdr) + 2,
-               actual_result.header_extensions.extensions_values[extension_i]
-                   ->data,
-               actual_result.header_extensions.extensions_values[extension_i]
-                   ->len);
+      m_msg.msg_name = destination;
+      m_msg.msg_namelen = destination_len;
+      m_msg.msg_control = nullptr;
+      m_msg.msg_controllen = 0;
+
+      if (packet.header_extensions.extensions_count > 0) {
+        for (auto extension_i{0};
+             extension_i < packet.header_extensions.extensions_count;
+             extension_i++) {
+
+          auto extension_header_len =
+              ((2 /* for extension header T/L */ +
+                packet.header_extensions.extensions_values[extension_i]
+                    ->len +
+                (8 - 1)) /
+               8) *
+              8;
+          Logger::ActiveLogger()->log(
+              Logger::DEBUG,
+              std::format("extension_header_len: {}", extension_header_len));
+
+          extend_cmsg(&m_msg, extension_header_len);
+
+          struct cmsghdr *hdr = CMSG_FIRSTHDR(&m_msg);
+          hdr->cmsg_level = SOL_IPV6;
+          hdr->cmsg_type =
+              packet.header_extensions.extensions_values[extension_i]
+                  ->type;
+          CMSG_DATA(hdr)[0] = 0; // Next header
+          CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
+
+          // HbH Extension Header Data.
+          memcpy(CMSG_DATA(hdr) + 2,
+                 packet.header_extensions.extensions_values[extension_i]
+                     ->data,
+                 packet.header_extensions.extensions_values[extension_i]
+                     ->len);
+        }
       }
     }
   }
@@ -148,10 +157,9 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
 
 bool CliNetworkExecutor::execute(int socket, int connection_type,
                                  packet_t packet) {
-  auto actual_result = packet;
 
   struct sockaddr *destination = nullptr;
-  int destination_len = ip_to_sockaddr(actual_result.target, &destination);
+  int destination_len = ip_to_sockaddr(packet.target, &destination);
   if (destination_len < 0) {
     std::cerr << "Error occurred converting generated destination into "
                  "system-compatible destination.\n";
@@ -159,68 +167,13 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     return false;
   }
 
-  if (ip_set(actual_result.source)) {
-    sockaddr_storage saddr{};
-    size_t saddr_len{0};
-
-    if (actual_result.source.family == INET_ADDR_V4) {
-      sockaddr_in *source{reinterpret_cast<sockaddr_in *>(&saddr)};
-      saddr_len = sizeof(sockaddr_in);
-
-      source->sin_addr = actual_result.source.addr.ipv4;
-      source->sin_family = AF_INET;
-      source->sin_port = actual_result.source.port;
-
-    } else {
-      sockaddr_in6 *source{reinterpret_cast<sockaddr_in6 *>(&saddr)};
-      saddr_len = sizeof(sockaddr_in6);
-
-      source->sin6_addr = actual_result.source.addr.ipv6;
-      source->sin6_family = AF_INET6;
-      source->sin6_port = actual_result.source.port;
-      source->sin6_flowinfo = 0;
-      source->sin6_scope_id = 0;
-    }
-
-    if (bind(socket, (struct sockaddr *)&saddr, saddr_len) < 0) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, std::format("Could not bind to a source address: {}!",
-                                     std::strerror(errno)));
-      close(socket);
-      return false;
-    }
-  }
-
-  if (actual_result.header.priority != 0) {
-    // Put the hoplimit into an int -- IPv6 requires it and IPv4 is okay with
-    // it.
-    int hoplimit = actual_result.header.priority;
-    int result = 0;
-
-    if (actual_result.target.family == INET_ADDR_V6) {
-      if (connection_type == INET_DGRAM) {
-        result = setsockopt(socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hoplimit,
-                            sizeof(int));
-      } else {
-        Logger::ActiveLogger()->log(
-            Logger::WARN, "Setting the hoplimit on a non-dgram IPv6 socket is "
-                          "not supported.");
-      }
-    } else {
-      result = setsockopt(socket, IPPROTO_IP, IP_TTL, &hoplimit, sizeof(int));
-    }
-
-    if (result < 0) {
-      std::cerr << std::format(
-          "There was an error setting the TTL on the socket: {}\n",
-          std::strerror(errno));
-      return false;
-    }
+  if (!NetworkExecutor::execute(socket, connection_type, packet)) {
+    return false;
   }
 
   Logger::ActiveLogger()->log(Logger::DEBUG,
                               std::format("Trying to send a packet to {}.",
-                                          stringify_ip(actual_result.target)));
+                                          stringify_ip(packet.target)));
 
   if (connection_type == INET_STREAM) {
     auto connect_result = connect(socket, destination, destination_len);
@@ -231,25 +184,20 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
                                      strerror(errno)));
       return false;
     }
-    if (write(socket, actual_result.body.data, actual_result.body.len) < 0) {
+    if (write(socket, packet.body.data, packet.body.len) < 0) {
       Logger::ActiveLogger()->log(
           Logger::ERROR, std::format("Error occurred sending data: could not "
                                      "write the body of the packet: {}",
                                      strerror(errno)));
     };
   } else if (connection_type == INET_DGRAM) {
-    if (!coalesce_extensions(&actual_result.header_extensions, IPV6_HOPOPTS)) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
-      return false;
-    }
 
-    struct msghdr msg {};
-    struct iovec iov {};
+    struct msghdr msg{};
+    struct iovec iov{};
 
     memset(&msg, 0, sizeof(struct msghdr));
-    iov.iov_base = actual_result.body.data;
-    iov.iov_len = actual_result.body.len;
+    iov.iov_base = packet.body.data;
+    iov.iov_len = packet.body.len;
 
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
@@ -260,38 +208,46 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     msg.msg_control = nullptr;
     msg.msg_controllen = 0;
 
-    if (actual_result.header_extensions.extensions_count > 0) {
-      for (auto extension_i{0};
-           extension_i < actual_result.header_extensions.extensions_count;
-           extension_i++) {
-
-        auto extension_header_len =
-            ((2 /* for extension header T/L */ +
-              actual_result.header_extensions.extensions_values[extension_i]
-                  ->len +
-              (8 - 1)) /
-             8) *
-            8;
+    if (packet.target.family == INET_ADDR_V6) {
+      if (!coalesce_extensions(&packet.header_extensions,
+                               IPV6_HOPOPTS)) {
         Logger::ActiveLogger()->log(
-            Logger::DEBUG,
-            std::format("extension_header_len: {}", extension_header_len));
+            Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
+        return false;
+      }
+      if (packet.header_extensions.extensions_count > 0) {
+        for (auto extension_i{0};
+             extension_i < packet.header_extensions.extensions_count;
+             extension_i++) {
 
-        extend_cmsg(&msg, extension_header_len);
+          auto extension_header_len =
+              ((2 /* for extension header T/L */ +
+                packet.header_extensions.extensions_values[extension_i]
+                    ->len +
+                (8 - 1)) /
+               8) *
+              8;
+          Logger::ActiveLogger()->log(
+              Logger::DEBUG,
+              std::format("extension_header_len: {}", extension_header_len));
 
-        struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
-        hdr->cmsg_level = SOL_IPV6;
-        hdr->cmsg_type =
-            actual_result.header_extensions.extensions_values[extension_i]
-                ->type;
-        CMSG_DATA(hdr)[0] = 0; // Next header
-        CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
+          extend_cmsg(&msg, extension_header_len);
 
-        // HbH Extension Header Data.
-        memcpy(CMSG_DATA(hdr) + 2,
-               actual_result.header_extensions.extensions_values[extension_i]
-                   ->data,
-               actual_result.header_extensions.extensions_values[extension_i]
-                   ->len);
+          struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
+          hdr->cmsg_level = SOL_IPV6;
+          hdr->cmsg_type =
+              packet.header_extensions.extensions_values[extension_i]
+                  ->type;
+          CMSG_DATA(hdr)[0] = 0; // Next header
+          CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
+
+          // HbH Extension Header Data.
+          memcpy(CMSG_DATA(hdr) + 2,
+                 packet.header_extensions.extensions_values[extension_i]
+                     ->data,
+                 packet.header_extensions.extensions_values[extension_i]
+                     ->len);
+        }
       }
     }
 

@@ -28,7 +28,7 @@ private:
 
 class NetworkExecutor {
 public:
-  virtual bool execute(int socket, int connection_type, packet_t packet) = 0;
+  virtual bool execute(int socket, int connection_type, packet_t packet);
 };
 
 class InterstitialNetworkExecutor : public NetworkExecutor {
