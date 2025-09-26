@@ -244,8 +244,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
       return false;
     }
 
-    struct msghdr msg{};
-    struct iovec iov{};
+    struct msghdr msg {};
+    struct iovec iov {};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = actual_result.body.data;
