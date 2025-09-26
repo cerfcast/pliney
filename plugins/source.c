@@ -55,7 +55,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
 
   if (cookie) {
     ip_addr_t *addr = (ip_addr_t *)cookie;
-    copy_ip(&packet->source, addr);
+    selectively_copy_ip(&packet->source, addr);
   }
 
   result.success = true;

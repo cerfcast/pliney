@@ -38,9 +38,14 @@ const char *stringify_ip(ip_addr_t addr) {
   return "";
 }
 
-void copy_ip(ip_addr_t *dest, ip_addr_t *src) {
-  dest->addr = src->addr;
-  dest->port = src->port;
+void selectively_copy_ip(ip_addr_t *dest, ip_addr_t *src) {
+  if (ip_set(*src)) {
+    dest->addr = src->addr;
+  }
+  if (src->port != 0) {
+    dest->port = src->port;
+  }
+
   dest->family = src->family;
 }
 

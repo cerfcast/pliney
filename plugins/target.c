@@ -27,8 +27,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
       return configuration_result;
     }
   } else {
-    warn("Target plugin using default port of 80.\n");
-    addr->port = htons(80);
+    warn("Target plugin was not given a port.\n");
   }
 
   if (argc > 0 && (0 < ip_parse(args[0], addr))) {
@@ -47,7 +46,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
   if (cookie != NULL) {
     ip_addr_t *parsed_target = (ip_addr_t *)cookie;
 
-    copy_ip(&packet->target, parsed_target);
+    selectively_copy_ip(&packet->target, parsed_target);
     result.success = 1;
 
   } else {

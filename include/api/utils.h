@@ -18,7 +18,7 @@ int sockaddr_to_ip(const struct sockaddr *saddr, socklen_t saddr_len, ip_addr_t 
 int ip_to_socket(ip_addr_t addr, uint8_t type);
 int ip_parse(const char *to_parse, ip_addr_t *result);
 int ip_set(ip_addr_t addr);
-void copy_ip(ip_addr_t *dest, ip_addr_t *src);
+void selectively_copy_ip(ip_addr_t *dest, ip_addr_t *src);
 
 bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len);
 
