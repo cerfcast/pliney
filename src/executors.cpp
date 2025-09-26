@@ -8,6 +8,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <netinet/in.h>
 #include <sys/socket.h>
 
 maybe_packet_t SerialPipelineExecutor::execute(Pipeline &&pipeline) {
@@ -103,11 +104,10 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
 
     m_msg.msg_name = destination;
     m_msg.msg_namelen = destination_len;
+    m_msg.msg_control = nullptr;
+    m_msg.msg_controllen = 0;
 
     if (actual_result.header_extensions.extensions_count > 0) {
-
-      // First, calculate _all_ the sizes for the extension headers.
-      size_t cmsg_space_len_needed = 0;
       for (auto extension_i{0};
            extension_i < actual_result.header_extensions.extensions_count;
            extension_i++) {
@@ -123,32 +123,13 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
             Logger::DEBUG,
             std::format("extension_header_len: {}", extension_header_len));
 
-        cmsg_space_len_needed += CMSG_LEN(extension_header_len);
-      }
-      auto cmsg_space_len = CMSG_ALIGN(cmsg_space_len_needed);
-      uint8_t *cmsg_buf = (uint8_t *)calloc(cmsg_space_len, sizeof(uint8_t));
+        extend_cmsg(&m_msg, extension_header_len);
 
-      m_msg.msg_control = cmsg_buf;
-      m_msg.msg_controllen = cmsg_space_len;
-
-      struct cmsghdr *hdr = CMSG_FIRSTHDR(&m_msg);
-      for (auto extension_i{0};
-           extension_i < actual_result.header_extensions.extensions_count;
-           extension_i++, hdr = CMSG_NXTHDR(&m_msg, hdr)) {
-
-        auto extension_header_len =
-            ((2 /* for extension header T/L */ +
-              actual_result.header_extensions.extensions_values[extension_i]
-                  ->len +
-              (8 - 1)) /
-             8) *
-            8;
+        struct cmsghdr *hdr = CMSG_FIRSTHDR(&m_msg);
+        hdr->cmsg_level = SOL_IPV6;
         hdr->cmsg_type =
             actual_result.header_extensions.extensions_values[extension_i]
                 ->type;
-        hdr->cmsg_level = SOL_IPV6;
-        hdr->cmsg_len = CMSG_LEN(extension_header_len);
-
         CMSG_DATA(hdr)[0] = 0; // Next header
         CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
 
@@ -263,8 +244,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
       return false;
     }
 
-    struct msghdr msg {};
-    struct iovec iov {};
+    struct msghdr msg{};
+    struct iovec iov{};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = actual_result.body.data;
@@ -276,10 +257,10 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     msg.msg_name = destination;
     msg.msg_namelen = destination_len;
 
-    if (actual_result.header_extensions.extensions_count > 0) {
+    msg.msg_control = nullptr;
+    msg.msg_controllen = 0;
 
-      // First, calculate _all_ the sizes for the extension headers.
-      size_t cmsg_space_len_needed = 0;
+    if (actual_result.header_extensions.extensions_count > 0) {
       for (auto extension_i{0};
            extension_i < actual_result.header_extensions.extensions_count;
            extension_i++) {
@@ -295,32 +276,13 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
             Logger::DEBUG,
             std::format("extension_header_len: {}", extension_header_len));
 
-        cmsg_space_len_needed += CMSG_LEN(extension_header_len);
-      }
-      auto cmsg_space_len = CMSG_ALIGN(cmsg_space_len_needed);
-      uint8_t *cmsg_buf = (uint8_t *)calloc(cmsg_space_len, sizeof(uint8_t));
+        extend_cmsg(&msg, extension_header_len);
 
-      msg.msg_control = cmsg_buf;
-      msg.msg_controllen = cmsg_space_len;
-
-      struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
-      for (auto extension_i{0};
-           extension_i < actual_result.header_extensions.extensions_count;
-           extension_i++, hdr = CMSG_NXTHDR(&msg, hdr)) {
-
-        auto extension_header_len =
-            ((2 /* for extension header T/L */ +
-              actual_result.header_extensions.extensions_values[extension_i]
-                  ->len +
-              (8 - 1)) /
-             8) *
-            8;
+        struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
+        hdr->cmsg_level = SOL_IPV6;
         hdr->cmsg_type =
             actual_result.header_extensions.extensions_values[extension_i]
                 ->type;
-        hdr->cmsg_level = SOL_IPV6;
-        hdr->cmsg_len = CMSG_LEN(extension_header_len);
-
         CMSG_DATA(hdr)[0] = 0; // Next header
         CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
 
