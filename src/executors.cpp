@@ -94,6 +94,17 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
     Logger::ActiveLogger()->log(Logger::DEBUG,
                                 "Interstitial executor does nothing for "
                                 "datagram-oriented sockets (yet)");
+    memset(&m_msg, 0, sizeof(struct msghdr));
+    m_iov.iov_base = packet.body.data;
+    m_iov.iov_len = packet.body.len;
+
+    m_msg.msg_iov = &m_iov;
+    m_msg.msg_iovlen = 1;
+
+    m_msg.msg_name = destination;
+    m_msg.msg_namelen = destination_len;
+    m_msg.msg_control = nullptr;
+    m_msg.msg_controllen = 0;
 
     if (packet.target.family == INET_ADDR_V6) {
       if (!coalesce_extensions(&packet.header_extensions, IPV6_HOPOPTS)) {
@@ -101,18 +112,6 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
             Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
         return false;
       }
-
-      memset(&m_msg, 0, sizeof(struct msghdr));
-      m_iov.iov_base = packet.body.data;
-      m_iov.iov_len = packet.body.len;
-
-      m_msg.msg_iov = &m_iov;
-      m_msg.msg_iovlen = 1;
-
-      m_msg.msg_name = destination;
-      m_msg.msg_namelen = destination_len;
-      m_msg.msg_control = nullptr;
-      m_msg.msg_controllen = 0;
 
       if (packet.header_extensions.extensions_count > 0) {
         for (auto extension_i{0};
@@ -187,8 +186,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     };
   } else if (connection_type == INET_DGRAM) {
 
-    struct msghdr msg {};
-    struct iovec iov {};
+    struct msghdr msg{};
+    struct iovec iov{};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = packet.body.data;
