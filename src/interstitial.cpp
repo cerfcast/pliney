@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <dlfcn.h>
 #include <format>
 #include <netinet/in.h>
@@ -16,6 +17,7 @@
 #include "packetline/logger.hpp"
 #include "packetline/packetline.hpp"
 #include "packetline/pipeline.hpp"
+#include "packetline/utilities.hpp"
 
 static bool configured = false;
 static std::optional<Pipeline> maybe_pipeline{};
@@ -108,12 +110,24 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
 
     auto netexec = InterstitialNetworkExecutor();
     netexec.execute(sockfd, connection_type, actual_result);
-  } else {
-    Logger::ActiveLogger()->log(
-        Logger::ERROR,
-        std::format("Error occurred executing the pipeline: {}\n",
-                    std::get<std::string>(maybe_result)));
+
+    struct sockaddr *saddr{nullptr};
+    auto result = ip_to_sockaddr(actual_result.target, &saddr);
+    if (result < 0) {
+      Logger::ActiveLogger()->log(
+          Logger::ERROR,
+          std::format(
+              "Error occurred converting the pliney target to a system IP\n"));
+
+      return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
+    }
+    socklen_t saddr_len = result;
+    return orig_sendto(sockfd, actual_result.body.data, actual_result.body.len,
+                       flags, saddr, saddr_len);
   }
+  Logger::ActiveLogger()->log(
+      Logger::ERROR, std::format("Error occurred executing the pipeline: {}\n",
+                                 std::get<std::string>(maybe_result)));
 
   return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
 }
@@ -178,6 +192,32 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
 
   auto initial_packet = std::get<packet_t>(maybe_initial_packet);
 
+  ip_addr_t original_target{};
+
+  if (!hdr->msg_namelen) {
+    // Because there is no name and our pipeline might need it, let's
+    // fetch it ...
+    struct sockaddr_storage saddr;
+    socklen_t saddr_len{0};
+    auto result = getsockname(sockfd, (struct sockaddr *)&saddr, &saddr_len);
+
+    if (result < 0) {
+      Logger::ActiveLogger()->log(Logger::ERROR,
+                                  std::format("Error getting the sockname.\n"));
+      return orig_sendmsg(sockfd, hdr, flags);
+    }
+
+    result = sockaddr_to_ip((const struct sockaddr *)&saddr, saddr_len,
+                            &original_target);
+    if (result < 0) {
+      Logger::ActiveLogger()->log(
+          Logger::ERROR, std::format("Error converting the socket.\n"));
+      return orig_sendmsg(sockfd, hdr, flags);
+    }
+
+    initial_packet.target = original_target;
+  }
+
   auto executor = SerialPipelineExecutor{initial_packet};
   auto maybe_result = executor.execute(std::move(*maybe_pipeline));
 
@@ -189,14 +229,23 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
 
     struct msghdr new_msghdr = netexec.get_msg();
 
+    // If the _original_ hdr did not have an address, ours shouldn't either.
+    // But, if the address changed, then we should warn the user.
+    if (!hdr->msg_namelen) {
+      if (original_target != actual_result.target) {
+        Logger::ActiveLogger()->log(
+            Logger::ERROR,
+            std::format("Pliney modified the target of a connected socket; the "
+                        "change will have no effect.\n"));
+      }
+      new_msghdr.msg_name = nullptr;
+      new_msghdr.msg_namelen = 0;
+    }
     return orig_sendmsg(sockfd, &new_msghdr, flags);
-
-  } else {
-    Logger::ActiveLogger()->log(
-        Logger::ERROR,
-        std::format("Error occurred executing the pipeline: {}\n",
-                    std::get<std::string>(maybe_result)));
   }
+  Logger::ActiveLogger()->log(
+      Logger::ERROR, std::format("Error occurred executing the pipeline: {}\n",
+                                 std::get<std::string>(maybe_result)));
 
   return orig_sendmsg(sockfd, hdr, flags);
 }
