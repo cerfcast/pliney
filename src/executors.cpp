@@ -96,8 +96,7 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
                                 "datagram-oriented sockets (yet)");
 
     if (packet.target.family == INET_ADDR_V6) {
-      if (!coalesce_extensions(&packet.header_extensions,
-                               IPV6_HOPOPTS)) {
+      if (!coalesce_extensions(&packet.header_extensions, IPV6_HOPOPTS)) {
         Logger::ActiveLogger()->log(
             Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
         return false;
@@ -122,8 +121,7 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
 
           auto extension_header_len =
               ((2 /* for extension header T/L */ +
-                packet.header_extensions.extensions_values[extension_i]
-                    ->len +
+                packet.header_extensions.extensions_values[extension_i]->len +
                 (8 - 1)) /
                8) *
               8;
@@ -136,17 +134,14 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
           struct cmsghdr *hdr = CMSG_FIRSTHDR(&m_msg);
           hdr->cmsg_level = SOL_IPV6;
           hdr->cmsg_type =
-              packet.header_extensions.extensions_values[extension_i]
-                  ->type;
+              packet.header_extensions.extensions_values[extension_i]->type;
           CMSG_DATA(hdr)[0] = 0; // Next header
           CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
 
           // HbH Extension Header Data.
           memcpy(CMSG_DATA(hdr) + 2,
-                 packet.header_extensions.extensions_values[extension_i]
-                     ->data,
-                 packet.header_extensions.extensions_values[extension_i]
-                     ->len);
+                 packet.header_extensions.extensions_values[extension_i]->data,
+                 packet.header_extensions.extensions_values[extension_i]->len);
         }
       }
     }
@@ -192,8 +187,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     };
   } else if (connection_type == INET_DGRAM) {
 
-    struct msghdr msg{};
-    struct iovec iov{};
+    struct msghdr msg {};
+    struct iovec iov {};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = packet.body.data;
@@ -209,8 +204,7 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     msg.msg_controllen = 0;
 
     if (packet.target.family == INET_ADDR_V6) {
-      if (!coalesce_extensions(&packet.header_extensions,
-                               IPV6_HOPOPTS)) {
+      if (!coalesce_extensions(&packet.header_extensions, IPV6_HOPOPTS)) {
         Logger::ActiveLogger()->log(
             Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
         return false;
@@ -222,8 +216,7 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
 
           auto extension_header_len =
               ((2 /* for extension header T/L */ +
-                packet.header_extensions.extensions_values[extension_i]
-                    ->len +
+                packet.header_extensions.extensions_values[extension_i]->len +
                 (8 - 1)) /
                8) *
               8;
@@ -236,17 +229,14 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
           struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
           hdr->cmsg_level = SOL_IPV6;
           hdr->cmsg_type =
-              packet.header_extensions.extensions_values[extension_i]
-                  ->type;
+              packet.header_extensions.extensions_values[extension_i]->type;
           CMSG_DATA(hdr)[0] = 0; // Next header
           CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
 
           // HbH Extension Header Data.
           memcpy(CMSG_DATA(hdr) + 2,
-                 packet.header_extensions.extensions_values[extension_i]
-                     ->data,
-                 packet.header_extensions.extensions_values[extension_i]
-                     ->len);
+                 packet.header_extensions.extensions_values[extension_i]->data,
+                 packet.header_extensions.extensions_values[extension_i]->len);
         }
       }
     }
