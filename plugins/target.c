@@ -50,8 +50,6 @@ generate_result_t generate(packet_t *packet, void *cookie) {
     copy_ip(&packet->target, parsed_target);
     result.success = 1;
 
-    free(cookie);
-
   } else {
     result.success = 0;
   }

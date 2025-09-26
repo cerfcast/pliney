@@ -94,7 +94,6 @@ generate_result_t generate(packet_t *packet, void *cookie) {
     packet->body = *body;
 
     result.success = 1;
-    free(cookie);
 
   } else {
     result.success = 0;

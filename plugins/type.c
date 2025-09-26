@@ -41,7 +41,6 @@ generate_result_t generate(packet_t *packet, void *cookie) {
     result.success = 0;
   }
 
-  free(cookie);
   return result;
 }
 
