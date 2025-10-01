@@ -89,6 +89,7 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
     close(socket);
     return false;
   }
+  m_destination = std::unique_ptr<struct sockaddr, SockaddrDeleter>(destination, SockaddrDeleter(destination_len));
 
   if (connection_type == INET_STREAM) {
     Logger::ActiveLogger()->log(Logger::DEBUG,
@@ -154,8 +155,13 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
     }
     free_extensions(header_extensions);
   }
-
   return true;
+}
+
+InterstitialNetworkExecutor::~InterstitialNetworkExecutor() {
+  if (m_msg.msg_controllen > 0) {
+    free(m_msg.msg_control);
+  }
 }
 
 bool CliNetworkExecutor::execute(int socket, int connection_type,
@@ -256,6 +262,9 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
 
     free_extensions(header_extensions);
 
+    if (msg.msg_controllen > 0) {
+      free(msg.msg_control);
+    }
 
     if (write_result < 0) {
       Logger::ActiveLogger()->log(

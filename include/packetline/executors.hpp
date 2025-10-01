@@ -27,12 +27,13 @@ public:
 
 private:
   packet_t m_initial_packet{};
-  std::optional<Pipeline> m_pipeline;
+  std::optional<Pipeline> m_pipeline{};
 };
 
 class NetworkExecutor {
 public:
   virtual bool execute(int socket, int connection_type, packet_t packet);
+  virtual ~NetworkExecutor() = default;
 };
 
 class InterstitialNetworkExecutor : public NetworkExecutor {
@@ -40,10 +41,12 @@ public:
   bool execute(int socket, int connection_type, packet_t packet);
 
   struct msghdr get_msg() const { return m_msg; }
+  ~InterstitialNetworkExecutor();
 
 private:
   struct msghdr m_msg{};
   struct iovec m_iov{};
+  std::optional<std::unique_ptr<struct sockaddr, SockaddrDeleter>> m_destination{};
 };
 
 class CliNetworkExecutor : public NetworkExecutor {
