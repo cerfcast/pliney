@@ -118,7 +118,7 @@ int main(int argc, const char **argv) {
   }
 
   auto executor = SerialPipelineExecutor{};
-  auto maybe_result = executor.execute(std::move(pipeline));
+  auto maybe_result = executor.execute(pipeline);
 
   if (std::holds_alternative<packet_t>(maybe_result)) {
     auto actual_result = std::get<packet_t>(maybe_result);

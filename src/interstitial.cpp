@@ -238,7 +238,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
   }
 
   auto executor = SerialPipelineExecutor{initial_packet};
-  auto maybe_result = executor.execute(std::move(*maybe_pipeline));
+  auto maybe_result = executor.execute(*maybe_pipeline);
 
   if (std::holds_alternative<packet_t>(maybe_result)) {
     auto actual_result = std::get<packet_t>(maybe_result);

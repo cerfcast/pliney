@@ -12,7 +12,7 @@
 
 class PipelineExecutor {
 public:
-  virtual result_packet_tt execute(Pipeline &&plugins) = 0;
+  virtual result_packet_tt execute(const Pipeline &plugins) = 0;
 };
 
 class SerialPipelineExecutor : public PipelineExecutor {
@@ -23,7 +23,7 @@ public:
                                 .extensions_values = NULL};
   }
 
-  result_packet_tt execute(Pipeline &&pipeline) override;
+  result_packet_tt execute(const Pipeline &pipeline) override;
 
 private:
   packet_t m_initial_packet{};
