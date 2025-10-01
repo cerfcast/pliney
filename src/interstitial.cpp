@@ -61,6 +61,22 @@ __attribute__((constructor)) void pliney_initialize() {
   configured = true;
 }
 
+__attribute__((destructor)) void pliney_deinitiailize() {
+  if (maybe_pipeline) {
+    auto cleanup_result = maybe_pipeline->cleanup();
+    if (cleanup_result) {
+      Logger::ActiveLogger()->log(
+          Logger::ERROR,
+          std::format("Error occurred cleaning up pipeline: {}\n",
+                      *cleanup_result));
+    } else {
+      Logger::ActiveLogger()->log(
+          Logger::DEBUG,
+          std::format("Pliney plugins cleaned up successfully."));
+    }
+  }
+}
+
 typedef ssize_t (*sendto_pt)(int sockfd, const void *buff, size_t len,
                              int flags, const struct sockaddr *dest,
                              socklen_t dest_len);

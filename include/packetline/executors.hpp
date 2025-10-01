@@ -3,15 +3,16 @@
 
 #include "packetline/packetline.hpp"
 #include "packetline/pipeline.hpp"
+#include "packetline/utilities.hpp"
 
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <sys/socket.h>
 
 class PipelineExecutor {
 public:
   virtual result_packet_tt execute(Pipeline &&plugins) = 0;
-  virtual std::optional<std::string> cleanup() = 0;
 };
 
 class SerialPipelineExecutor : public PipelineExecutor {
@@ -23,7 +24,6 @@ public:
   }
 
   result_packet_tt execute(Pipeline &&pipeline) override;
-  std::optional<std::string> cleanup() override;
 
 private:
   packet_t m_initial_packet{};

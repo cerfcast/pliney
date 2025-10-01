@@ -11,6 +11,8 @@ public:
   Pipeline(const char *source, Plugins &&plugins);
   Pipeline(const char **source, Plugins &&plugins);
 
+  std::optional<std::string> cleanup();
+
   class Iterator {
   public:
     using difference_type = std::vector<Invocation>::difference_type;

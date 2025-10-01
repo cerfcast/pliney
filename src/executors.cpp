@@ -41,30 +41,6 @@ result_packet_tt SerialPipelineExecutor::execute(Pipeline &&pipeline) {
   return packet;
 }
 
-std::optional<std::string> SerialPipelineExecutor::cleanup() {
-  std::string err{};
-
-  if (m_pipeline) {
-    auto pipeline = *m_pipeline;
-    for (auto plugin : pipeline) {
-      auto cleanup_result = plugin.plugin.cleanup(plugin.cookie);
-      if (cleanup_result) {
-        auto errmsg = std::format("Error occurred cleaning up plugin {}: {}\n", plugin.plugin.name(), *cleanup_result);
-        if (err.empty()) {
-          err = errmsg;
-        } else {
-          err += "; " + errmsg;
-        }
-      }
-    }
-  }
-  if (err.empty()) {
-    return {};
-  }
-  return err;
-
-}
-
 bool NetworkExecutor::execute(int socket, int connection_type,
                               packet_t packet) {
   auto actual_result = packet;

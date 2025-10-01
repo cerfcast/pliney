@@ -112,3 +112,24 @@ void Pipeline::parse(const std::vector<std::string_view> args,
     pipeline_count++;
   }
 }
+
+std::optional<std::string> Pipeline::cleanup() {
+  std::string err{};
+
+  for (auto &plugin : m_invocations.invocations) {
+    auto cleanup_result = plugin.plugin.cleanup(plugin.cookie);
+    if (cleanup_result) {
+      auto errmsg = std::format("Error occurred cleaning up plugin {}: {}\n",
+                                plugin.plugin.name(), *cleanup_result);
+      if (err.empty()) {
+        err = errmsg;
+      } else {
+        err += "; " + errmsg;
+      }
+    }
+  }
+  if (err.empty()) {
+    return {};
+  }
+  return err;
+}

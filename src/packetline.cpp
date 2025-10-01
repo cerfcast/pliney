@@ -142,6 +142,12 @@ int main(int argc, const char **argv) {
 
     free_extensions(actual_result.header_extensions);
 
+
+    auto cleanup_result = (pipeline.cleanup());
+    if (cleanup_result) {
+      std::cerr << std::format("Error occurred cleaning up the plugins used in the pipeline: {}\n", *cleanup_result);
+    }
+
     return 0;
   }
 
