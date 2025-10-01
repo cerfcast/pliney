@@ -46,7 +46,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
   result.success = true;
 
   if (cookie != NULL) {
-    uint8_t *ttl = (uint8_t*)cookie;
+    uint8_t *ttl = (uint8_t *)cookie;
     packet->header.priority = *ttl;
   }
 
@@ -61,7 +61,6 @@ cleanup_result_t cleanup(void *cookie) {
   cleanup_result_t result = {.success = true, .errstr = NULL};
   return result;
 }
-
 
 bool load(plugin_t *info) {
   info->name = plugin_name;
