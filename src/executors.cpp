@@ -89,7 +89,8 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
     close(socket);
     return false;
   }
-  m_destination = std::unique_ptr<struct sockaddr, SockaddrDeleter>(destination, SockaddrDeleter(destination_len));
+  m_destination = std::unique_ptr<struct sockaddr, SockaddrDeleter>(
+      destination, SockaddrDeleter(destination_len));
 
   if (connection_type == INET_STREAM) {
     Logger::ActiveLogger()->log(Logger::DEBUG,
@@ -124,8 +125,7 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
 
       if (header_extensions.extensions_count > 0) {
         for (auto extension_i{0};
-             extension_i < header_extensions.extensions_count;
-             extension_i++) {
+             extension_i < header_extensions.extensions_count; extension_i++) {
 
           auto extension_header_len =
               ((2 /* for extension header T/L */ +
@@ -202,8 +202,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     };
   } else if (connection_type == INET_DGRAM) {
 
-    struct msghdr msg{};
-    struct iovec iov{};
+    struct msghdr msg {};
+    struct iovec iov {};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = packet.body.data;
@@ -228,8 +228,7 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
       }
       if (header_extensions.extensions_count > 0) {
         for (auto extension_i{0};
-             extension_i < header_extensions.extensions_count;
-             extension_i++) {
+             extension_i < header_extensions.extensions_count; extension_i++) {
 
           auto extension_header_len =
               ((2 /* for extension header T/L */ +

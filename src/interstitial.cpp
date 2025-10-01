@@ -11,8 +11,8 @@
 #include <sys/socket.h>
 #include <variant>
 
-#include "api/plugin.h"
 #include "api/exthdrs.h"
+#include "api/plugin.h"
 #include "api/utils.h"
 #include "packetline/executors.hpp"
 #include "packetline/logger.hpp"
@@ -139,8 +139,9 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
       return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
     }
     socklen_t saddr_len = result;
-    auto sendto_result = orig_sendto(sockfd, actual_result.body.data, actual_result.body.len,
-                       flags, saddr, saddr_len);
+    auto sendto_result =
+        orig_sendto(sockfd, actual_result.body.data, actual_result.body.len,
+                    flags, saddr, saddr_len);
     free_extensions(actual_result.header_extensions);
     return sendto_result;
   }

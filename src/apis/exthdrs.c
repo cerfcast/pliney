@@ -89,10 +89,10 @@ bool find_next_extension(extensions_p extensions, size_t *start_found,
 }
 
 extension_p *copy_extension(extension_p *extension) {
-  extension_p *result = (extension_p*)malloc(sizeof(extension_p));
+  extension_p *result = (extension_p *)malloc(sizeof(extension_p));
   result->len = extension->len;
   result->type = extension->type;
-  result->data = (uint8_t*)malloc(sizeof(uint8_t)*result->len);
+  result->data = (uint8_t *)malloc(sizeof(uint8_t) * result->len);
   memcpy(result->data, extension->data, result->len);
 
   return result;
@@ -125,7 +125,6 @@ void free_extensions(extensions_p extensions) {
   }
   free(extensions.extensions_values);
 }
-
 
 bool coalesce_extensions(extensions_p *extensions, uint8_t type) {
   size_t first_index = 0;

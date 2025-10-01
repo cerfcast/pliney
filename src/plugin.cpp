@@ -53,7 +53,8 @@ plugin_cleanup_result_tt Plugin::cleanup(void *cookie) {
   return cleanup_result.errstr;
 }
 
-result_generate_result_tt Plugin::generate(packet_t *packet, void *cookie) const {
+result_generate_result_tt Plugin::generate(packet_t *packet,
+                                           void *cookie) const {
   if (info.generator) {
 
     auto result = info.generator(packet, cookie);

@@ -94,7 +94,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
 
 cleanup_result_t cleanup(void *cookie) {
   if (cookie != NULL) {
-    extension_p *extension = (extension_p*)cookie;
+    extension_p *extension = (extension_p *)cookie;
     free(extension->data);
     free(cookie);
   }

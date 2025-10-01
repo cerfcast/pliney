@@ -14,9 +14,9 @@
 #include <variant>
 #include <vector>
 
+#include "api/exthdrs.h"
 #include "api/plugin.h"
 #include "api/utils.h"
-#include "api/exthdrs.h"
 #include "packetline/cli.hpp"
 #include "packetline/executors.hpp"
 #include "packetline/logger.hpp"
@@ -139,13 +139,13 @@ int main(int argc, const char **argv) {
                                   "Execution of network connection succeeded.");
     }
 
-
     free_extensions(actual_result.header_extensions);
-
 
     auto cleanup_result = (pipeline.cleanup());
     if (cleanup_result) {
-      std::cerr << std::format("Error occurred cleaning up the plugins used in the pipeline: {}\n", *cleanup_result);
+      std::cerr << std::format(
+          "Error occurred cleaning up the plugins used in the pipeline: {}\n",
+          *cleanup_result);
     }
 
     return 0;
