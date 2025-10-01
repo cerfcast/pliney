@@ -189,6 +189,7 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     close(socket);
     return false;
   }
+  auto destinations{unique_sockaddr(destination, destination_len)};
 
   if (!NetworkExecutor::execute(socket, connection_type, packet)) {
     return false;
@@ -215,8 +216,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     };
   } else if (connection_type == INET_DGRAM) {
 
-    struct msghdr msg {};
-    struct iovec iov {};
+    struct msghdr msg{};
+    struct iovec iov{};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = packet.body.data;
