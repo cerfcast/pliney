@@ -151,7 +151,7 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
   return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
 }
 
-maybe_packet_t msghdr_to_packet(const struct msghdr *hdr) {
+result_packet_tt msghdr_to_packet(const struct msghdr *hdr) {
   packet_t packet{};
 
   packet.body = body_p{.len = hdr->msg_iov->iov_len,
@@ -198,7 +198,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
     connection_type = INET_STREAM;
   }
 
-  maybe_packet_t maybe_initial_packet{msghdr_to_packet(hdr)};
+  result_packet_tt maybe_initial_packet{msghdr_to_packet(hdr)};
 
   if (std::holds_alternative<std::string>(maybe_initial_packet)) {
     Logger::ActiveLogger()->log(
