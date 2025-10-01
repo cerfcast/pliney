@@ -17,7 +17,7 @@ public:
       struct sockaddr_in *in = static_cast<struct sockaddr_in *>(todelete);
       free(in);
 
-    } else if (m_size == sizeof(struct sockaddr_in)) {
+    } else if (m_size == sizeof(struct sockaddr_in6)) {
       struct sockaddr_in6 *in6 = static_cast<struct sockaddr_in6 *>(todelete);
       free(in6);
     };
