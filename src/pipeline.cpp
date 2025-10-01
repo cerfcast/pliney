@@ -102,6 +102,7 @@ void Pipeline::parse(const std::vector<std::string_view> args,
             "Error configuring plugin {} (pipeline position #{}): {}",
             plugin_name, pipeline_count,
             invocation_configuration_result.errstr));
+        free(invocation_configuration_result.errstr);
       }
     } else {
       m_parse_errors.push_back(
