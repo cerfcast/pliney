@@ -13,7 +13,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
 
   configuration_result_t configuration_result = {.configuration_cookie = NULL,
                                                  .errstr = NULL};
-  ip_addr_t *addr = (ip_addr_t *)malloc(sizeof(ip_addr_t));
+  ip_addr_t *addr = (ip_addr_t *)calloc(sizeof(ip_addr_t), 1);
 
   if (argc > 1) {
     char *invalid = NULL;
