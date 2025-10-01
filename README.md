@@ -73,6 +73,10 @@ $ path/to/pliney -type dgram \!\> body ./test/data/test_data.bin 50 =\> target 8
 $ path/to/pliney \!\> body ./test/data/http_get =\> target 151.101.3.5 80
 ```
 
+```bash
+$ path/to/pliney \!\> body ./test/data/http_get =\> target www.cnn.com 80
+```
+
 ##### DNS Query For cnn.com
 
 ```bash
