@@ -7,11 +7,14 @@
 #include <filesystem>
 #include <vector>
 
+typedef std::optional<std::string> plugin_cleanup_result_tt;
+
 class Plugin {
 public:
-  explicit Plugin(std::filesystem::path path) : m_path(path) {}
+  explicit Plugin(std::filesystem::path path) : m_path(path), m_name(), info() {}
 
   bool load();
+  plugin_cleanup_result_tt cleanup(void *);
 
   configuration_result_t generate_configuration(int argc, const char **args) {
     return this->info.configurator(argc, args);

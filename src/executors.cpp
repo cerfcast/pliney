@@ -6,13 +6,18 @@
 #include "packetline/logger.hpp"
 #include "packetline/packetline.hpp"
 #include "packetline/pipeline.hpp"
+#include "packetline/utilities.hpp"
 
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
 maybe_packet_t SerialPipelineExecutor::execute(Pipeline &&pipeline) {
+
+  m_pipeline = pipeline;
+
   auto packet = m_initial_packet;
   uint8_t connection_type{INET_STREAM};
 
@@ -34,6 +39,30 @@ maybe_packet_t SerialPipelineExecutor::execute(Pipeline &&pipeline) {
   }
 
   return packet;
+}
+
+std::optional<std::string> SerialPipelineExecutor::cleanup() {
+  std::string err{};
+
+  if (m_pipeline) {
+    auto pipeline = *m_pipeline;
+    for (auto plugin : pipeline) {
+      auto cleanup_result = plugin.plugin.cleanup(plugin.cookie);
+      if (cleanup_result) {
+        auto errmsg = std::format("Error occurred cleaning up plugin {}: {}\n", plugin.plugin.name(), *cleanup_result);
+        if (err.empty()) {
+          err = errmsg;
+        } else {
+          err += "; " + errmsg;
+        }
+      }
+    }
+  }
+  if (err.empty()) {
+    return {};
+  }
+  return err;
+
 }
 
 bool NetworkExecutor::execute(int socket, int connection_type,

@@ -5,11 +5,13 @@
 #include "packetline/pipeline.hpp"
 
 #include <cstring>
+#include <optional>
 #include <sys/socket.h>
 
 class PipelineExecutor {
 public:
   virtual maybe_packet_t execute(Pipeline &&plugins) = 0;
+  virtual std::optional<std::string> cleanup() = 0;
 };
 
 class SerialPipelineExecutor : public PipelineExecutor {
@@ -21,9 +23,11 @@ public:
   }
 
   maybe_packet_t execute(Pipeline &&pipeline) override;
+  std::optional<std::string> cleanup() override;
 
 private:
   packet_t m_initial_packet{};
+  std::optional<Pipeline> m_pipeline;
 };
 
 class NetworkExecutor {

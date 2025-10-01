@@ -137,6 +137,13 @@ int main(int argc, const char **argv) {
       Logger::ActiveLogger()->log(Logger::DEBUG,
                                   "Execution of network connection succeeded.");
     }
+
+    auto cleanup_result = (executor.cleanup());
+
+    if (cleanup_result) {
+      std::cerr << std::format("Error occurred cleaning up the plugins used in the pipeline: {}\n", *cleanup_result);
+    }
+
     return 0;
   }
 

@@ -61,13 +61,20 @@ typedef struct {
   char *errstr;
 } configuration_result_t;
 
+typedef struct {
+  bool success;
+  char *errstr;
+} cleanup_result_t;
+
 typedef generate_result_t (*generate_t)(packet_t *packet, void*);
 typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
+typedef cleanup_result_t (*cleanup_t)(void *);
 
 typedef struct {
   char *name;
   generate_t generator;
   generate_configuration_t configurator;
+  cleanup_t cleanup;
 } plugin_t;
 
 typedef bool (*load_t)(plugin_t *);

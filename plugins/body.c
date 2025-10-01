@@ -102,9 +102,21 @@ generate_result_t generate(packet_t *packet, void *cookie) {
   return result;
 }
 
+cleanup_result_t cleanup(void *cookie) {
+  if (cookie != NULL) {
+    body_p *body = (body_p *)cookie;
+    free(body->data);
+    free(cookie);
+  }
+
+  cleanup_result_t result = {.success = true, .errstr = NULL};
+  return result;
+}
+
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
   info->generator = generate;
+  info->cleanup = cleanup;
   return true;
 }

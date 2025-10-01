@@ -1,5 +1,6 @@
 #include "packetline/plugin.hpp"
 #include "api/plugin.h"
+#include "packetline//logger.hpp"
 
 #include <algorithm>
 #include <dlfcn.h>
@@ -33,6 +34,23 @@ bool Plugin::load() {
   }
 
   return load_result;
+}
+
+plugin_cleanup_result_tt Plugin::cleanup(void *cookie) {
+  if (info.cleanup == nullptr) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR,
+        std::format("Plugin {} specified no cleanup actions.", info.name));
+    return {};
+  }
+
+  auto cleanup_result = info.cleanup(cookie);
+
+  if (cleanup_result.success) {
+    return {};
+  }
+
+  return cleanup_result.errstr;
 }
 
 maybe_generate_result_t Plugin::generate(packet_t *packet, void *cookie) const {
