@@ -22,7 +22,7 @@ public:
 
   std::string name() const { return m_name; }
 
-  maybe_generate_result_t generate(packet_t *packet, void *cookie) const;
+  result_generate_result_tt generate(packet_t *packet, void *cookie) const;
 
 private:
   std::filesystem::path m_path;

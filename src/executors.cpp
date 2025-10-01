@@ -14,7 +14,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-maybe_packet_t SerialPipelineExecutor::execute(Pipeline &&pipeline) {
+result_packet_tt SerialPipelineExecutor::execute(Pipeline &&pipeline) {
 
   m_pipeline = pipeline;
 

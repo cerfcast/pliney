@@ -10,7 +10,7 @@
 
 class PipelineExecutor {
 public:
-  virtual maybe_packet_t execute(Pipeline &&plugins) = 0;
+  virtual result_packet_tt execute(Pipeline &&plugins) = 0;
   virtual std::optional<std::string> cleanup() = 0;
 };
 
@@ -22,7 +22,7 @@ public:
                                 .extensions_values = NULL};
   }
 
-  maybe_packet_t execute(Pipeline &&pipeline) override;
+  result_packet_tt execute(Pipeline &&pipeline) override;
   std::optional<std::string> cleanup() override;
 
 private:
