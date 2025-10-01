@@ -135,21 +135,24 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
     m_msg.msg_control = nullptr;
     m_msg.msg_controllen = 0;
 
+    extensions_p header_extensions;
+
     if (packet.target.family == INET_ADDR_V6) {
-      if (!coalesce_extensions(&packet.header_extensions, IPV6_HOPOPTS)) {
+      header_extensions = copy_extensions(packet.header_extensions);
+      if (!coalesce_extensions(&header_extensions, IPV6_HOPOPTS)) {
         Logger::ActiveLogger()->log(
             Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
         return false;
       }
 
-      if (packet.header_extensions.extensions_count > 0) {
+      if (header_extensions.extensions_count > 0) {
         for (auto extension_i{0};
-             extension_i < packet.header_extensions.extensions_count;
+             extension_i < header_extensions.extensions_count;
              extension_i++) {
 
           auto extension_header_len =
               ((2 /* for extension header T/L */ +
-                packet.header_extensions.extensions_values[extension_i]->len +
+                header_extensions.extensions_values[extension_i]->len +
                 (8 - 1)) /
                8) *
               8;
@@ -162,17 +165,18 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
           struct cmsghdr *hdr = CMSG_FIRSTHDR(&m_msg);
           hdr->cmsg_level = SOL_IPV6;
           hdr->cmsg_type =
-              packet.header_extensions.extensions_values[extension_i]->type;
+              header_extensions.extensions_values[extension_i]->type;
           CMSG_DATA(hdr)[0] = 0; // Next header
           CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
 
           // HbH Extension Header Data.
           memcpy(CMSG_DATA(hdr) + 2,
-                 packet.header_extensions.extensions_values[extension_i]->data,
-                 packet.header_extensions.extensions_values[extension_i]->len);
+                 header_extensions.extensions_values[extension_i]->data,
+                 header_extensions.extensions_values[extension_i]->len);
         }
       }
     }
+    free_extensions(header_extensions);
   }
 
   return true;
@@ -232,20 +236,22 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     msg.msg_control = nullptr;
     msg.msg_controllen = 0;
 
+    extensions_p header_extensions;
     if (packet.target.family == INET_ADDR_V6) {
-      if (!coalesce_extensions(&packet.header_extensions, IPV6_HOPOPTS)) {
+      header_extensions = copy_extensions(packet.header_extensions);
+      if (!coalesce_extensions(&header_extensions, IPV6_HOPOPTS)) {
         Logger::ActiveLogger()->log(
             Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
         return false;
       }
-      if (packet.header_extensions.extensions_count > 0) {
+      if (header_extensions.extensions_count > 0) {
         for (auto extension_i{0};
-             extension_i < packet.header_extensions.extensions_count;
+             extension_i < header_extensions.extensions_count;
              extension_i++) {
 
           auto extension_header_len =
               ((2 /* for extension header T/L */ +
-                packet.header_extensions.extensions_values[extension_i]->len +
+                header_extensions.extensions_values[extension_i]->len +
                 (8 - 1)) /
                8) *
               8;
@@ -258,19 +264,22 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
           struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
           hdr->cmsg_level = SOL_IPV6;
           hdr->cmsg_type =
-              packet.header_extensions.extensions_values[extension_i]->type;
+              header_extensions.extensions_values[extension_i]->type;
           CMSG_DATA(hdr)[0] = 0; // Next header
           CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
 
           // HbH Extension Header Data.
           memcpy(CMSG_DATA(hdr) + 2,
-                 packet.header_extensions.extensions_values[extension_i]->data,
-                 packet.header_extensions.extensions_values[extension_i]->len);
+                 header_extensions.extensions_values[extension_i]->data,
+                 header_extensions.extensions_values[extension_i]->len);
         }
       }
     }
 
     int write_result = sendmsg(socket, &msg, 0);
+
+    free_extensions(header_extensions);
+
 
     if (write_result < 0) {
       Logger::ActiveLogger()->log(

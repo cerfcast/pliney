@@ -12,6 +12,7 @@
 #include <variant>
 
 #include "api/plugin.h"
+#include "api/exthdrs.h"
 #include "api/utils.h"
 #include "packetline/executors.hpp"
 #include "packetline/logger.hpp"
@@ -122,8 +123,10 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
       return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
     }
     socklen_t saddr_len = result;
-    return orig_sendto(sockfd, actual_result.body.data, actual_result.body.len,
+    auto sendto_result = orig_sendto(sockfd, actual_result.body.data, actual_result.body.len,
                        flags, saddr, saddr_len);
+    free_extensions(actual_result.header_extensions);
+    return sendto_result;
   }
   Logger::ActiveLogger()->log(
       Logger::ERROR, std::format("Error occurred executing the pipeline: {}\n",
@@ -241,7 +244,10 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
       new_msghdr.msg_name = nullptr;
       new_msghdr.msg_namelen = 0;
     }
-    return orig_sendmsg(sockfd, &new_msghdr, flags);
+
+    auto sendmsg_result = orig_sendmsg(sockfd, &new_msghdr, flags);
+    free_extensions(actual_result.header_extensions);
+    return sendmsg_result;
   }
   Logger::ActiveLogger()->log(
       Logger::ERROR, std::format("Error occurred executing the pipeline: {}\n",

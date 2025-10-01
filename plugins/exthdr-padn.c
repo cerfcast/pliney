@@ -87,13 +87,15 @@ generate_result_t generate(packet_t *packet, void *cookie) {
 
   extension_p *extensions_from_cookie = (extension_p *)(cookie);
   packet->header_extensions.extensions_values[new_extension_idx] =
-      extensions_from_cookie;
+      copy_extension(extensions_from_cookie);
 
   return result;
 }
 
 cleanup_result_t cleanup(void *cookie) {
   if (cookie != NULL) {
+    extension_p *extension = (extension_p*)cookie;
+    free(extension->data);
     free(cookie);
   }
 

@@ -31,12 +31,16 @@ bool remove_extension(extensions_p *extensions, size_t index) {
   if (extensions->extensions_count == 1) {
     // Special case. TODO: Does it need to be?
     extensions->extensions_count = 0;
+    free(extensions->extensions_values[0]->data);
     free(extensions->extensions_values[0]);
     free(extensions->extensions_values);
     extensions->extensions_values = NULL;
   } else {
     // Get the one to remove ...
     extension_p *to_remove = extensions->extensions_values[index];
+    free(to_remove->data);
+    free(to_remove);
+
     // Move the last extension into the removed slot.
     extensions->extensions_values[index] =
         extensions->extensions_values[extensions->extensions_count - 1];
@@ -51,8 +55,6 @@ bool remove_extension(extensions_p *extensions, size_t index) {
 
     extensions->extensions_count--;
     extensions->extensions_values = new_extension_list;
-
-    free(to_remove);
   }
 
   return true;
@@ -85,6 +87,45 @@ bool find_next_extension(extensions_p extensions, size_t *start_found,
   }
   return false;
 }
+
+extension_p *copy_extension(extension_p *extension) {
+  extension_p *result = (extension_p*)malloc(sizeof(extension_p));
+  result->len = extension->len;
+  result->type = extension->type;
+  result->data = (uint8_t*)malloc(sizeof(uint8_t)*result->len);
+  memcpy(result->data, extension->data, result->len);
+
+  return result;
+}
+
+extensions_p copy_extensions(extensions_p extensions) {
+  extensions_p result;
+
+  result.extensions_count = extensions.extensions_count;
+  result.extensions_values = (extension_p **)calloc(
+      sizeof(extension_p *), extensions.extensions_count);
+  for (size_t i = 0; i < result.extensions_count; i++) {
+    result.extensions_values[i] = (extension_p *)malloc(sizeof(extension_p));
+    result.extensions_values[i]->len = extensions.extensions_values[i]->len;
+    result.extensions_values[i]->type = extensions.extensions_values[i]->type;
+    result.extensions_values[i]->data = (uint8_t *)calloc(
+        sizeof(uint8_t), extensions.extensions_values[i]->len);
+    memcpy(result.extensions_values[i]->data,
+           extensions.extensions_values[i]->data,
+           extensions.extensions_values[i]->len);
+  }
+
+  return result;
+}
+
+void free_extensions(extensions_p extensions) {
+  for (size_t i = 0; i < extensions.extensions_count; i++) {
+    free(extensions.extensions_values[i]->data);
+    free(extensions.extensions_values[i]);
+  }
+  free(extensions.extensions_values);
+}
+
 
 bool coalesce_extensions(extensions_p *extensions, uint8_t type) {
   size_t first_index = 0;

@@ -16,6 +16,7 @@
 
 #include "api/plugin.h"
 #include "api/utils.h"
+#include "api/exthdrs.h"
 #include "packetline/cli.hpp"
 #include "packetline/executors.hpp"
 #include "packetline/logger.hpp"
@@ -138,11 +139,8 @@ int main(int argc, const char **argv) {
                                   "Execution of network connection succeeded.");
     }
 
-    auto cleanup_result = (executor.cleanup());
 
-    if (cleanup_result) {
-      std::cerr << std::format("Error occurred cleaning up the plugins used in the pipeline: {}\n", *cleanup_result);
-    }
+    free_extensions(actual_result.header_extensions);
 
     return 0;
   }
