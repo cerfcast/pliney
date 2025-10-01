@@ -15,14 +15,23 @@ int main(int argc, char **argv) {
   int s = -1;
 
   if (argc > 1) {
-    s = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (!strcmp(argv[1], "ipv6")) {
+      s = socket(AF_INET6, SOCK_DGRAM, 0);
+    } else {
+      printf("error: Only ipv6 is allowed as an argument to %s.", argv[0]);
+      return -1;
+    }
   } else {
     s = socket(AF_INET, SOCK_DGRAM, 0);
   }
   assert(s >= 0);
 
   char body[50] = {
-      0,
+      0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x8,  0x9,  0xa,
+      0xb,  0xc,  0xd,  0xe,  0xf,  0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+      0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
+      0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
+      0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31,
   };
 
   struct sockaddr_storage saddr;
@@ -47,7 +56,7 @@ int main(int argc, char **argv) {
   int r = -1;
   if (argc > 1) {
     struct msghdr hdr;
-    hdr.msg_name = (void*)&saddr;
+    hdr.msg_name = (void *)&saddr;
     hdr.msg_namelen = saddr_len;
     struct iovec iov;
     hdr.msg_iov = &iov;
@@ -58,7 +67,7 @@ int main(int argc, char **argv) {
 
     r = sendmsg(s, &hdr, 0);
     if (r < 0) {
-        printf("error: %s\n", strerror(errno));
+      printf("error: %s\n", strerror(errno));
     }
   } else {
     r = sendto(s, body, sizeof(body), 0, (const struct sockaddr *)&saddr,
