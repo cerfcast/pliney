@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
@@ -13,9 +14,30 @@ configuration_result_t generate_configuration(int argc, const char **args) {
 
   configuration_result_t configuration_result = {.configuration_cookie = NULL,
                                                  .errstr = NULL};
+
+  if (!argc) {
+    configuration_result.errstr = "Target plugin got no arguments.";
+    return configuration_result;
+  }
+
   ip_addr_t *addr = (ip_addr_t *)calloc(sizeof(ip_addr_t), 1);
 
-  if (argc > 1) {
+  // If it is not possible to parse as an IP address, try a DNS lookup.
+  if (0 > ip_parse(args[0], addr)) {
+    struct addrinfo *resolveds = NULL;
+    int dns_result = getaddrinfo(args[0], NULL, NULL, &resolveds);
+    if (dns_result < 0) {
+      char *err = (char *)calloc(255, sizeof(char));
+      snprintf(err, 255, "Error looking up DNS: %s", gai_strerror(dns_result));
+      configuration_result.errstr = err;
+    } else {
+      struct addrinfo *resolved = resolveds;
+      sockaddr_to_ip(resolved->ai_addr, resolved->ai_addrlen, addr);
+      freeaddrinfo(resolveds);
+    }
+  }
+
+  if (!configuration_result.errstr && argc > 1) {
     char *invalid = NULL;
     uint16_t port = strtol(args[1], &invalid, 10);
     if (invalid && *invalid == '\0') {
@@ -24,19 +46,18 @@ configuration_result_t generate_configuration(int argc, const char **args) {
       char *err = (char *)calloc(255, sizeof(char));
       snprintf(err, 255, "Could not convert %s to a port number", args[1]);
       configuration_result.errstr = err;
-      return configuration_result;
     }
   } else {
     warn("Target plugin was not given a port.\n");
   }
 
-  if (argc > 0 && (0 < ip_parse(args[0], addr))) {
-    configuration_result.configuration_cookie = addr;
+  if (configuration_result.errstr) {
+    configuration_result.configuration_cookie = NULL;
+    free(addr);
     return configuration_result;
   }
 
-  free(addr);
-  configuration_result.errstr = "Invalid IP/port combination";
+  configuration_result.configuration_cookie = addr;
   return configuration_result;
 }
 
