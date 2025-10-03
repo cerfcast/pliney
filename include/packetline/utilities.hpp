@@ -30,4 +30,51 @@ private:
 std::unique_ptr<struct sockaddr, SockaddrDeleter>
 unique_sockaddr(struct sockaddr *sin, size_t s);
 
+template <typename T> class Swapsockopt {
+public:
+  Swapsockopt(int socket, int level, int optname, T value)
+      : m_socket(socket), m_level(level), m_optname(optname), m_value(value),
+        m_valuel(sizeof(T)), m_existingl(sizeof(T)) {
+
+    int result{-1};
+
+    result = getsockopt(m_socket, m_level, m_optname, &m_existing, &m_existingl);
+    if (result < 0) {
+      m_success = false;
+    }
+    result = setsockopt(m_socket, m_level, m_optname, &m_value, m_valuel);
+
+    if (result < 0) {
+      m_success = false;
+    }
+    m_success = true;
+  }
+
+  bool ok() const { return m_success; }
+
+  ~Swapsockopt() {
+    if (!ok()) {
+      return;
+    }
+
+    int result{-1};
+    result = setsockopt(m_socket, m_level, m_optname, &m_existing, m_existingl);
+
+    if (result < 0) {
+      m_success = false;
+    }
+    m_success = true;
+  }
+
+private:
+  int m_socket;
+  int m_level;
+  int m_optname;
+  T m_value;
+  T m_existing;
+  socklen_t m_valuel;
+  socklen_t m_existingl;
+  bool m_success;
+};
+
 #endif
