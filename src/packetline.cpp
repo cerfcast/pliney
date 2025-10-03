@@ -100,8 +100,7 @@ int main(int argc, const char **argv) {
   // let's set it.
   logger->set_level(initial_logger_level);
 
-  auto pipeline =
-      Pipeline{argv + pipeline_start + 1, std::move(loaded_plugins)};
+  Pipeline pipeline{argv + pipeline_start + 1, std::move(loaded_plugins)};
 
   if (!pipeline.ok()) {
     auto pipeline_errs = std::accumulate(
@@ -134,20 +133,13 @@ int main(int argc, const char **argv) {
     auto netexec = CliNetworkExecutor();
     if (!netexec.execute(skt, connection_type, actual_result)) {
       std::cerr << "Error occurred executing the network connection.\n";
+      return 1;
     } else {
       Logger::ActiveLogger()->log(Logger::DEBUG,
                                   "Execution of network connection succeeded.");
     }
 
     free_extensions(actual_result.header_extensions);
-
-    auto cleanup_result = (pipeline.cleanup());
-    if (cleanup_result) {
-      std::cerr << std::format(
-          "Error occurred cleaning up the plugins used in the pipeline: {}\n",
-          *cleanup_result);
-    }
-
     return 0;
   }
 

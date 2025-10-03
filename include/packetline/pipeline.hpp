@@ -11,6 +11,8 @@ public:
   Pipeline(const char *source, Plugins &&plugins);
   Pipeline(const char **source, Plugins &&plugins);
 
+  Pipeline(Pipeline &&other) = default;
+
   std::optional<std::string> cleanup();
 
   class Iterator {
@@ -69,6 +71,8 @@ public:
   bool ok() const {
     return m_parse_errors.size() == 0;
   }
+
+  ~Pipeline();
 
 private:
   void parse(const std::vector<std::string_view> args, Plugins &&plugins);

@@ -134,3 +134,7 @@ std::optional<std::string> Pipeline::cleanup() {
   }
   return err;
 }
+
+Pipeline::~Pipeline() {
+  cleanup();
+}

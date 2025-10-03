@@ -36,10 +36,11 @@ __attribute__((constructor)) void pliney_initialize() {
   char *user_pipeline = getenv("PLINEY_PIPELINE");
 
   if (user_pipeline) {
-    auto pipeline = Pipeline{user_pipeline, std::move(loaded_plugins)};
+    Pipeline pipeline{user_pipeline, std::move(loaded_plugins)};
 
     if (pipeline.ok()) {
-      maybe_pipeline = pipeline;
+      // TODO: Figure out why the operator= does not work here.
+      maybe_pipeline.emplace(std::move(pipeline));
     } else {
       auto pipeline_errs = std::accumulate(
           pipeline.error_begin(), pipeline.error_end(), std::string{},
@@ -62,19 +63,8 @@ __attribute__((constructor)) void pliney_initialize() {
 }
 
 __attribute__((destructor)) void pliney_deinitiailize() {
-  if (maybe_pipeline) {
-    auto cleanup_result = maybe_pipeline->cleanup();
-    if (cleanup_result) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR,
-          std::format("Error occurred cleaning up pipeline: {}\n",
-                      *cleanup_result));
-    } else {
-      Logger::ActiveLogger()->log(
-          Logger::DEBUG,
-          std::format("Pliney plugins cleaned up successfully."));
-    }
-  }
+  Logger::ActiveLogger()->log(
+      Logger::DEBUG, std::format("Pliney plugins cleaned up successfully."));
 }
 
 typedef ssize_t (*sendto_pt)(int sockfd, const void *buff, size_t len,
@@ -120,7 +110,7 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
   initial_packet.target = dest_pliney_addr;
 
   auto executor = SerialPipelineExecutor{initial_packet};
-  auto maybe_result = executor.execute(std::move(*maybe_pipeline));
+  auto maybe_result = executor.execute(*maybe_pipeline);
 
   if (std::holds_alternative<packet_t>(maybe_result)) {
     auto actual_result = std::get<packet_t>(maybe_result);
