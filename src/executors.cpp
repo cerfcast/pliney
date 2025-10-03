@@ -93,8 +93,7 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
   m_destination = std::unique_ptr<struct sockaddr, SockaddrDeleter>(
       destination, SockaddrDeleter(destination_len));
 
-  uint8_t tos = (packet.header.diffserv << 2) | packet.header.cong;
-
+  int tos = (packet.header.diffserv << 2) | packet.header.cong;
   if (tos != 0) {
     if (packet.target.family == INET_ADDR_V6) {
       m_toss.emplace(socket, IPPROTO_IPV6, IPV6_TCLASS, tos);
@@ -199,8 +198,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     return false;
   }
 
-  uint8_t tos = (packet.header.diffserv << 2) | packet.header.cong;
-  std::optional<Swapsockopt<uint8_t>> toss{};
+  std::optional<Swapsockopt<int>> toss{};
+  int tos = (packet.header.diffserv << 2) | packet.header.cong;
 
   if (tos != 0) {
     if (packet.target.family == INET_ADDR_V6) {

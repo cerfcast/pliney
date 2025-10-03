@@ -27,7 +27,6 @@ public:
 
 private:
   packet_t m_initial_packet{};
-  std::optional<Pipeline> m_pipeline{};
 };
 
 class NetworkExecutor {
@@ -47,7 +46,7 @@ private:
   struct msghdr m_msg{};
   struct iovec m_iov{};
   std::optional<std::unique_ptr<struct sockaddr, SockaddrDeleter>> m_destination{};
-  std::optional<Swapsockopt<uint8_t>> m_toss;
+  std::optional<Swapsockopt<int>> m_toss;
 };
 
 class CliNetworkExecutor : public NetworkExecutor {
