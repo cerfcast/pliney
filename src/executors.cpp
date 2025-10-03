@@ -234,8 +234,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     };
   } else if (connection_type == INET_DGRAM) {
 
-    struct msghdr msg{};
-    struct iovec iov{};
+    struct msghdr msg {};
+    struct iovec iov {};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = packet.body.data;
