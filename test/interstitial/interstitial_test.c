@@ -64,6 +64,8 @@ int main(int argc, char **argv) {
     hdr.msg_iov->iov_base = body;
     hdr.msg_iov->iov_len = sizeof(body);
     hdr.msg_iovlen = 1;
+    hdr.msg_control = NULL;
+    hdr.msg_controllen = 0;
 
     r = sendmsg(s, &hdr, 0);
     if (r < 0) {
