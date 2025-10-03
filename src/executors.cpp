@@ -8,6 +8,7 @@
 #include "packetline/pipeline.hpp"
 #include "packetline/utilities.hpp"
 
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -91,6 +92,22 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
   }
   m_destination = std::unique_ptr<struct sockaddr, SockaddrDeleter>(
       destination, SockaddrDeleter(destination_len));
+
+  uint8_t tos = (packet.header.diffserv << 2) | packet.header.cong;
+
+  if (tos != 0) {
+    if (packet.target.family == INET_ADDR_V6) {
+      m_toss.emplace(socket, IPPROTO_IPV6, IPV6_TCLASS, tos);
+    } else {
+      m_toss.emplace(socket, IPPROTO_IP, IP_TOS, tos);
+    }
+    if (!m_toss->ok()) {
+      std::cerr << std::format(
+          "There was an error setting the TOS on the socket: {}\n",
+          std::strerror(errno));
+      return false;
+    }
+  }
 
   if (connection_type == INET_STREAM) {
     Logger::ActiveLogger()->log(Logger::DEBUG,
@@ -179,6 +196,23 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
 
   if (!NetworkExecutor::execute(socket, connection_type, packet)) {
     return false;
+  }
+
+  uint8_t tos = (packet.header.diffserv << 2) | packet.header.cong;
+  std::optional<Swapsockopt<uint8_t>> toss{};
+
+  if (tos != 0) {
+    if (packet.target.family == INET_ADDR_V6) {
+      toss.emplace(socket, IPPROTO_IPV6, IPV6_TCLASS, tos);
+    } else {
+      toss.emplace(socket, IPPROTO_IP, IP_TOS, tos);
+    }
+    if (!toss->ok()) {
+      std::cerr << std::format(
+          "There was an error setting the TOS on the socket: {}\n",
+          std::strerror(errno));
+      return false;
+    }
   }
 
   Logger::ActiveLogger()->log(Logger::DEBUG,

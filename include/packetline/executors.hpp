@@ -47,6 +47,7 @@ private:
   struct msghdr m_msg{};
   struct iovec m_iov{};
   std::optional<std::unique_ptr<struct sockaddr, SockaddrDeleter>> m_destination{};
+  std::optional<Swapsockopt<uint8_t>> m_toss;
 };
 
 class CliNetworkExecutor : public NetworkExecutor {

@@ -20,6 +20,9 @@ int ip_parse(const char *to_parse, ip_addr_t *result);
 int ip_set(ip_addr_t addr);
 void selectively_copy_ip(ip_addr_t *dest, ip_addr_t *src);
 
+bool parse_to_value(const char *valuev, uint8_t *valuec, const char **names,
+                    const uint8_t *values, size_t nvalues);
+
 bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len);
 
 void debug(const char *fmt, ...);

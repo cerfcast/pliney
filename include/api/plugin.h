@@ -25,6 +25,8 @@ typedef struct {
 } extensions_p;
 
 typedef struct {
+  uint8_t diffserv;
+  uint8_t cong;
   uint8_t ttl;
 } header_p;
 
