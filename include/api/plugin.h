@@ -25,7 +25,7 @@ typedef struct {
 } extensions_p;
 
 typedef struct {
-  uint8_t priority;
+  uint8_t ttl;
 } header_p;
 
 #define INET_ADDR_V4 4

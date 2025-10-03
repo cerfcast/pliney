@@ -45,10 +45,10 @@ bool NetworkExecutor::execute(int socket, int connection_type,
                               packet_t packet) {
   auto actual_result = packet;
 
-  if (actual_result.header.priority != 0) {
+  if (actual_result.header.ttl != 0) {
     // Put the hoplimit into an int -- IPv6 requires it and IPv4 is okay with
     // it.
-    int hoplimit = actual_result.header.priority;
+    int hoplimit = actual_result.header.ttl;
     int result = 0;
 
     if (actual_result.target.family == INET_ADDR_V6) {

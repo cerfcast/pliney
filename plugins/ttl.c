@@ -47,7 +47,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
 
   if (cookie != NULL) {
     uint8_t *ttl = (uint8_t *)cookie;
-    packet->header.priority = *ttl;
+    packet->header.ttl = *ttl;
   }
 
   return result;
