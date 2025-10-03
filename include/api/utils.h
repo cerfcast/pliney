@@ -14,7 +14,8 @@ extern "C" {
 #define TRACE_LEVEL 3
 
 int ip_to_sockaddr(ip_addr_t addr, struct sockaddr **result);
-int sockaddr_to_ip(const struct sockaddr *saddr, socklen_t saddr_len, ip_addr_t *addr);
+int sockaddr_to_ip(const struct sockaddr *saddr, socklen_t saddr_len,
+                   ip_addr_t *addr);
 int ip_to_socket(ip_addr_t addr, uint8_t type);
 int ip_parse(const char *to_parse, ip_addr_t *result);
 int ip_set(ip_addr_t addr);

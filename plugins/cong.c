@@ -22,13 +22,14 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  if (!parse_to_value(args[0], &maybe_parsed_ecn, ECN_NAMES, ECN_VALUES, sizeof(ECN_VALUES))) {
+  if (!parse_to_value(args[0], &maybe_parsed_ecn, ECN_NAMES, ECN_VALUES,
+                      sizeof(ECN_VALUES))) {
     char *err = (char *)calloc(255, sizeof(char));
     snprintf(err, 255, "Could not convert %s to a value ECN value", args[0]);
     configuration_result.errstr = err;
     return configuration_result;
   }
-  uint8_t *parsed_ecn = (uint8_t*)malloc(sizeof(uint8_t));
+  uint8_t *parsed_ecn = (uint8_t *)malloc(sizeof(uint8_t));
   *parsed_ecn = maybe_parsed_ecn;
 
   configuration_result.configuration_cookie = parsed_ecn;
@@ -40,7 +41,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
   result.success = false;
 
   if (cookie != 0) {
-    uint8_t *ecn = (uint8_t*)cookie;
+    uint8_t *ecn = (uint8_t *)cookie;
     packet->header.cong = *ecn;
   }
 

@@ -130,7 +130,8 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
     m_msg.msg_control = nullptr;
     m_msg.msg_controllen = 0;
 
-    extensions_p header_extensions{.extensions_count = 0, .extensions_values = nullptr};
+    extensions_p header_extensions{.extensions_count = 0,
+                                   .extensions_values = nullptr};
 
     if (packet.target.family == INET_ADDR_V6) {
       header_extensions = copy_extensions(packet.header_extensions);
@@ -252,7 +253,8 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
     msg.msg_control = nullptr;
     msg.msg_controllen = 0;
 
-    extensions_p header_extensions{.extensions_count = 0, .extensions_values = nullptr};
+    extensions_p header_extensions{.extensions_count = 0,
+                                   .extensions_values = nullptr};
     if (packet.target.family == INET_ADDR_V6) {
       header_extensions = copy_extensions(packet.header_extensions);
       if (!coalesce_extensions(&header_extensions, IPV6_HOPOPTS)) {

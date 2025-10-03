@@ -22,13 +22,14 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  if (!parse_to_value(args[0], &maybe_parsed_codepoint, DSCP_CODEPOINT_NAMES, DSCP_CODEPOINT_VALUES, sizeof(DSCP_CODEPOINT_VALUES))) {
+  if (!parse_to_value(args[0], &maybe_parsed_codepoint, DSCP_CODEPOINT_NAMES,
+                      DSCP_CODEPOINT_VALUES, sizeof(DSCP_CODEPOINT_VALUES))) {
     char *err = (char *)calloc(255, sizeof(char));
     snprintf(err, 255, "Could not convert %s to a DSCP codepoint", args[0]);
     configuration_result.errstr = err;
     return configuration_result;
   }
-  uint8_t *parsed_codepoint = (uint8_t*)malloc(sizeof(uint8_t));
+  uint8_t *parsed_codepoint = (uint8_t *)malloc(sizeof(uint8_t));
   *parsed_codepoint = maybe_parsed_codepoint;
 
   configuration_result.configuration_cookie = parsed_codepoint;
@@ -40,7 +41,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
   result.success = false;
 
   if (cookie != 0) {
-    uint8_t *codepoint = (uint8_t*)cookie;
+    uint8_t *codepoint = (uint8_t *)cookie;
     packet->header.diffserv = *codepoint;
   }
 

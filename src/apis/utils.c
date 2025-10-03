@@ -206,7 +206,8 @@ bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len) {
   return true;
 }
 
-bool parse_to_value(const char *valuev, uint8_t *valuec, const char **names, const uint8_t *values, size_t nvalues) {
+bool parse_to_value(const char *valuev, uint8_t *valuec, const char **names,
+                    const uint8_t *values, size_t nvalues) {
   for (size_t i = 0; i < nvalues; i++) {
     if (!strcmp(valuev, names[i])) {
       *valuec = values[i];
