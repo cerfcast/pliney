@@ -37,6 +37,20 @@ For example, if you want to set the TTL to 12 on all DNS packets sent by `nslook
 $ PLINEY_PIPELINE="ttl 12" LD_PRELOAD=/path/to/libplineyi.so nslookup cnn.com
 ```
 
+### Plugins Available
+
+| Plugin Name | Purpose |
+| -- | -- |
+| diffserv | Set DSCP. |
+| cong | Set ECN. |
+| ttl | Set TTL/hoplimit. |
+| exthdr-padn | Set PadN TLVs in hop-by-hop or destination option IPv6 extension headers. |
+| body | Set the contents of a packet from the contents of a file. |
+| target | Set the target of a packet. |
+| source | Set the source of a packet. |
+
+**More documentation (and more plugins!) coming soon.**
+
 ### Using
 
 #### Cli
