@@ -108,6 +108,7 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
 
   initial_packet.body = body_p{.len = len, .data = (uint8_t *)buff};
   initial_packet.target = dest_pliney_addr;
+  initial_packet.transport = connection_type;
 
   auto executor = SerialPipelineExecutor{initial_packet};
   auto maybe_result = executor.execute(*maybe_pipeline);
@@ -201,6 +202,8 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
   }
 
   auto initial_packet = std::get<packet_t>(maybe_initial_packet);
+
+  initial_packet.transport = connection_type;
 
   ip_addr_t original_target{};
 
