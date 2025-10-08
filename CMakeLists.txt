@@ -11,7 +11,7 @@ add_executable(pliney ${PLINEY_MAIN} ${PLINEY_SRCS})
 target_include_directories(pliney PRIVATE include)
 set_property(TARGET pliney PROPERTY CXX_STANDARD 23)
 set_property(TARGET pliney PROPERTY C_STANDARD 23)
-target_link_options(pliney PRIVATE "-Wl,--export-dynamic-symbol" "plugin_debug_level")
+target_link_options(pliney PRIVATE "-Wl,--export-dynamic")
 
 add_library(plineyi SHARED ${PLINEY_INTERSTITIAL} ${PLINEY_SRCS})
 target_include_directories(plineyi PRIVATE include)
