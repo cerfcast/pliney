@@ -48,6 +48,7 @@ $ PLINEY_PIPELINE="ttl 12" LD_PRELOAD=/path/to/libplineyi.so nslookup cnn.com
 | body | Set the contents of a packet from the contents of a file. |
 | target | Set the target of a packet. |
 | source | Set the source of a packet. |
+| log | Log the contents of the packet (in libpcap format) to a file. |
 
 **More documentation (and more plugins!) coming soon.**
 
