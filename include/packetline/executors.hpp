@@ -31,13 +31,13 @@ private:
 
 class NetworkExecutor {
 public:
-  virtual bool execute(int socket, int connection_type, packet_t packet);
+  virtual bool execute(int socket, packet_t packet);
   virtual ~NetworkExecutor() = default;
 };
 
 class InterstitialNetworkExecutor : public NetworkExecutor {
 public:
-  bool execute(int socket, int connection_type, packet_t packet);
+  bool execute(int socket, packet_t packet) override;
 
   struct msghdr get_msg() const { return m_msg; }
   ~InterstitialNetworkExecutor();
@@ -51,7 +51,7 @@ private:
 
 class CliNetworkExecutor : public NetworkExecutor {
 public:
-  bool execute(int socket, int connection_type, packet_t packet);
+  bool execute(int socket, packet_t packet) override;
 };
 
 #endif

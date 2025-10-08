@@ -8,7 +8,6 @@
 #include "packetline/pipeline.hpp"
 #include "packetline/utilities.hpp"
 
-#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -18,7 +17,6 @@
 result_packet_tt SerialPipelineExecutor::execute(const Pipeline &pipeline) {
 
   auto packet = m_initial_packet;
-  uint8_t connection_type{INET_STREAM};
 
   for (auto invocation : pipeline) {
 
@@ -29,7 +27,6 @@ result_packet_tt SerialPipelineExecutor::execute(const Pipeline &pipeline) {
                                   std::format("Got a result from '{}' plugin!",
                                               invocation.plugin.name()));
       generate_result_t x = std::get<generate_result_t>(result);
-      connection_type = x.connection_type;
     } else {
       std::cout << std::format("There was an error: {}\n",
                                std::get<std::string>(result));
@@ -40,8 +37,7 @@ result_packet_tt SerialPipelineExecutor::execute(const Pipeline &pipeline) {
   return packet;
 }
 
-bool NetworkExecutor::execute(int socket, int connection_type,
-                              packet_t packet) {
+bool NetworkExecutor::execute(int socket, packet_t packet) {
   auto actual_result = packet;
 
   if (actual_result.header.ttl != 0) {
@@ -51,7 +47,7 @@ bool NetworkExecutor::execute(int socket, int connection_type,
     int result = 0;
 
     if (actual_result.target.family == INET_ADDR_V6) {
-      if (connection_type == INET_DGRAM) {
+      if (packet.transport == INET_DGRAM) {
         result = setsockopt(socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hoplimit,
                             sizeof(int));
       } else {
@@ -73,10 +69,9 @@ bool NetworkExecutor::execute(int socket, int connection_type,
   return true;
 }
 
-bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
-                                          packet_t packet) {
+bool InterstitialNetworkExecutor::execute(int socket, packet_t packet) {
 
-  if (!NetworkExecutor::execute(socket, connection_type, packet)) {
+  if (!NetworkExecutor::execute(socket, packet)) {
     return false;
   }
 
@@ -106,12 +101,12 @@ bool InterstitialNetworkExecutor::execute(int socket, int connection_type,
     }
   }
 
-  if (connection_type == INET_STREAM) {
+  if (packet.transport == INET_STREAM) {
     Logger::ActiveLogger()->log(Logger::DEBUG,
                                 "Interstitial executor does nothing for "
                                 "stream-oriented sockets (yet)");
 
-  } else if (connection_type == INET_DGRAM) {
+  } else if (packet.transport == INET_DGRAM) {
     Logger::ActiveLogger()->log(Logger::DEBUG,
                                 "Interstitial executor does nothing for "
                                 "datagram-oriented sockets (yet)");
@@ -179,8 +174,7 @@ InterstitialNetworkExecutor::~InterstitialNetworkExecutor() {
   }
 }
 
-bool CliNetworkExecutor::execute(int socket, int connection_type,
-                                 packet_t packet) {
+bool CliNetworkExecutor::execute(int socket, packet_t packet) {
 
   struct sockaddr *destination = nullptr;
   int destination_len = ip_to_sockaddr(packet.target, &destination);
@@ -192,7 +186,7 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
   }
   auto destinations{unique_sockaddr(destination, destination_len)};
 
-  if (!NetworkExecutor::execute(socket, connection_type, packet)) {
+  if (!NetworkExecutor::execute(socket, packet)) {
     return false;
   }
 
@@ -217,7 +211,7 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
                               std::format("Trying to send a packet to {}.",
                                           stringify_ip(packet.target)));
 
-  if (connection_type == INET_STREAM) {
+  if (packet.transport == INET_STREAM) {
     auto connect_result = connect(socket, destination, destination_len);
     if (connect_result < 0) {
       Logger::ActiveLogger()->log(
@@ -232,7 +226,7 @@ bool CliNetworkExecutor::execute(int socket, int connection_type,
                                      "write the body of the packet: {}",
                                      strerror(errno)));
     };
-  } else if (connection_type == INET_DGRAM) {
+  } else if (packet.transport == INET_DGRAM) {
 
     struct msghdr msg {};
     struct iovec iov {};

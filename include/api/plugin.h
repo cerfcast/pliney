@@ -50,11 +50,11 @@ typedef struct {
   ip_addr_t target;
   header_p header;
   extensions_p header_extensions;
+  uint8_t transport;
   body_p body;
 } packet_t;
 
 typedef struct {
-  uint8_t connection_type;
   uint8_t success;
 } generate_result_t;
 

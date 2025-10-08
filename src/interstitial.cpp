@@ -116,7 +116,7 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
     auto actual_result = std::get<packet_t>(maybe_result);
 
     auto netexec = InterstitialNetworkExecutor();
-    netexec.execute(sockfd, connection_type, actual_result);
+    netexec.execute(sockfd, actual_result);
 
     struct sockaddr *saddr{nullptr};
     auto result = ip_to_sockaddr(actual_result.target, &saddr);
@@ -235,7 +235,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
     auto actual_result = std::get<packet_t>(maybe_result);
 
     auto netexec = InterstitialNetworkExecutor();
-    netexec.execute(sockfd, connection_type, actual_result);
+    netexec.execute(sockfd, actual_result);
 
     struct msghdr new_msghdr = netexec.get_msg();
 

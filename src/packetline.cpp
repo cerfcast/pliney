@@ -116,7 +116,8 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  auto executor = SerialPipelineExecutor{};
+  auto executor =
+      SerialPipelineExecutor{packet_t{.transport = connection_type}};
   auto maybe_result = executor.execute(pipeline);
 
   if (std::holds_alternative<packet_t>(maybe_result)) {
@@ -131,7 +132,7 @@ int main(int argc, const char **argv) {
     }
 
     auto netexec = CliNetworkExecutor();
-    if (!netexec.execute(skt, connection_type, actual_result)) {
+    if (!netexec.execute(skt, actual_result)) {
       std::cerr << "Error occurred executing the network connection.\n";
       return 1;
     } else {
