@@ -17,5 +17,5 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: |
-          cmake -B build -S .
+          cmake -B build -S . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
           cmake --build build
