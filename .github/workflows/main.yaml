@@ -11,3 +11,11 @@ jobs:
       - run: |
           cmake -B build -S .
           cmake --build build --target clang-format-check
+  build-check:
+    name: Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          cmake -B build -S .
+          cmake --build build
