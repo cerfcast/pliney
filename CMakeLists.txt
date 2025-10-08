@@ -28,11 +28,6 @@ target_include_directories(source PRIVATE include)
 set_property(TARGET source PROPERTY C_STANDARD 23)
 set_property(TARGET source PROPERTY OUTPUT_NAME pliney_pl_source)
 
-add_library(type SHARED "plugins/type.c" ${PLUGIN_LIB_SRCS})
-target_include_directories(type PRIVATE include)
-set_property(TARGET type PROPERTY C_STANDARD 23)
-set_property(TARGET type PROPERTY OUTPUT_NAME pliney_pl_type)
-
 add_library(body SHARED "plugins/body.c" ${PLUGIN_LIB_SRCS})
 target_include_directories(body PRIVATE include)
 set_property(TARGET body PROPERTY C_STANDARD 23)
