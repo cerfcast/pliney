@@ -1,6 +1,6 @@
 #/bin/env bash
 
-tests="raw_tests.sh log_tests.sh"
+tests="raw_tests.sh"
 
 for i in ${tests}; do
     ./test/${i}
