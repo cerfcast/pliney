@@ -2,8 +2,6 @@
 #include "api/utils.h"
 #include <fcntl.h>
 #include <netinet/ip.h>
-#include <pcap/dlt.h>
-#include <pcap/pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
 
