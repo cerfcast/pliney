@@ -21,6 +21,18 @@ int ip_parse(const char *to_parse, ip_addr_t *result);
 int ip_set(ip_addr_t addr);
 void selectively_copy_ip(ip_addr_t *dest, ip_addr_t *src);
 
+/** parse_to_value
+ * Convert a string to a value by searching parallel array of ids and names.
+ *
+ * The parallel arrays should be structured as
+ * names:
+ * name_index => name
+ * values:
+ * values_index => value
+ *
+ * where values[name_index] is the result. It is assumed that names and
+ * values have the same length.
+ */
 bool parse_to_value(const char *valuev, uint8_t *valuec, const char **names,
                     const uint8_t *values, size_t nvalues);
 
