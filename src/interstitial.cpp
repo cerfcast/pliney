@@ -18,7 +18,6 @@
 #include "packetline/logger.hpp"
 #include "packetline/packetline.hpp"
 #include "packetline/pipeline.hpp"
-#include "packetline/utilities.hpp"
 
 static bool configured = false;
 static std::optional<Pipeline> maybe_pipeline{};
