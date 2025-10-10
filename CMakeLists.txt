@@ -58,6 +58,11 @@ target_include_directories(error PRIVATE include)
 set_property(TARGET error PROPERTY C_STANDARD 23)
 set_property(TARGET error PROPERTY OUTPUT_NAME pliney_pl_error)
 
+add_library(raw SHARED "plugins/raw.c" ${PLUGIN_LIB_SRCS})
+target_include_directories(raw PRIVATE include)
+set_property(TARGET raw PROPERTY C_STANDARD 23)
+set_property(TARGET raw PROPERTY OUTPUT_NAME pliney_pl_raw)
+
 add_dependencies(pliney target)
 add_dependencies(pliney target)
 add_dependencies(pliney source)
@@ -67,6 +72,7 @@ add_dependencies(pliney ttl)
 add_dependencies(pliney diffserv)
 add_dependencies(pliney cong)
 add_dependencies(pliney error)
+add_dependencies(pliney raw)
 
 # Try to find libpcap to determine whether to enable log plugin support.
 find_package(PkgConfig)
@@ -89,7 +95,7 @@ set(FORMATTABLE_FILES "${PLINEY_SRCS}")
 list(APPEND FORMATTABLE_FILES "${PLINEY_MAIN}")
 list(APPEND FORMATTABLE_FILES "${PLINEY_INTERSTITIAL}")
 list(APPEND FORMATTABLE_FILES "${PLUGIN_LIB_SRCS}")
-list(APPEND FORMATTABLE_FILES plugins/target.c plugins/source.c plugins/body.c plugins/exthdr-padn.c plugins/ttl.c plugins/diffserv.c plugins/cong.c plugins/log.c plugins/error.c)
+list(APPEND FORMATTABLE_FILES plugins/target.c plugins/source.c plugins/body.c plugins/exthdr-padn.c plugins/ttl.c plugins/diffserv.c plugins/cong.c plugins/log.c plugins/error.c plugins/raw.c)
 list(TRANSFORM FORMATTABLE_FILES PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE FORMATTABLE_FILES)
 list(JOIN FORMATTABLE_FILES "\n" FORMATTABLE_FILES)
 
