@@ -61,7 +61,7 @@ __attribute__((constructor)) void pliney_initialize() {
   configured = true;
 }
 
-__attribute__((destructor)) void pliney_deinitiailize() {
+__attribute__((destructor)) void pliney_deinitialize() {
   Logger::ActiveLogger()->log(
       Logger::DEBUG, std::format("Pliney plugins cleaned up successfully."));
 }
