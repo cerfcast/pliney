@@ -43,15 +43,6 @@ void debug(const char *fmt, ...);
 void warn(const char *fmt, ...);
 void error(const char *fmt, ...);
 
-#define USE_GIVEN_IN_RESULT(result)                                            \
-  {                                                                            \
-    result.destination = target;                                               \
-    result.source = source;                                                    \
-    result.body = body;                                                        \
-    result.extensions = extensions;                                            \
-    result.connection_type = type;                                             \
-  }
-
 #ifdef __cplusplus
 }
 #endif
