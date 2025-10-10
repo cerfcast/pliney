@@ -58,9 +58,8 @@ configuration_result_t generate_configuration(int argc, const char **args) {
       HAS_ANOTHER_ARG;
       if (!strcmp(args[arg], "append")) {
         mode = APPEND;
-        filename = args[arg];
       } else if (!strcmp(args[arg], "overwrite")) {
-        filename = args[arg];
+        mode = OVERWRITE;
       } else {
         char *err = (char *)calloc(255, sizeof(char));
         snprintf(
