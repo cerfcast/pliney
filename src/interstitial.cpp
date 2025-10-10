@@ -93,10 +93,20 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
   int result = getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &connection_type,
                           &connection_type_size);
 
+  if (result < 0) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR, "Could not get the connection type using getsockopt.");
+    return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
+  }
+
   if (connection_type == SOCK_DGRAM) {
     connection_type = INET_DGRAM;
-  } else {
+  } else if (connection_type == SOCK_STREAM) {
     connection_type = INET_STREAM;
+  } else {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR, "Connection type was neither datagram nor stream.");
+    return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
   }
 
   // Get the destination address.
@@ -183,10 +193,20 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
   int result = getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &connection_type,
                           &connection_type_size);
 
+  if (result < 0) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR, "Could not get the connection type using getsockopt.");
+    return orig_sendmsg(sockfd, hdr, flags);
+  }
+
   if (connection_type == SOCK_DGRAM) {
     connection_type = INET_DGRAM;
-  } else {
+  } else if (connection_type == SOCK_STREAM) {
     connection_type = INET_STREAM;
+  } else {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR, "Connection type was neither datagram nor stream.");
+    return orig_sendmsg(sockfd, hdr, flags);
   }
 
   result_packet_tt maybe_initial_packet{msghdr_to_packet(hdr)};
