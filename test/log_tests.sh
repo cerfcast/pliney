@@ -1,13 +1,13 @@
 #!/bin/env bash
 
-./build/pliney -type dgram  \!\> body ./test/data/dns_cnn =\> target 8.8.8.8 53  =\> log  -mode overwrite /tmp/testing.pcap
+./build/pliney -type dgram  \!\> body ./test/data/dns_cnn =\> target 8.8.8.8 53  =\> log  -mode overwrite ${RUNNER_TEMP}/testing.pcap
 
-dd bs=1 skip=68 if=/tmp/testing.pcap > /tmp/testing.pcap.slim 
-diff test/data/dns_cnn /tmp/testing.pcap.slim
+dd bs=1 skip=68 if=${RUNNER_TEMP}testing.pcap > ${RUNNER_TEMP}/testing.pcap.slim 
+diff test/data/dns_cnn ${RUNNER_TEMP}/testing.pcap.slim
 
 result=$?
 
-rm -f /tmp/testing.pcap
-rm -f /tmp/testing.pcap.slim
+rm -f ${RUNNER_TEMP}/testing.pcap
+rm -f ${RUNNER_TEMP}/testing.pcap.slim
 
 exit $result
