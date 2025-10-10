@@ -24,6 +24,7 @@ public:
     ERROR,
     WARN,
     DEBUG,
+    TRACE,
   };
 
   static std::shared_ptr<Logger> ActiveLogger() {
@@ -45,6 +46,8 @@ public:
       plugin_debug_level = DEBUG_LEVEL;
     } else if (l == WARN) {
       plugin_debug_level = WARN_LEVEL;
+    } else if (l == TRACE) {
+      plugin_debug_level = TRACE_LEVEL;
     } else if (l == ERROR) {
       plugin_debug_level = ERROR_LEVEL;
     }

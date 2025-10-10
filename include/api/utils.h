@@ -26,6 +26,7 @@ bool parse_to_value(const char *valuev, uint8_t *valuec, const char **names,
 
 bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len);
 
+void trace(const char *fmt, ...);
 void debug(const char *fmt, ...);
 void warn(const char *fmt, ...);
 void error(const char *fmt, ...);

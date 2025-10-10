@@ -49,6 +49,9 @@ bool Cli::parse_logger_level(const char *maybe_logger_level_raw,
   } else if (maybe_logger_level == "warn") {
     level = Logger::WARN;
     return true;
+  } else if (maybe_logger_level == "trace") {
+    level = Logger::TRACE;
+    return true;
   } else if (maybe_logger_level == "error") {
     level = Logger::ERROR;
     return true;
