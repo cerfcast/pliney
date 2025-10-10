@@ -1,6 +1,13 @@
 #/bin/env bash
 
-# Send an HTTP GET to cnn.com
-sudo ./build/pliney -type stream -log debug \!\> body test/data/http_get =\> ttl 27  =\> target 151.101.195.5 80
+tests="raw_tests.sh log_tests.sh"
 
-sudo ./build/pliney -type stream -log debug \!\> body test/data/http_get =\> ttl 27  =\> target cnn.com 80
+for i in ${tests}; do
+    ./test/${i}
+    if [ $? -ne 0 ]; then
+        echo "There was an error executing tests in ${i}"
+        exit 1
+    fi
+done
+
+exit 0
