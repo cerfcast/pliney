@@ -143,11 +143,12 @@ void debug(const char *fmt, ...) {
   int dl = _debug_level();
 
   if (dl >= DEBUG_LEVEL) {
-    va_list args;
     printf("Debug: ");
+    va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
     va_end(args);
+    printf("\n");
   }
 }
 
@@ -155,11 +156,12 @@ void warn(const char *fmt, ...) {
   int dl = _debug_level();
 
   if (dl >= WARN_LEVEL) {
-    va_list args;
     printf("Warn: ");
+    va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
     va_end(args);
+    printf("\n");
   }
 }
 
@@ -172,6 +174,7 @@ void trace(const char *fmt, ...) {
     va_start(args, fmt);
     vprintf(fmt, args);
     va_end(args);
+    printf("\n");
   }
 }
 
@@ -181,6 +184,7 @@ void error(const char *fmt, ...) {
   va_start(args, fmt);
   vprintf(fmt, args);
   va_end(args);
+  printf("\n");
 }
 
 bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len) {
