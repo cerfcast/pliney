@@ -16,7 +16,9 @@ configuration_result_t generate_configuration(int argc, const char **args) {
                                                  .errstr = NULL};
 
   if (!argc) {
-    configuration_result.errstr = "Target plugin got no arguments.";
+    char *err = (char *)calloc(255, sizeof(char));
+    snprintf(err, 255, "Target plugin got no target.");
+    configuration_result.errstr = err;
     return configuration_result;
   }
 

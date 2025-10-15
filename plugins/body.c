@@ -18,8 +18,9 @@ configuration_result_t generate_configuration(int argc, const char **args) {
                                                  .errstr = NULL};
 
   if (argc < 1) {
-    configuration_result.errstr = "Must provide a data file whose contents "
-                                  "will be the body of the packet";
+    char *err = (char *)calloc(255, sizeof(char));
+    snprintf(err, 255, "Body plugin got no argument.");
+    configuration_result.errstr = err;
     return configuration_result;
   }
 

@@ -25,8 +25,9 @@ configuration_result_t generate_configuration(int argc, const char **args) {
                                                  .errstr = NULL};
 
   if (argc < 2) {
-    configuration_result.errstr =
-        "Must provide at least a type and length to the hbh-padn plugin.";
+    char *err = (char *)calloc(255, sizeof(char));
+    snprintf(err, 255, "Extension Header plugin got no arguments.");
+    configuration_result.errstr = err;
     return configuration_result;
   }
 
