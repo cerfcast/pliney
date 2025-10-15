@@ -32,6 +32,13 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   configuration_result_t configuration_result = {.configuration_cookie = NULL,
                                                  .errstr = NULL};
 
+  if (!argc) {
+    char *err = (char *)calloc(255, sizeof(char));
+    snprintf(err, 255, "pcap logging plugin got no arguments.");
+    configuration_result.errstr = err;
+    return configuration_result;
+  }
+
   char pcaperr[PCAP_ERRBUF_SIZE] = {
       0,
   };
