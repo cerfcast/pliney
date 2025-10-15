@@ -28,7 +28,8 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     int dns_result = getaddrinfo(args[0], NULL, NULL, &resolveds);
     if (dns_result < 0) {
       char *err = (char *)calloc(255, sizeof(char));
-      snprintf(err, 255, "Error looking up DNS: %s", gai_strerror(dns_result));
+      snprintf(err, 255, "Error looking up %s: %s", args[0],
+               gai_strerror(dns_result));
       configuration_result.errstr = err;
     } else {
       struct addrinfo *resolved = resolveds;
