@@ -49,6 +49,8 @@ $ PLINEY_PIPELINE="ttl 12" LD_PRELOAD=/path/to/libplineyi.so nslookup cnn.com
 | target | Set the target of a packet. |
 | source | Set the source of a packet. |
 | log | Log the contents of the packet (in libpcap format) to a file. |
+| raw | Log the contents of the body of the packet (as raw bytes) to a file. |
+| gre | Tunnel the packet (in a GRE tunnel) to another host. (Currently supports only delivery through IPv4 and encapsulation of IP packets) |
 
 **More documentation (and more plugins!) coming soon.**
 
