@@ -37,7 +37,9 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   } else if (!strcmp(args[0], "dst")) {
     type = IPV6_DSTOPTS;
   } else {
-    configuration_result.errstr = "Invalid type provided.";
+    char *err = (char *)calloc(255, sizeof(char));
+    snprintf(err, 255, "Invalid type provided.");
+    configuration_result.errstr = err;
     return configuration_result;
   }
 
