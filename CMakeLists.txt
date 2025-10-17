@@ -96,6 +96,8 @@ else()
     message(WARNING "Could not find libpcap -- disabling log plugin support")
 endif()
 
+
+add_subdirectory(argen)
 add_subdirectory(test)
 
 set(FORMATTABLE_FILES "${PLINEY_SRCS}")

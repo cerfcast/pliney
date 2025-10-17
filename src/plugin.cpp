@@ -80,12 +80,13 @@ Plugins::plugin_by_name(const std::string_view &plugin_name) {
   return {};
 }
 
-std::variant<std::vector<Plugin>, std::string>  PluginDir::plugins() {
+std::variant<std::vector<Plugin>, std::string> PluginDir::plugins() {
   std::error_code directory_access_ec{};
   auto dir = std::filesystem::directory_iterator{m_path, directory_access_ec};
 
   if (directory_access_ec) {
-    return std::format("Error occurred accessing the specified plugin path: {}", directory_access_ec.message());
+    return std::format("Error occurred accessing the specified plugin path: {}",
+                       directory_access_ec.message());
   }
 
   auto plugin_matcher = std::regex{"libpliney_pl_.*.so"};

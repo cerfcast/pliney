@@ -79,8 +79,7 @@ int main(int argc, const char **argv) {
       }
       if (arg == "log") {
         HAS_ANOTHER_ARG;
-        if (!Cli::parse_logger_level(argv[pliney_arg_idx],
-                                     cli_logger_level)) {
+        if (!Cli::parse_logger_level(argv[pliney_arg_idx], cli_logger_level)) {
           std::cerr << std::format("Invalid connection debug level given: {}\n",
                                    argv[pliney_arg_idx]);
           return 1;
@@ -108,7 +107,8 @@ int main(int argc, const char **argv) {
   auto loaded_plugins_result = plugins.plugins();
 
   if (std::holds_alternative<std::string>(loaded_plugins_result)) {
-    std::cerr << std::format("Could not open the given plugins directory: {}\n", std::get<std::string>(loaded_plugins_result));
+    std::cerr << std::format("Could not open the given plugins directory: {}\n",
+                             std::get<std::string>(loaded_plugins_result));
     return 1;
   }
 
