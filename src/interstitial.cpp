@@ -25,12 +25,34 @@ static std::optional<Pipeline> maybe_pipeline{};
 __attribute__((constructor)) void pliney_initialize() {
   printf("About to initialize plineyi\n");
 
-  auto plugin_path = std::filesystem::path("./build");
-  auto plugins = PluginDir{plugin_path};
-  auto loaded_plugins = plugins.plugins();
+  std::string pliney_plugin_path{"./build"};
+  char *user_plugin_path = getenv("PLINEY_PLUGIN_PATH");
+  if (user_plugin_path) {
+    pliney_plugin_path = user_plugin_path;
+  }
 
   auto logger = Logger::ActiveLogger();
   logger->set_level(Logger::DEBUG);
+
+  auto plugin_path = std::filesystem::path(pliney_plugin_path);
+  auto plugins = PluginDir{plugin_path};
+  auto loaded_plugins_result = plugins.plugins();
+
+  if (std::holds_alternative<std::string>(loaded_plugins_result)) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR,
+        std::format("Could not load plugins: {}",
+                    std::get<std::string>(loaded_plugins_result)));
+    configured = false;
+    return;
+  }
+
+  auto loaded_plugins = std::get<std::vector<Plugin>>(loaded_plugins_result);
+  if (loaded_plugins.empty()) {
+    Logger::ActiveLogger()->log(Logger::ERROR, "No plugins loaded.");
+    configured = false;
+    return;
+  }
 
   char *user_pipeline = getenv("PLINEY_PIPELINE");
 

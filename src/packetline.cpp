@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <bits/types/struct_iovec.h>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
 #include <endian.h>
@@ -21,6 +22,7 @@
 #include "packetline/executors.hpp"
 #include "packetline/logger.hpp"
 #include "packetline/pipeline.hpp"
+#include "packetline/plugin.hpp"
 
 #include <unistd.h>
 
@@ -29,18 +31,14 @@
 extern int errno;
 
 int main(int argc, const char **argv) {
-  auto plugin_path = std::filesystem::path("./build");
-  auto plugins = PluginDir{plugin_path};
-  auto loaded_plugins = plugins.plugins();
+  uint8_t cli_connection_type = INET_STREAM;
+  Logger::Level cli_logger_level{Logger::ERROR};
+  std::string cli_plugin_path{"./build"};
 
-  uint8_t connection_type = INET_STREAM;
-
-  if (loaded_plugins.empty()) {
-    std::cerr << "No plugins loaded.\n";
-    return 1;
+  char *plugin_path_env = nullptr;
+  if ((plugin_path_env = getenv("PLINEY_PLUGIN_PATH"))) {
+    cli_plugin_path = plugin_path_env;
   }
-
-  Logger::Level initial_logger_level{Logger::ERROR};
 
   // Determine where the pipeline starts ...
   size_t pipeline_start{0};
@@ -72,7 +70,7 @@ int main(int argc, const char **argv) {
       if (arg == "type") {
         HAS_ANOTHER_ARG;
         if (!Cli::parse_connection_type(argv[pliney_arg_idx],
-                                        connection_type)) {
+                                        cli_connection_type)) {
           std::cerr << std::format("Invalid connection type given: {}\n",
                                    argv[pliney_arg_idx]);
           return 1;
@@ -82,11 +80,16 @@ int main(int argc, const char **argv) {
       if (arg == "log") {
         HAS_ANOTHER_ARG;
         if (!Cli::parse_logger_level(argv[pliney_arg_idx],
-                                     initial_logger_level)) {
+                                     cli_logger_level)) {
           std::cerr << std::format("Invalid connection debug level given: {}\n",
                                    argv[pliney_arg_idx]);
           return 1;
         }
+        continue;
+      }
+      if (arg == "plugin-path") {
+        HAS_ANOTHER_ARG;
+        cli_plugin_path = argv[pliney_arg_idx];
         continue;
       }
     }
@@ -98,7 +101,22 @@ int main(int argc, const char **argv) {
   auto logger = Logger::ActiveLogger();
   // Now that the user had a chance to configure their preferred log level,
   // let's set it.
-  logger->set_level(initial_logger_level);
+  logger->set_level(cli_logger_level);
+
+  auto plugin_fs_path = std::filesystem::path(cli_plugin_path);
+  auto plugins = PluginDir{plugin_fs_path};
+  auto loaded_plugins_result = plugins.plugins();
+
+  if (std::holds_alternative<std::string>(loaded_plugins_result)) {
+    std::cerr << std::format("Could not open the given plugins directory: {}\n", std::get<std::string>(loaded_plugins_result));
+    return 1;
+  }
+
+  auto loaded_plugins = std::get<std::vector<Plugin>>(loaded_plugins_result);
+  if (loaded_plugins.empty()) {
+    std::cerr << "No plugins loaded.\n";
+    return 1;
+  }
 
   Pipeline pipeline{argv + pipeline_start + 1, std::move(loaded_plugins)};
 
@@ -117,12 +135,12 @@ int main(int argc, const char **argv) {
   }
 
   auto executor =
-      SerialPipelineExecutor{packet_t{.transport = connection_type}};
+      SerialPipelineExecutor{packet_t{.transport = cli_connection_type}};
   auto maybe_result = executor.execute(pipeline);
 
   if (std::holds_alternative<packet_t>(maybe_result)) {
     auto actual_result = std::get<packet_t>(maybe_result);
-    auto skt = ip_to_socket(actual_result.target, connection_type);
+    auto skt = ip_to_socket(actual_result.target, cli_connection_type);
 
     if (skt < 0) {
       std::cerr << std::format(

@@ -45,7 +45,7 @@ class PluginDir {
 public:
   explicit PluginDir(std::filesystem::path p) : m_path(p) {}
 
-  std::vector<Plugin> plugins();
+  std::variant<std::vector<Plugin>, std::string> plugins();
 
 private:
   std::filesystem::path m_path;
