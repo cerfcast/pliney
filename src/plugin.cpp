@@ -6,9 +6,11 @@
 #include <dlfcn.h>
 #include <format>
 #include <iostream>
+#include <iterator>
 #include <numeric>
 #include <regex>
 #include <system_error>
+#include <utility>
 
 bool Plugin::load() {
   void *loaded = dlopen(m_path.c_str(), RTLD_NOW);
@@ -141,20 +143,34 @@ std::string Plugin::params() const {
 
 std::string Plugins::usage() const {
   std::regex newline_regex{"\n"};
+
+  using usage_pair_t = std::pair<std::string, std::string>;
+  std::vector<usage_pair_t> usages{};
+  std::transform(m_plugins.cbegin(), m_plugins.cend(),
+                 std::back_insert_iterator(usages),
+                 [&newline_regex](const Plugin &p) -> usage_pair_t {
+                   auto formatted_usage =
+                       regex_replace(p.usage(), newline_regex, "\n\t\t");
+                   auto formatted_params =
+                       regex_replace(p.params(), newline_regex, "\n\t\t");
+                   auto plugin_usage =
+                       std::format("\t{}\n\t\t{}\n\t\tUsage:\n\t\t{}", p.name(),
+                                   formatted_params, formatted_usage);
+                   return usage_pair_t{p.name(), plugin_usage};
+                 });
+
+  std::sort(usages.begin(), usages.end(),
+            [](usage_pair_t left, usage_pair_t right) -> bool {
+              return std::get<0>(left) < std::get<0>(right);
+            });
+
   return std::accumulate(
-      m_plugins.cbegin(), m_plugins.cend(), std::string{},
-      [&newline_regex](std::string existing, const Plugin &p) -> std::string {
-        auto formatted_usage =
-            regex_replace(p.usage(), newline_regex, "\n\t\t");
-        auto formatted_params =
-            regex_replace(p.params(), newline_regex, "\n\t\t");
-        auto plugin_usage =
-            std::format("\t{}\n\t\t{}\n\t\tUsage:\n\t\t{}", p.name(),
-                        formatted_params, formatted_usage);
+      usages.cbegin(), usages.cend(), std::string{},
+      [](std::string existing, const usage_pair_t &next) -> std::string {
         if (existing.length() != 0) {
           existing += "\n";
         }
-        existing += plugin_usage;
+        existing += std::get<1>(next);
         return existing;
       });
 }
