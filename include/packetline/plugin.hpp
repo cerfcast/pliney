@@ -22,6 +22,9 @@ public:
 
   std::string name() const { return m_name; }
 
+  std::string usage() const;
+  std::string params() const;
+
   result_generate_result_tt generate(packet_t *packet, void *cookie) const;
 
 private:
@@ -36,6 +39,8 @@ public:
   Plugins(std::vector<Plugin> &&plugins) : m_plugins(plugins) {}
 
   std::optional<Plugin> plugin_by_name(const std::string_view &plugin_name);
+
+  std::string usage() const;
 
 private:
   std::vector<Plugin> m_plugins;

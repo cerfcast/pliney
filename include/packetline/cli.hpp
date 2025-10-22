@@ -1,5 +1,5 @@
-#ifndef _OPTION_HPP
-#define _OPTION_HPP
+#ifndef _CLI_HPP
+#define _CLI_HPP
 
 #include "packetline/logger.hpp"
 #include <cstddef>

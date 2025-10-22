@@ -58,10 +58,24 @@ cleanup_result_t cleanup(void *cookie) {
   return result;
 }
 
+usage_result_t usage() {
+  usage_result_t result;
+
+  // clang-format off
+  result.params = "<ect1, ect0, ce, not-ect>";
+  result.usage = 
+  "Set the congestion value of the DSCP field to the specified\n"
+  "value.";
+  // clang-format on
+
+  return result;
+}
+
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
   info->generator = generate;
   info->cleanup = cleanup;
+  info->usage = usage;
   return true;
 }

@@ -6,6 +6,7 @@
 #include <dlfcn.h>
 #include <format>
 #include <iostream>
+#include <numeric>
 #include <regex>
 #include <system_error>
 
@@ -26,8 +27,9 @@ bool Plugin::load() {
     return false;
   }
 
-  std::cout << std::format("Load of plugin at path {} was successful!\n",
-                           m_path.c_str());
+  Logger::ActiveLogger()->log(
+      Logger::DEBUG, std::format("Load of plugin at path {} was successful!\n",
+                                 m_path.c_str()));
 
   auto load_result = load_function(&info);
 
@@ -94,13 +96,17 @@ std::variant<std::vector<Plugin>, std::string> PluginDir::plugins() {
 
   std::ranges::for_each(dir, [&](auto v) {
     if (std::regex_match(v.path().filename().c_str(), plugin_matcher)) {
-      std::cout << std::format("Attempting to load plugin at {} ...\n",
-                               v.path().filename().c_str());
+      Logger::ActiveLogger()->log(
+          Logger::DEBUG, std::format("Attempting to load plugin at {} ...",
+                                     v.path().filename().c_str()));
+
       Plugin p{v};
 
       if (p.load()) {
-        std::cout << std::format("Successfully loaded --{}-- plugin.\n",
-                                 p.name());
+        Logger::ActiveLogger()->log(
+            Logger::DEBUG,
+            std::format("Successfully loaded --{}-- plugin.", p.name()));
+
         loaded_plugins.push_back(p);
       } else {
         std::cerr << "Load failed!\n";
@@ -110,3 +116,45 @@ std::variant<std::vector<Plugin>, std::string> PluginDir::plugins() {
 
   return loaded_plugins;
 };
+
+std::string Plugin::usage() const {
+  if (info.usage) {
+    auto usage = info.usage();
+    if (usage.usage) {
+      std::string plugin_usage{usage.usage};
+      return plugin_usage;
+    }
+  }
+  return "N/A";
+}
+
+std::string Plugin::params() const {
+  if (info.usage) {
+    auto usage = info.usage();
+    if (usage.params) {
+      std::string plugin_params{usage.params};
+      return plugin_params;
+    }
+  }
+  return "N/A";
+}
+
+
+std::string Plugins::usage() const {
+  std::regex newline_regex{"\n"};
+  return std::accumulate(
+      m_plugins.cbegin(), m_plugins.cend(), std::string{},
+      [&newline_regex](std::string existing, const Plugin &p) -> std::string {
+        auto formatted_usage =
+            regex_replace(p.usage(), newline_regex, "\n\t\t");
+        auto formatted_params =
+            regex_replace(p.params(), newline_regex, "\n\t\t");
+        auto plugin_usage =
+            std::format("\t{}\n\t\t{}\n\t\tUsage:\n\t\t{}", p.name(), formatted_params, formatted_usage);
+        if (existing.length() != 0) {
+          existing += "\n";
+        }
+        existing += plugin_usage;
+        return existing;
+      });
+}

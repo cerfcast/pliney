@@ -106,10 +106,29 @@ cleanup_result_t cleanup(void *cookie) {
   return result;
 }
 
+usage_result_t usage() {
+  usage_result_t result;
+
+  // clang-format off
+  result.params = "<dst, hbh> <SIZE> [BYTE]";
+  result.usage = 
+  "Add a PadN option to the destination or hop-by-hop\n"
+  "dst, hbh, respectively) IPv6 extension header with the\n"
+  "specified SIZE. Optionally specify the value of the\n"
+  "BYTEs in the padding. User is responsible for\n"
+  "guaranteeing that the sizes of all extension headers\n"
+  "meet alignment and other requirements.";
+  // clang-format on
+
+  return result;
+}
+
+
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
   info->generator = generate;
   info->cleanup = cleanup;
+  info->usage = usage;
   return true;
 }

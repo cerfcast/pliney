@@ -28,7 +28,8 @@ public:
   }
 };
 
-Pipeline::Pipeline(const char *source, Plugins &&plugins) {
+Pipeline::Pipeline(const char *source, Plugins &&plugins)
+    : m_plugins(std::move(plugins)) {
   std::vector<std::string> args{};
   std::vector<std::string_view> argv{};
 
@@ -41,20 +42,20 @@ Pipeline::Pipeline(const char *source, Plugins &&plugins) {
 
   std::ranges::for_each(args, [&argv](const auto &x) { argv.push_back(x); });
 
-  parse(argv, std::move(plugins));
+  parse(argv);
 }
 
-Pipeline::Pipeline(const char **source, Plugins &&plugins) {
+Pipeline::Pipeline(const char **source, Plugins &&plugins)
+    : m_plugins(std::move(plugins)) {
   std::vector<std::string_view> args{};
   for (size_t i = 0; source[i] != nullptr; i++) {
     args.push_back(source[i]);
   }
 
-  Pipeline::parse(args, std::move(plugins));
+  Pipeline::parse(args);
 }
 
-void Pipeline::parse(const std::vector<std::string_view> args,
-                     Plugins &&plugins) {
+void Pipeline::parse(const std::vector<std::string_view> args) {
   size_t pipeline_count{1};
 
   for (const auto pipeline_args :
@@ -82,7 +83,7 @@ void Pipeline::parse(const std::vector<std::string_view> args,
           std::format("Plugin {}'s arg #{}: {}", plugin_name, i + 1, args[i]));
     }
 
-    auto maybe_plugin = plugins.plugin_by_name(plugin_name);
+    auto maybe_plugin = m_plugins.plugin_by_name(plugin_name);
 
     if (maybe_plugin.has_value()) {
       auto plugin = *maybe_plugin;
@@ -136,3 +137,5 @@ std::optional<std::string> Pipeline::cleanup() {
 }
 
 Pipeline::~Pipeline() { cleanup(); }
+
+std::string Pipeline::usage() const { return m_plugins.usage(); }

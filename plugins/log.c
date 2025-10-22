@@ -225,10 +225,31 @@ cleanup_result_t cleanup(void *cookie) {
   return result;
 }
 
+usage_result_t usage() {
+  usage_result_t result;
+
+  // clang-format off
+  result.params = "[-mode <overwrite, append>]\n"
+  "[-default-ip <IP>]\n"
+  "[-default-transport <dgram, stream>] <FILE_PATH>";
+  result.usage = 
+  "Write the contents of the packet to FILE_PATH in PCAP format.\n"
+  "Optionally specify a mode to determine how existing contents\n"
+  "of FILE_PATH are handled. Optionally specify a default-ip to\n"
+  "specify a target IP if the packet does not have one. Optionally\n"
+  "specify a default-transport protocol if the packet does not have\n"
+  "one.";
+  // clang-format on
+
+  return result;
+}
+
+
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
   info->generator = generate;
   info->cleanup = cleanup;
+  info->usage = usage;
   return true;
 }

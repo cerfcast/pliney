@@ -23,6 +23,7 @@
 #include "packetline/logger.hpp"
 #include "packetline/pipeline.hpp"
 #include "packetline/plugin.hpp"
+#include "packetline/usage.hpp"
 
 #include <unistd.h>
 
@@ -45,10 +46,7 @@ int main(int argc, const char **argv) {
   auto pipeline_start_found =
       Cli::find_pipeline_start(argc, argv, &pipeline_start);
 
-  if (!pipeline_start_found) {
-    std::cerr << "No pipeline found.\n";
-    return 1;
-  }
+  auto should_show_help{false};
 
   // Determine whether there are arguments for pliney, before the pipeline
   // starts.
@@ -91,10 +89,14 @@ int main(int argc, const char **argv) {
         cli_plugin_path = argv[pliney_arg_idx];
         continue;
       }
+      if (arg == "help") {
+        should_show_help = true;
+        continue;
+      }
     }
     std::cerr << std::format("Unrecognized argument: {}\n",
                              argv[pliney_arg_idx]);
-    return 1;
+    should_show_help = true;
   }
 
   auto logger = Logger::ActiveLogger();
@@ -120,6 +122,17 @@ int main(int argc, const char **argv) {
 
   Pipeline pipeline{argv + pipeline_start + 1, std::move(loaded_plugins)};
 
+  if (should_show_help) {
+    Usage us{};
+    us.usage(std::cout, argv[0], std::move(pipeline));
+    return 1;
+  }
+
+  if (!pipeline_start_found) {
+    std::cerr << "No pipeline found.\n";
+    return 1;
+  }
+
   if (!pipeline.ok()) {
     auto pipeline_errs = std::accumulate(
         pipeline.error_begin(), pipeline.error_end(), std::string{},
@@ -131,6 +144,10 @@ int main(int argc, const char **argv) {
         });
     std::cerr << std::format("Error occurred configuring pipeline: {}\n",
                              pipeline_errs);
+
+    Usage us{};
+    us.usage(std::cout, argv[0], std::move(pipeline));
+
     return 1;
   }
 

@@ -68,15 +68,23 @@ typedef struct {
   char *errstr;
 } cleanup_result_t;
 
+typedef struct {
+  char *params;
+  char *usage;
+} usage_result_t;
+
+
 typedef generate_result_t (*generate_t)(packet_t *packet, void*);
 typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
 typedef cleanup_result_t (*cleanup_t)(void *);
+typedef usage_result_t (*usage_t)();
 
 typedef struct {
   char *name;
   generate_t generator;
   generate_configuration_t configurator;
   cleanup_t cleanup;
+  usage_t usage;
 } plugin_t;
 
 typedef bool (*load_t)(plugin_t *);

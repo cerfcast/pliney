@@ -15,6 +15,8 @@ public:
 
   std::optional<std::string> cleanup();
 
+  std::string usage() const;
+
   class Iterator {
   public:
     using difference_type = std::vector<Invocation>::difference_type;
@@ -75,12 +77,13 @@ public:
   ~Pipeline();
 
 private:
-  void parse(const std::vector<std::string_view> args, Plugins &&plugins);
+  void parse(const std::vector<std::string_view> args);
 
 private:
   std::string m_raw;
   bool m_parsed;
   Invocations m_invocations;
+  Plugins m_plugins;
   std::vector<std::string> m_parse_errors;
 };
 

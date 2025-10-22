@@ -62,10 +62,24 @@ cleanup_result_t cleanup(void *cookie) {
   return result;
 }
 
+usage_result_t usage() {
+  usage_result_t result;
+
+  // clang-format off
+  result.params = "<TTL>";
+  result.usage = 
+  "Set the time to live on the packet to TTL.";
+  // clang-format on
+
+  return result;
+}
+
+
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
   info->generator = generate;
   info->cleanup = cleanup;
+  info->usage = usage;
   return true;
 }

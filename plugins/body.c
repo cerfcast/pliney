@@ -114,10 +114,26 @@ cleanup_result_t cleanup(void *cookie) {
   return result;
 }
 
+usage_result_t usage() {
+  usage_result_t result;
+
+  // clang-format off
+  result.params = "<FILE_PATH> [SIZE]";
+  result.usage = 
+  "Replace the existing body of the packet with the contents of\n"
+  "FILE_PATH. SIZE (in bytes), if given, caps the size of the\n"
+  "new body. If SIZE is not specified, the entire contents of\n"
+  "FILE_PATH will be used.";
+  // clang-format on
+
+  return result;
+}
+
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
   info->generator = generate;
   info->cleanup = cleanup;
+  info->usage = usage;
   return true;
 }

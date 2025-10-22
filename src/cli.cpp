@@ -21,6 +21,8 @@ bool Cli::find_pipeline_start(size_t argc, const char **args,
   if (std::get<0>(*result) != argc) {
     *position = std::get<0>(*result);
     return true;
+  } else {
+    *position = argc;
   }
   return false;
 }
