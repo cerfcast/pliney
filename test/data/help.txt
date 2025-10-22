@@ -26,19 +26,21 @@ Plugin Usage:
 		FILE_PATH. SIZE (in bytes), if given, caps the size of the
 		new body. If SIZE is not specified, the entire contents of
 		FILE_PATH will be used.
-	raw
-		[-mode <overwrite, append>] <file path>
+	cong
+		<ect1, ect0, ce, not-ect>
 		Usage:
-		Write the contents of the body of the packet to <file path>.
-		Optionally specify a mode to determine how existing contents
-		of <file path> are handled.
-	source
-		<IP or HOSTNAME> [PORT]
+		Set the congestion value of the DSCP field to the specified
+		value.
+	diffserv
+		<cs0, cs1, cs2, cs3, cs4, cs5, cs6, cs7
+		af11, af12, af13,
+		af21, af22, af23,
+		af31, af32, af33,
+		af41, af42, af43,
+		ef, voice-admit>
 		Usage:
-		Set the source address of the packet to IP or the address
-		resolved from a DNS lookup of HOSTNAME. The packet's
-		existing source port will only be overwritten if PORT
-		is specified.
+		Set the differentiated services value of the DSCP field to
+		the specified value.
 	error
 		<ERROR_RATE> [BYTE]
 		Usage:
@@ -53,6 +55,24 @@ Plugin Usage:
 		BYTEs in the padding. User is responsible for
 		guaranteeing that the sizes of all extension headers
 		meet alignment and other requirements.
+	gre
+		<IP or HOSTNAME>
+		Usage:
+		Encapsulate the packet in a GRE tunnel to the specified IP
+		or HOSTNAME.
+	raw
+		[-mode <overwrite, append>] <file path>
+		Usage:
+		Write the contents of the body of the packet to <file path>.
+		Optionally specify a mode to determine how existing contents
+		of <file path> are handled.
+	source
+		<IP or HOSTNAME> [PORT]
+		Usage:
+		Set the source address of the packet to IP or the address
+		resolved from a DNS lookup of HOSTNAME. The packet's
+		existing source port will only be overwritten if PORT
+		is specified.
 	target
 		<IP or HOSTNAME> [PORT]
 		Usage:
@@ -60,27 +80,7 @@ Plugin Usage:
 		resolved from a DNS lookup of HOSTNAME. The packet's
 		existing target port will only be overwritten if PORT
 		is specified.
-	diffserv
-		<cs0, cs1, cs2, cs3, cs4, cs5, cs6, cs7
-		af11, af12, af13,
-		af21, af22, af23,
-		af31, af32, af33,
-		af41, af42, af43,
-		ef, voice-admit>
-		Usage:
-		Set the differentiated services value of the DSCP field to
-		the specified value.
 	ttl
 		<TTL>
 		Usage:
 		Set the time to live on the packet to TTL.
-	gre
-		<IP or HOSTNAME>
-		Usage:
-		Encapsulate the packet in a GRE tunnel to the specified IP
-		or HOSTNAME.
-	cong
-		<ect1, ect0, ce, not-ect>
-		Usage:
-		Set the congestion value of the DSCP field to the specified
-		value.
