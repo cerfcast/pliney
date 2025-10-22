@@ -139,7 +139,6 @@ std::string Plugin::params() const {
   return "N/A";
 }
 
-
 std::string Plugins::usage() const {
   std::regex newline_regex{"\n"};
   return std::accumulate(
@@ -150,7 +149,8 @@ std::string Plugins::usage() const {
         auto formatted_params =
             regex_replace(p.params(), newline_regex, "\n\t\t");
         auto plugin_usage =
-            std::format("\t{}\n\t\t{}\n\t\tUsage:\n\t\t{}", p.name(), formatted_params, formatted_usage);
+            std::format("\t{}\n\t\t{}\n\t\tUsage:\n\t\t{}", p.name(),
+                        formatted_params, formatted_usage);
         if (existing.length() != 0) {
           existing += "\n";
         }

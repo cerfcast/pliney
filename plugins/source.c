@@ -86,7 +86,6 @@ usage_result_t usage() {
   return result;
 }
 
-
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
