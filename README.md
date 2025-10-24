@@ -114,6 +114,30 @@ $ PLINEY_PIPELINE="target 8.8.8.8 53" LD_PRELOAD=build/libplineyi.so  nslookup c
 $ PLINEY_PIPELINE="body test/data/dns_cnn" LD_PRELOAD=build/libplineyi.so  nslookup google.com
 ```
 
+#### XDP
+
+More detailed information coming soon!
+
+##### Generating
+
+After generating the xdp, run
+
+```console
+$ make -f Makefile.xdp
+```
+
+To _load_, run
+
+```console
+$ make -f Makefile.xdp load
+```
+
+To _unload_, run
+
+```console
+$ make -f Makefile.xdp unload
+```
+
 ### Warnings/Notes
 
 #### Linux Behavior For IPv6 Extension Headers
@@ -124,3 +148,5 @@ $ PLINEY_PIPELINE="body test/data/dns_cnn" LD_PRELOAD=build/libplineyi.so  nsloo
 [^padn-length]: "Linux source code (v6.16.9) - Bootlin Elixir Cross Referencer" Available: https://elixir.bootlin.com/linux/v6.16.9/source/net/ipv6/exthdrs.c#L150. [Accessed: Sep. 26, 2025]
  
 [^padn-zeros]: "Linux source code (v6.16.9) - Bootlin Elixir Cross Referencer" Available: https://elixir.bootlin.com/linux/v6.16.9/source/net/ipv6/exthdrs.c#L159. [Accessed: Sep. 26, 2025]
+
+

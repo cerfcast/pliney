@@ -9,9 +9,13 @@
 #include "packetline/utilities.hpp"
 
 #include <cstring>
+#include <format>
+#include <fstream>
+#include <ios>
 #include <iostream>
 #include <memory>
 #include <netinet/in.h>
+#include <regex>
 #include <sys/socket.h>
 
 result_packet_tt SerialPipelineExecutor::execute(const Pipeline &pipeline) {
@@ -37,7 +41,8 @@ result_packet_tt SerialPipelineExecutor::execute(const Pipeline &pipeline) {
   return packet;
 }
 
-bool NetworkExecutor::execute(int socket, packet_t packet) {
+bool NetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet) {
+  int socket = std::get<int>(execution_ctx);
   auto actual_result = packet;
 
   if (actual_result.header.ttl != 0) {
@@ -69,7 +74,8 @@ bool NetworkExecutor::execute(int socket, packet_t packet) {
   return true;
 }
 
-bool InterstitialNetworkExecutor::execute(int socket, packet_t packet) {
+bool InterstitialNetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet) {
+  int socket = std::get<int>(execution_ctx);
 
   if (!NetworkExecutor::execute(socket, packet)) {
     return false;
@@ -174,7 +180,8 @@ InterstitialNetworkExecutor::~InterstitialNetworkExecutor() {
   }
 }
 
-bool CliNetworkExecutor::execute(int socket, packet_t packet) {
+bool CliNetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet) {
+  int socket = std::get<int>(execution_ctx);
 
   struct sockaddr *destination = nullptr;
   int destination_len = ip_to_sockaddr(packet.target, &destination);
@@ -228,8 +235,8 @@ bool CliNetworkExecutor::execute(int socket, packet_t packet) {
     };
   } else if (packet.transport == INET_DGRAM) {
 
-    struct msghdr msg {};
-    struct iovec iov {};
+    struct msghdr msg{};
+    struct iovec iov{};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = packet.body.data;
@@ -307,6 +314,52 @@ bool CliNetworkExecutor::execute(int socket, packet_t packet) {
                     "had an invalid stream type.",
                     strerror(errno)));
   }
+
+  return true;
+}
+
+bool XdpNetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet) {
+  auto xdp_path = std::filesystem::path("./skel/xdp.c");
+  auto xdp_output_path = std::filesystem::path("./build/pliney_xdp.c");
+
+  std::ifstream xdp_skel{xdp_path};
+
+  if (!xdp_skel) {
+    return false;
+  }
+
+  std::ofstream xdp_output_skel{xdp_output_path, std::ios::trunc};
+  if (!xdp_output_skel) {
+    return false;
+  }
+
+  // Read the entire skeleton file.
+  std::string xdp_skel_contents{};
+  char xdp_skel_just_read{};
+  xdp_skel >> std::noskipws;
+  while (xdp_skel >> xdp_skel_just_read) {
+    xdp_skel_contents += xdp_skel_just_read;
+  }
+
+  // Generate the xdp code.
+  std::string xdp_ipv4_code{};
+  std::string xdp_ipv6_code{};
+  if (packet.target.family == INET_ADDR_V4) {
+    if (packet.header.ttl) {
+      xdp_ipv4_code += std::format("ip->ttl = {};\n", packet.header.ttl);
+    }
+  } else if (packet.target.family == INET_ADDR_V6) {
+    xdp_ipv6_code += std::format("ipv6->ip6_hlim = {};\n", packet.header.ttl);
+  }
+
+  // Emit the xdp source code.
+  std::regex skel_ip_regex{"//__IPV4_PLINEY"};
+  std::regex skel_ipv6_regex{"//__IPV6_PLINEY"};
+  xdp_skel_contents =
+      std::regex_replace(xdp_skel_contents, skel_ip_regex, xdp_ipv4_code);
+  xdp_skel_contents =
+      std::regex_replace(xdp_skel_contents, skel_ipv6_regex, xdp_ipv6_code);
+  xdp_output_skel << xdp_skel_contents;
 
   return true;
 }

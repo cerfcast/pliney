@@ -9,6 +9,9 @@
 #include <memory>
 #include <optional>
 #include <sys/socket.h>
+#include <variant>
+
+using execution_context_t = std::variant<int, std::pair<std::string, std::string>>;
 
 class PipelineExecutor {
 public:
@@ -31,13 +34,13 @@ private:
 
 class NetworkExecutor {
 public:
-  virtual bool execute(int socket, packet_t packet);
+  virtual bool execute(execution_context_t execution_ctx, packet_t packet);
   virtual ~NetworkExecutor() = default;
 };
 
 class InterstitialNetworkExecutor : public NetworkExecutor {
 public:
-  bool execute(int socket, packet_t packet) override;
+  bool execute(execution_context_t execution_ctx, packet_t packet) override;
 
   struct msghdr get_msg() const { return m_msg; }
   ~InterstitialNetworkExecutor();
@@ -51,7 +54,12 @@ private:
 
 class CliNetworkExecutor : public NetworkExecutor {
 public:
-  bool execute(int socket, packet_t packet) override;
+  bool execute(execution_context_t execution_ctx, packet_t packet) override;
+};
+
+class XdpNetworkExecutor : public NetworkExecutor {
+public:
+  bool execute(execution_context_t execution_ctx, packet_t packet) override;
 };
 
 #endif
