@@ -41,7 +41,8 @@ result_packet_tt SerialPipelineExecutor::execute(const Pipeline &pipeline) {
   return packet;
 }
 
-bool NetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet) {
+bool NetworkExecutor::execute(execution_context_t execution_ctx,
+                              packet_t packet) {
   int socket = std::get<int>(execution_ctx);
   auto actual_result = packet;
 
@@ -74,7 +75,8 @@ bool NetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet
   return true;
 }
 
-bool InterstitialNetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet) {
+bool InterstitialNetworkExecutor::execute(execution_context_t execution_ctx,
+                                          packet_t packet) {
   int socket = std::get<int>(execution_ctx);
 
   if (!NetworkExecutor::execute(socket, packet)) {
@@ -180,7 +182,8 @@ InterstitialNetworkExecutor::~InterstitialNetworkExecutor() {
   }
 }
 
-bool CliNetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet) {
+bool CliNetworkExecutor::execute(execution_context_t execution_ctx,
+                                 packet_t packet) {
   int socket = std::get<int>(execution_ctx);
 
   struct sockaddr *destination = nullptr;
@@ -235,8 +238,8 @@ bool CliNetworkExecutor::execute(execution_context_t execution_ctx, packet_t pac
     };
   } else if (packet.transport == INET_DGRAM) {
 
-    struct msghdr msg{};
-    struct iovec iov{};
+    struct msghdr msg {};
+    struct iovec iov {};
 
     memset(&msg, 0, sizeof(struct msghdr));
     iov.iov_base = packet.body.data;
@@ -318,7 +321,8 @@ bool CliNetworkExecutor::execute(execution_context_t execution_ctx, packet_t pac
   return true;
 }
 
-bool XdpNetworkExecutor::execute(execution_context_t execution_ctx, packet_t packet) {
+bool XdpNetworkExecutor::execute(execution_context_t execution_ctx,
+                                 packet_t packet) {
   auto xdp_path = std::filesystem::path("./skel/xdp.c");
   auto xdp_output_path = std::filesystem::path("./build/pliney_xdp.c");
 
