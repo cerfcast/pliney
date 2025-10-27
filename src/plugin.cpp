@@ -73,6 +73,8 @@ result_generate_result_tt Plugin::generate(packet_t *packet,
   return "No generator available";
 }
 
+size_t Plugins::count() const { return m_plugins.size(); }
+
 std::optional<Plugin>
 Plugins::plugin_by_name(const std::string_view &plugin_name) {
   auto result = std::find_if(
