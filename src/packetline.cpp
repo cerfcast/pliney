@@ -17,9 +17,9 @@
 
 #include "api/exthdrs.h"
 #include "api/plugin.h"
-#include "api/utils.h"
 #include "packetline/cli.hpp"
-#include "packetline/executors.hpp"
+#include "packetline/executors/pipeline.hpp"
+#include "packetline/executors/result.hpp"
 #include "packetline/logger.hpp"
 #include "packetline/pipeline.hpp"
 #include "packetline/plugin.hpp"
@@ -32,6 +32,16 @@
 extern int errno;
 
 int main(int argc, const char **argv) {
+
+  PipelineExecutorBuilder pipeline_executor_builder{};
+
+  pipeline_executor_builder.with_name(
+      "xdp", []() { return std::make_unique<XdpPipelineExecutor>(); });
+  pipeline_executor_builder.with_name("network", []() {
+    return std::make_unique<NetworkSerialPipelineExecutor>();
+  });
+  std::string network_executor_builder_name{"network"};
+
   uint8_t cli_connection_type = INET_STREAM;
   Logger::Level cli_logger_level{Logger::ERROR};
   std::string cli_plugin_path{"./build"};
@@ -93,6 +103,11 @@ int main(int argc, const char **argv) {
         should_show_help = true;
         continue;
       }
+      if (arg == "netexec-name") {
+        HAS_ANOTHER_ARG;
+        network_executor_builder_name = argv[pliney_arg_idx];
+        continue;
+      }
     }
     std::cerr << std::format("Unrecognized argument: {}\n",
                              argv[pliney_arg_idx]);
@@ -101,8 +116,18 @@ int main(int argc, const char **argv) {
 
   auto logger = Logger::ActiveLogger();
   // Now that the user had a chance to configure their preferred log level,
-  // let's set it.
+  // let's set it and use it.
   logger->set_level(cli_logger_level);
+
+  auto maybe_pipeline_executor =
+      pipeline_executor_builder.by_name(network_executor_builder_name);
+  if (std::holds_alternative<std::string>(maybe_pipeline_executor)) {
+    std::cerr << std::format("No pipeline executor named {} is registered.",
+                             std::get<std::string>(maybe_pipeline_executor));
+    return 1;
+  }
+  auto pipeline_exec = std::move(
+      std::get<std::unique_ptr<PipelineExecutor>>(maybe_pipeline_executor));
 
   auto plugin_fs_path = std::filesystem::path(cli_plugin_path);
   auto plugins = PluginDir{plugin_fs_path};
@@ -114,11 +139,12 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  auto loaded_plugins = std::get<std::vector<Plugin>>(loaded_plugins_result);
+  auto loaded_plugins = std::get<Plugins>(loaded_plugins_result);
+  /*
   if (loaded_plugins.empty()) {
     std::cerr << "No plugins loaded.\n";
     return 1;
-  }
+  }*/
 
   Pipeline pipeline{argv + pipeline_start + 1, std::move(loaded_plugins)};
 
@@ -151,23 +177,13 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  auto executor =
-      SerialPipelineExecutor{packet_t{.transport = cli_connection_type}};
-  auto maybe_result = executor.execute(pipeline);
+  auto maybe_result = pipeline_exec->execute(
+      packet_t{.transport = cli_connection_type}, pipeline);
 
-  if (std::holds_alternative<packet_t>(maybe_result)) {
-    auto actual_result = std::get<packet_t>(maybe_result);
-    auto skt = ip_to_socket(actual_result.target, cli_connection_type);
-
-    if (skt < 0) {
-      std::cerr << std::format(
-          "Error occurred sending data: could not open the socket: \n",
-          strerror(errno));
-      return -1;
-    }
-
-    auto netexec = CliNetworkExecutor();
-    if (!netexec.execute(skt, actual_result)) {
+  if (maybe_result.success && maybe_result.needs_network) {
+    auto packet = *maybe_result.packet;
+    auto netexec = CliResultExecutor();
+    if (!netexec.execute(maybe_result)) {
       std::cerr << "Error occurred executing the network connection.\n";
       return 1;
     } else {
@@ -175,13 +191,13 @@ int main(int argc, const char **argv) {
                                   "Execution of network connection succeeded.");
     }
 
-    free_extensions(actual_result.header_extensions);
+    free_extensions(packet.header_extensions);
     return 0;
   }
 
   std::cerr << std::format(
       "An error occurred processing the packet pipeline: {}\n",
-      std::get<std::string>(maybe_result));
+      *maybe_result.error);
 
   return 1;
 }
