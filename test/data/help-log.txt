@@ -1,0 +1,97 @@
+./build/pliney Usage:
+./build/pliney [OPTIONS] [ \!\> [<PLUGIN_INVOCATION> =\>]
+
+Using pliney involves writing a pipeline that will generate (a) packet(s)
+for the network. Pipelines begin with a \!\> and are composed of uses of
+plugins, separated by =\>. General, optional OPTIONS can be given to
+configure pliney before the pipeline. More information can be found in the
+online documentation at XXXXX
+
+OPTIONS: 
+	--type <dgram, stream>: To set whether pliney should send
+		the packets the pipeline generates over a stream- or 
+		datagram-oriented socket.
+	--log <debug, warn, trace, error>: To set the log level.
+	--plugin-path PATH_NAME: Filesystem path where pliney should
+		look for plugins
+
+PLUGIN_INVOCATION:
+	<PLUGIN_NAME> [plugin options ... see below]
+
+Plugin Usage:
+	body
+		<FILE_PATH> [SIZE]
+		Usage:
+		Replace the existing body of the packet with the contents of
+		FILE_PATH. SIZE (in bytes), if given, caps the size of the
+		new body. If SIZE is not specified, the entire contents of
+		FILE_PATH will be used.
+	cong
+		<ect1, ect0, ce, not-ect>
+		Usage:
+		Set the congestion value of the DSCP field to the specified
+		value.
+	diffserv
+		<cs0, cs1, cs2, cs3, cs4, cs5, cs6, cs7
+		af11, af12, af13,
+		af21, af22, af23,
+		af31, af32, af33,
+		af41, af42, af43,
+		ef, voice-admit>
+		Usage:
+		Set the differentiated services value of the DSCP field to
+		the specified value.
+	error
+		<ERROR_RATE> [BYTE]
+		Usage:
+		With ERROR_RATE probability, change each byte in the packet
+		body to BYTE. If BYTE is not specified, 0x67 is used.
+	exthdr-padn
+		<dst, hbh> <SIZE> [BYTE]
+		Usage:
+		Add a PadN option to the destination or hop-by-hop
+		dst, hbh, respectively) IPv6 extension header with the
+		specified SIZE. Optionally specify the value of the
+		BYTEs in the padding. User is responsible for
+		guaranteeing that the sizes of all extension headers
+		meet alignment and other requirements.
+	gre
+		<IP or HOSTNAME>
+		Usage:
+		Encapsulate the packet in a GRE tunnel to the specified IP
+		or HOSTNAME.
+	log
+		[-mode <overwrite, append>]
+		[-default-ip <IP>]
+		[-default-transport <dgram, stream>] <FILE_PATH>
+		Usage:
+		Write the contents of the packet to FILE_PATH in PCAP format.
+		Optionally specify a mode to determine how existing contents
+		of FILE_PATH are handled. Optionally specify a default-ip to
+		specify a target IP if the packet does not have one. Optionally
+		specify a default-transport protocol if the packet does not have
+		one.
+	raw
+		[-mode <overwrite, append>] <file path>
+		Usage:
+		Write the contents of the body of the packet to <file path>.
+		Optionally specify a mode to determine how existing contents
+		of <file path> are handled.
+	source
+		<IP or HOSTNAME> [PORT]
+		Usage:
+		Set the source address of the packet to IP or the address
+		resolved from a DNS lookup of HOSTNAME. The packet's
+		existing source port will only be overwritten if PORT
+		is specified.
+	target
+		<IP or HOSTNAME> [PORT]
+		Usage:
+		Set the target address of the packet to IP or the address
+		resolved from a DNS lookup of HOSTNAME. The packet's
+		existing target port will only be overwritten if PORT
+		is specified.
+	ttl
+		<TTL>
+		Usage:
+		Set the time to live on the packet to TTL.
