@@ -46,12 +46,15 @@ plugin_cleanup_result_tt Plugin::cleanup(void *cookie) {
   if (info.cleanup == nullptr) {
     Logger::ActiveLogger()->log(
         Logger::ERROR,
-        std::format("Plugin {} specified no cleanup actions.", info.name));
+        std::format("Plugin {} specified no cleanup actions.", name()));
     return {};
   }
 
-  auto cleanup_result = info.cleanup(cookie);
+  Logger::ActiveLogger()->log(
+      Logger::TRACE,
+      std::format("Cleaning up {} plugin.", name()));
 
+  auto cleanup_result = info.cleanup(cookie);
   if (cleanup_result.success) {
     return {};
   }
@@ -86,7 +89,7 @@ Plugins::plugin_by_name(const std::string_view &plugin_name) {
   return {};
 }
 
-std::variant<std::vector<Plugin>, std::string> PluginDir::plugins() {
+std::variant<Plugins, std::string> PluginDir::plugins() {
   std::error_code directory_access_ec{};
   auto dir = std::filesystem::directory_iterator{m_path, directory_access_ec};
 
@@ -118,7 +121,7 @@ std::variant<std::vector<Plugin>, std::string> PluginDir::plugins() {
     }
   });
 
-  return loaded_plugins;
+  return Plugins{std::move(loaded_plugins)};
 };
 
 std::string Plugin::usage() const {
