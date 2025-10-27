@@ -1,58 +1,36 @@
-#include "packetline/executors.hpp"
+#include "packetline/executors/result.hpp"
+#include "packetline/executors/pipeline.hpp"
 
 #include "api/exthdrs.h"
 #include "api/plugin.h"
 #include "api/utils.h"
 #include "packetline/logger.hpp"
-#include "packetline/packetline.hpp"
-#include "packetline/pipeline.hpp"
 #include "packetline/utilities.hpp"
 
 #include <cstring>
 #include <format>
-#include <fstream>
-#include <ios>
 #include <iostream>
 #include <memory>
 #include <netinet/in.h>
-#include <regex>
 #include <sys/socket.h>
+#include <variant>
 
-result_packet_tt SerialPipelineExecutor::execute(const Pipeline &pipeline) {
+bool ResultExecutor::execute(PipelineResult execution_ctx) {
 
-  auto packet = m_initial_packet;
-
-  for (auto invocation : pipeline) {
-
-    auto result = invocation.plugin.generate(&packet, invocation.cookie);
-
-    if (std::holds_alternative<generate_result_t>(result)) {
-      Logger::ActiveLogger()->log(Logger::DEBUG,
-                                  std::format("Got a result from '{}' plugin!",
-                                              invocation.plugin.name()));
-      generate_result_t x = std::get<generate_result_t>(result);
-    } else {
-      std::cout << std::format("There was an error: {}\n",
-                               std::get<std::string>(result));
-      return std::get<std::string>(result);
-    }
+  if (!execution_ctx.success) {
+    return false;
   }
 
-  return packet;
-}
+  auto socket = execution_ctx.socket;
+  auto packet = *execution_ctx.packet;
 
-bool NetworkExecutor::execute(execution_context_t execution_ctx,
-                              packet_t packet) {
-  int socket = std::get<int>(execution_ctx);
-  auto actual_result = packet;
-
-  if (actual_result.header.ttl != 0) {
+  if (packet.header.ttl != 0) {
     // Put the hoplimit into an int -- IPv6 requires it and IPv4 is okay with
     // it.
-    int hoplimit = actual_result.header.ttl;
+    int hoplimit = packet.header.ttl;
     int result = 0;
 
-    if (actual_result.target.family == INET_ADDR_V6) {
+    if (packet.target.family == INET_ADDR_V6) {
       if (packet.transport == INET_DGRAM) {
         result = setsockopt(socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hoplimit,
                             sizeof(int));
@@ -75,11 +53,16 @@ bool NetworkExecutor::execute(execution_context_t execution_ctx,
   return true;
 }
 
-bool InterstitialNetworkExecutor::execute(execution_context_t execution_ctx,
-                                          packet_t packet) {
-  int socket = std::get<int>(execution_ctx);
+bool InterstitialResultExecutor::execute(PipelineResult execution_ctx) {
 
-  if (!NetworkExecutor::execute(socket, packet)) {
+  if (!execution_ctx.success || !execution_ctx.packet) {
+    return false;
+  }
+
+  int socket = execution_ctx.socket;
+  auto packet = *execution_ctx.packet;
+
+  if (!ResultExecutor::execute(execution_ctx)) {
     return false;
   }
 
@@ -176,15 +159,20 @@ bool InterstitialNetworkExecutor::execute(execution_context_t execution_ctx,
   return true;
 }
 
-InterstitialNetworkExecutor::~InterstitialNetworkExecutor() {
+InterstitialResultExecutor::~InterstitialResultExecutor() {
   if (m_msg.msg_controllen > 0) {
     free(m_msg.msg_control);
   }
 }
 
-bool CliNetworkExecutor::execute(execution_context_t execution_ctx,
-                                 packet_t packet) {
-  int socket = std::get<int>(execution_ctx);
+bool CliResultExecutor::execute(PipelineResult execution_ctx) {
+
+  if (!execution_ctx.success || !execution_ctx.packet) {
+    return false;
+  }
+
+  int socket = execution_ctx.socket;
+  auto packet = *execution_ctx.packet;
 
   struct sockaddr *destination = nullptr;
   int destination_len = ip_to_sockaddr(packet.target, &destination);
@@ -196,7 +184,7 @@ bool CliNetworkExecutor::execute(execution_context_t execution_ctx,
   }
   auto destinations{unique_sockaddr(destination, destination_len)};
 
-  if (!NetworkExecutor::execute(socket, packet)) {
+  if (!ResultExecutor::execute(execution_ctx)) {
     return false;
   }
 
@@ -321,49 +309,18 @@ bool CliNetworkExecutor::execute(execution_context_t execution_ctx,
   return true;
 }
 
-bool XdpNetworkExecutor::execute(execution_context_t execution_ctx,
-                                 packet_t packet) {
-  auto xdp_path = std::filesystem::path("./skel/xdp.c");
-  auto xdp_output_path = std::filesystem::path("./build/pliney_xdp.c");
+void PipelineExecutorBuilder::with_name(const std::string &name,
+                                        pipeline_executor_builder_t builder) {
+  builders[name] = builder;
+}
 
-  std::ifstream xdp_skel{xdp_path};
+std::variant<std::string, std::unique_ptr<PipelineExecutor>>
+PipelineExecutorBuilder::by_name(const std::string &name) {
 
-  if (!xdp_skel) {
-    return false;
+  if (builders.contains(name)) {
+    return std::variant<std::string, std::unique_ptr<PipelineExecutor>>{
+        std::move(builders[name]())};
   }
 
-  std::ofstream xdp_output_skel{xdp_output_path, std::ios::trunc};
-  if (!xdp_output_skel) {
-    return false;
-  }
-
-  // Read the entire skeleton file.
-  std::string xdp_skel_contents{};
-  char xdp_skel_just_read{};
-  xdp_skel >> std::noskipws;
-  while (xdp_skel >> xdp_skel_just_read) {
-    xdp_skel_contents += xdp_skel_just_read;
-  }
-
-  // Generate the xdp code.
-  std::string xdp_ipv4_code{};
-  std::string xdp_ipv6_code{};
-  if (packet.target.family == INET_ADDR_V4) {
-    if (packet.header.ttl) {
-      xdp_ipv4_code += std::format("ip->ttl = {};\n", packet.header.ttl);
-    }
-  } else if (packet.target.family == INET_ADDR_V6) {
-    xdp_ipv6_code += std::format("ipv6->ip6_hlim = {};\n", packet.header.ttl);
-  }
-
-  // Emit the xdp source code.
-  std::regex skel_ip_regex{"//__IPV4_PLINEY"};
-  std::regex skel_ipv6_regex{"//__IPV6_PLINEY"};
-  xdp_skel_contents =
-      std::regex_replace(xdp_skel_contents, skel_ip_regex, xdp_ipv4_code);
-  xdp_skel_contents =
-      std::regex_replace(xdp_skel_contents, skel_ipv6_regex, xdp_ipv6_code);
-  xdp_output_skel << xdp_skel_contents;
-
-  return true;
+  return std::format("No builder named {} is registered.", name);
 }

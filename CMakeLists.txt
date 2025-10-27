@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.21)
 project(pliney DESCRIPTION "Make packets.")
 
 set(PLINEY_MAIN src/packetline.cpp)
-set(PLINEY_INTERSTITIAL src/interstitial.cpp)
-set(PLINEY_SRCS src/apis/utils.c src/logger.cpp src/pipeline.cpp src/plugin.cpp src/apis/exthdrs.c src/cli.cpp src/executors.cpp src/utilities.cpp src/usage.cpp)
+set(PLINEY_INTERSTITIAL src/interstitial/init.cpp src/interstitial/send.cpp)
+set(PLINEY_SRCS src/apis/utils.c src/logger.cpp src/pipeline.cpp src/plugin.cpp src/apis/exthdrs.c src/cli.cpp src/utilities.cpp src/usage.cpp src/executors/pipeline.cpp src/executors/result.cpp)
 set(PLUGIN_LIB_SRCS src/apis/utils.c src/apis/exthdrs.c src/apis/native.c)
 
 add_executable(pliney ${PLINEY_MAIN} ${PLINEY_SRCS})
