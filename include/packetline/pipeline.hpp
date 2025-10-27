@@ -12,6 +12,12 @@ public:
   Pipeline(const char **source, Plugins &&plugins);
 
   Pipeline(Pipeline &&other) = default;
+  Pipeline &operator=(Pipeline &&other) = default;
+
+  // Pipelines cannot be copied because they contain plugins
+  // that have state associated with this instance of a pipeline.
+  Pipeline(Pipeline &other) = delete;
+  Pipeline &operator=(const Pipeline &other) = delete;
 
   std::optional<std::string> cleanup();
 
