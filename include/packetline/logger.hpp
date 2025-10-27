@@ -25,6 +25,7 @@ public:
     WARN,
     DEBUG,
     TRACE,
+    MAX,
   };
 
   static std::shared_ptr<Logger> ActiveLogger() {
@@ -72,7 +73,7 @@ public:
 private:
   Logger(Level level): m_level(level), m_active_logger() {}
   Level m_level;
-  std::array<std::shared_ptr<LoggerImpl>, 3> m_active_logger;
+  std::array<std::shared_ptr<LoggerImpl>, Level::MAX> m_active_logger;
 
   std::string LevelString(Logger::Level l) {
     if (l == ERROR) {
