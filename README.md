@@ -108,6 +108,12 @@ $ path/to/pliney \!\> body ./test/data/dns_cnn =\> target 127.0.0.53 53
 $ PLINEY_PIPELINE="target 8.8.8.8 53" LD_PRELOAD=build/libplineyi.so  nslookup cnn.com 1.1.1.1
 ```
 
+##### Rewrite Contents of ICMP (And Add TOS/Diffserv)
+
+```bash
+$ PLINEY_PIPELINE="diffserv af42 => cong ce => body test/data/icmp.bin" LD_PRELOAD=build/libplineyi.so ping 8.8.8.8 -c 4 -w 1
+```
+
 ##### Rewrite nslookup from Google to CNN
 
 ```bash
