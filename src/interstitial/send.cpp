@@ -1,4 +1,3 @@
-#include <asm-generic/socket.h>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -6,7 +5,6 @@
 #include <dlfcn.h>
 #include <format>
 #include <netinet/in.h>
-#include <numeric>
 #include <optional>
 #include <sys/socket.h>
 #include <variant>
@@ -14,79 +12,14 @@
 #include "api/exthdrs.h"
 #include "api/plugin.h"
 #include "api/utils.h"
-#include "packetline/executors.hpp"
+#include "packetline/executors/pipeline.hpp"
+#include "packetline/executors/result.hpp"
 #include "packetline/logger.hpp"
 #include "packetline/packetline.hpp"
 #include "packetline/pipeline.hpp"
 
-static bool configured = false;
-static std::optional<Pipeline> maybe_pipeline{};
-
-__attribute__((constructor)) void pliney_initialize() {
-  printf("About to initialize plineyi\n");
-
-  std::string pliney_plugin_path{"./build"};
-  char *user_plugin_path = getenv("PLINEY_PLUGIN_PATH");
-  if (user_plugin_path) {
-    pliney_plugin_path = user_plugin_path;
-  }
-
-  auto logger = Logger::ActiveLogger();
-  logger->set_level(Logger::DEBUG);
-
-  auto plugin_path = std::filesystem::path(pliney_plugin_path);
-  auto plugins = PluginDir{plugin_path};
-  auto loaded_plugins_result = plugins.plugins();
-
-  if (std::holds_alternative<std::string>(loaded_plugins_result)) {
-    Logger::ActiveLogger()->log(
-        Logger::ERROR,
-        std::format("Could not load plugins: {}",
-                    std::get<std::string>(loaded_plugins_result)));
-    configured = false;
-    return;
-  }
-
-  auto loaded_plugins = std::get<std::vector<Plugin>>(loaded_plugins_result);
-  if (loaded_plugins.empty()) {
-    Logger::ActiveLogger()->log(Logger::ERROR, "No plugins loaded.");
-    configured = false;
-    return;
-  }
-
-  char *user_pipeline = getenv("PLINEY_PIPELINE");
-
-  if (user_pipeline) {
-    Pipeline pipeline{user_pipeline, std::move(loaded_plugins)};
-
-    if (pipeline.ok()) {
-      // TODO: Figure out why the operator= does not work here.
-      maybe_pipeline.emplace(std::move(pipeline));
-    } else {
-      auto pipeline_errs = std::accumulate(
-          pipeline.error_begin(), pipeline.error_end(), std::string{},
-          [](const std::string existing, const std::string next) {
-            if (existing.length()) {
-              return existing + "; " + next;
-            }
-            return next;
-          });
-      Logger::ActiveLogger()->log(
-          Logger::ERROR,
-          std::format("Error occurred configuring pipeline: {}\n",
-                      pipeline_errs));
-      return;
-    }
-  } else {
-    Logger::ActiveLogger()->log(Logger::WARN, "No pliney pipeline found.");
-  }
-  configured = true;
-}
-
-__attribute__((destructor)) void pliney_deinitialize() {
-  Logger::ActiveLogger()->log(
-      Logger::DEBUG, std::format("Pliney plugins cleaned up successfully."));
-}
+extern bool configured;
+extern std::optional<Pipeline> maybe_pipeline;
 
 typedef ssize_t (*sendto_pt)(int sockfd, const void *buff, size_t len,
                              int flags, const struct sockaddr *dest,
@@ -141,17 +74,18 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
   initial_packet.target = dest_pliney_addr;
   initial_packet.transport = connection_type;
 
-  auto executor = SerialPipelineExecutor{initial_packet};
-  auto maybe_result = executor.execute(*maybe_pipeline);
+  auto executor = NetworkSerialPipelineExecutor{};
+  auto pipeline_result = executor.execute(initial_packet, *maybe_pipeline);
 
-  if (std::holds_alternative<packet_t>(maybe_result)) {
-    auto actual_result = std::get<packet_t>(maybe_result);
+  if (pipeline_result.success && pipeline_result.needs_network) {
+    auto packet = *pipeline_result.packet;
+    pipeline_result.socket = sockfd;
 
-    auto netexec = InterstitialNetworkExecutor();
-    netexec.execute(sockfd, actual_result);
+    auto netexec = InterstitialResultExecutor();
+    netexec.execute(pipeline_result);
 
     struct sockaddr *saddr{nullptr};
-    auto result = ip_to_sockaddr(actual_result.target, &saddr);
+    auto result = ip_to_sockaddr(packet.target, &saddr);
     if (result < 0) {
       Logger::ActiveLogger()->log(
           Logger::ERROR,
@@ -161,20 +95,20 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
       return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
     }
     socklen_t saddr_len = result;
-    auto sendto_result =
-        orig_sendto(sockfd, actual_result.body.data, actual_result.body.len,
-                    flags, saddr, saddr_len);
-    free_extensions(actual_result.header_extensions);
+
+    auto sendto_result = orig_sendto(sockfd, packet.body.data, packet.body.len,
+                                     flags, saddr, saddr_len);
+    free_extensions(packet.header_extensions);
     return sendto_result;
   }
   Logger::ActiveLogger()->log(
       Logger::ERROR, std::format("Error occurred executing the pipeline: {}\n",
-                                 std::get<std::string>(maybe_result)));
+                                 *pipeline_result.error));
 
   return orig_sendto(sockfd, buff, len, flags, dest, dest_len);
 }
 
-result_packet_tt msghdr_to_packet(const struct msghdr *hdr) {
+result_pipeline_tt msghdr_to_packet(const struct msghdr *hdr) {
   packet_t packet{};
 
   packet.body = body_p{.len = hdr->msg_iov->iov_len,
@@ -231,7 +165,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
     return orig_sendmsg(sockfd, hdr, flags);
   }
 
-  result_packet_tt maybe_initial_packet{msghdr_to_packet(hdr)};
+  result_pipeline_tt maybe_initial_packet{msghdr_to_packet(hdr)};
 
   if (std::holds_alternative<std::string>(maybe_initial_packet)) {
     Logger::ActiveLogger()->log(
@@ -272,21 +206,22 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
     initial_packet.target = original_target;
   }
 
-  auto executor = SerialPipelineExecutor{initial_packet};
-  auto maybe_result = executor.execute(*maybe_pipeline);
+  auto executor = NetworkSerialPipelineExecutor{};
+  auto maybe_result = executor.execute(initial_packet, *maybe_pipeline);
 
-  if (std::holds_alternative<packet_t>(maybe_result)) {
-    auto actual_result = std::get<packet_t>(maybe_result);
+  if (maybe_result.success && maybe_result.needs_network) {
+    auto packet = *maybe_result.packet;
+    maybe_result.socket = sockfd;
 
-    auto netexec = InterstitialNetworkExecutor();
-    netexec.execute(sockfd, actual_result);
+    auto netexec = InterstitialResultExecutor();
+    netexec.execute(maybe_result);
 
     struct msghdr new_msghdr = netexec.get_msg();
 
     // If the _original_ hdr did not have an address, ours shouldn't either.
     // But, if the address changed, then we should warn the user.
     if (!hdr->msg_namelen) {
-      if (original_target != actual_result.target) {
+      if (original_target != packet.target) {
         Logger::ActiveLogger()->log(
             Logger::ERROR,
             std::format("Pliney modified the target of a connected socket; the "
@@ -297,12 +232,12 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
     }
 
     auto sendmsg_result = orig_sendmsg(sockfd, &new_msghdr, flags);
-    free_extensions(actual_result.header_extensions);
+    free_extensions(packet.header_extensions);
     return sendmsg_result;
   }
   Logger::ActiveLogger()->log(
       Logger::ERROR, std::format("Error occurred executing the pipeline: {}\n",
-                                 std::get<std::string>(maybe_result)));
+                                 *maybe_result.error));
 
   return orig_sendmsg(sockfd, hdr, flags);
 }
