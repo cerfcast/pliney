@@ -24,18 +24,9 @@ $ pliney -type dgram \!\> target fd7a:115c:a1e0:ab12:4843:cd96:627b:e21e 8081 =\
 
 **But There's More**
 
-Pliney pipelines can also be used to modify packets send by other applications!
+Pliney pipelines can also be used to modify packets sent by other applications because it can generate XDP!
 
-> Note: Support for this use case is still very nascent.
-
-By loading the _Pliney Interstitial_ library and setting the `PLINEY_PIPELINE` environment variable, packets sent by applications
-using the `sendto` and `sendmsg` system call will be modified according to the semantics of the pipeline specified.
-
-For example, if you want to set the TTL to 12 on all DNS packets sent by `nslookup` to resolve `cnn.com`, you could
-
-```bash
-$ PLINEY_PIPELINE="ttl 12" LD_PRELOAD=/path/to/libplineyi.so nslookup cnn.com
-```
+> Note: Support for this use case is still very nascent and documentation is coming soon.
 
 ### Plugins Available
 
@@ -60,13 +51,9 @@ $ PLINEY_PIPELINE="ttl 12" LD_PRELOAD=/path/to/libplineyi.so nslookup cnn.com
 
 More coming soon!
 
-#### Interstitial
+#### XDP
 
 More coming soon!
-
-**Warnings**:
-1. When retargeting packets (i.e., a pliney pipeline uses the `target` plugin), if the connection on which packets are being retargeted was created on a socket
-   that cannot route to the specified new target, then those packets will not be transmitted.
 
 ### Test Cases
 
@@ -98,26 +85,6 @@ $ path/to/pliney \!\> body ./test/data/http_get =\> target www.cnn.com 80
 
 ```bash
 $ path/to/pliney \!\> body ./test/data/dns_cnn =\> target 127.0.0.53 53
-```
-
-#### Interstitial
-
-##### Redirect nslookup to 8.8.8.8
-
-```bash
-$ PLINEY_PIPELINE="target 8.8.8.8 53" LD_PRELOAD=build/libplineyi.so  nslookup cnn.com 1.1.1.1
-```
-
-##### Rewrite Contents of ICMP (And Add TOS/Diffserv)
-
-```bash
-$ PLINEY_PIPELINE="diffserv af42 => cong ce => body test/data/icmp.bin" LD_PRELOAD=build/libplineyi.so ping 8.8.8.8 -c 4 -w 1
-```
-
-##### Rewrite nslookup from Google to CNN
-
-```bash
-$ PLINEY_PIPELINE="body test/data/dns_cnn" LD_PRELOAD=build/libplineyi.so  nslookup google.com
 ```
 
 #### XDP
