@@ -41,49 +41,16 @@ Plugin Usage:
 		Usage:
 		Set the differentiated services value of the DSCP field to
 		the specified value.
-	error
-		<ERROR_RATE> [BYTE]
+	hoplimit
+		<HL>
 		Usage:
-		With ERROR_RATE probability, change each byte in the packet
-		body to BYTE. If BYTE is not specified, 0x67 is used.
-	exthdr-padn
-		<dst, hbh> <SIZE> [BYTE]
-		Usage:
-		Add a PadN option to the destination or hop-by-hop
-		dst, hbh, respectively) IPv6 extension header with the
-		specified SIZE. Optionally specify the value of the
-		BYTEs in the padding. User is responsible for
-		guaranteeing that the sizes of all extension headers
-		meet alignment and other requirements.
-	gre
-		<IP or HOSTNAME>
-		Usage:
-		Encapsulate the packet in a GRE tunnel to the specified IP
-		or HOSTNAME.
-	log
-		[-mode <overwrite, append>]
-		[-default-ip <IP>]
-		[-default-transport <dgram, stream>] <FILE_PATH>
-		Usage:
-		Write the contents of the packet to FILE_PATH in PCAP format.
-		Optionally specify a mode to determine how existing contents
-		of FILE_PATH are handled. Optionally specify a default-ip to
-		specify a target IP if the packet does not have one. Optionally
-		specify a default-transport protocol if the packet does not have
-		one.
+		Set the hoplimit on the packet to HL.
 	raw
 		[-mode <overwrite, append>] <file path>
 		Usage:
 		Write the contents of the body of the packet to <file path>.
 		Optionally specify a mode to determine how existing contents
 		of <file path> are handled.
-	source
-		<IP or HOSTNAME> [PORT]
-		Usage:
-		Set the source address of the packet to IP or the address
-		resolved from a DNS lookup of HOSTNAME. The packet's
-		existing source port will only be overwritten if PORT
-		is specified.
 	target
 		<IP or HOSTNAME> [PORT]
 		Usage:
@@ -91,6 +58,10 @@ Plugin Usage:
 		resolved from a DNS lookup of HOSTNAME. The packet's
 		existing target port will only be overwritten if PORT
 		is specified.
+	transport
+		<udp,tcp>
+		Usage:
+		TODO
 	ttl
 		<TTL>
 		Usage:
