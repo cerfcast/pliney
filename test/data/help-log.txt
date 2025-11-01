@@ -45,6 +45,21 @@ Plugin Usage:
 		<HL>
 		Usage:
 		Set the hoplimit on the packet to HL.
+	log
+		[-mode <overwrite, append>]
+		[-default-ip <IP>]
+		[-default-transport <dgram, stream>] <FILE_PATH>
+		Usage:
+		Write the contents of the packet to FILE_PATH in PCAP format.
+		Optionally specify a mode to determine how existing contents
+		of FILE_PATH are handled. Optionally specify a default-ip to
+		specify a target IP if the packet does not have one. Optionally
+		specify a default-transport protocol if the packet does not have
+		one.
+	meta
+		<udp,tcp>
+		Usage:
+		TODO
 	raw
 		[-mode <overwrite, append>] <file path>
 		Usage:
