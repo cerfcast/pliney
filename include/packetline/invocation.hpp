@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "plugin.hpp"
+#include "pisa/plugin.hpp"
 
 class Invocation {
 public:

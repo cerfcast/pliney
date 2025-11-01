@@ -1,5 +1,7 @@
-#include "api/plugin.h"
-#include "api/utils.h"
+#include "pisa/pisa.h"
+#include "pisa/plugin.h"
+#include "pisa/types.h"
+#include "pisa/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -64,15 +66,21 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(packet_t *packet, void *cookie) {
+generate_result_t generate(pisa_program_t *program, void *cookie) {
   generate_result_t result;
 
   if (cookie != NULL) {
     ip_addr_t *parsed_target = (ip_addr_t *)cookie;
 
-    selectively_copy_ip(&packet->target, parsed_target);
-    result.success = 1;
+    parsed_target->family = parsed_target->family;
+    parsed_target->port = parsed_target->port;
 
+    pisa_inst_t set_target_inst;
+    set_target_inst.op = SET_FIELD;
+    set_target_inst.fk.field = parsed_target->family == INET_ADDR_V4 ? IPV4_TARGET : IPV6_TARGET;
+    set_target_inst.value.value.ipaddr = *parsed_target;
+
+    result.success = pisa_program_add_inst(program, &set_target_inst);
   } else {
     result.success = 0;
   }

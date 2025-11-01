@@ -3,7 +3,7 @@
 
 #include <string>
 #include <variant>
-#include "api/plugin.h"
+#include "pisa/plugin.h"
 
 class Invocations;
 

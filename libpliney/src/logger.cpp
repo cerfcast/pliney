@@ -1,5 +1,4 @@
 #include "packetline/logger.hpp"
-#include "api/utils.h"
 #include <iostream>
 
 extern "C" {

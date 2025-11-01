@@ -1,7 +1,8 @@
 #ifndef _PACKETLINE_PLUGIN_H
 #define _PACKETLINE_PLUGIN_H
 
-#include "api/plugin.h"
+#include "pisa/pisa.h"
+#include "pisa/plugin.h"
 #include "packetline/packetline.hpp"
 
 #include <filesystem>
@@ -25,7 +26,8 @@ public:
   std::string usage() const;
   std::string params() const;
 
-  result_generate_result_tt generate(packet_t *packet, void *cookie) const;
+  result_generate_result_tt generate(pisa_program_t *program, void *cookie) const;
+  void observe(pisa_program_t *program, packet_t *packet, void *cookie) const;
 
 private:
   std::filesystem::path m_path;

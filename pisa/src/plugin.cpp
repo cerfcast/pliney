@@ -1,6 +1,7 @@
-#include "packetline/plugin.hpp"
-#include "api/plugin.h"
+#include "pisa/plugin.hpp"
+#include "pisa/plugin.h"
 #include "packetline//logger.hpp"
+#include "pisa/pisa.h"
 
 #include <algorithm>
 #include <dlfcn.h>
@@ -62,18 +63,24 @@ plugin_cleanup_result_tt Plugin::cleanup(void *cookie) {
   return cleanup_result.errstr;
 }
 
-result_generate_result_tt Plugin::generate(packet_t *packet,
+result_generate_result_tt Plugin::generate(pisa_program_t *program,
                                            void *cookie) const {
   if (info.generator) {
 
-    auto result = info.generator(packet, cookie);
+    auto result = info.generator(program, cookie);
 
     if (result.success) {
       return result;
     }
     return "Error invoking plugin";
   }
-  return "No generator available";
+  return generate_result_t{};
+}
+
+void Plugin::observe(pisa_program_t *program, packet_t *packet, void *cookie) const {
+  if (info.observer) {
+    info.observer(program, packet, cookie);
+  }
 }
 
 size_t Plugins::count() const { return m_plugins.size(); }

@@ -1,20 +1,16 @@
-#include "api/native.h"
-#include "api/plugin.h"
-#include <fcntl.h>
-#include <netinet/ip.h>
-#include <pcap/dlt.h>
-#include <pcap/pcap.h>
+#include "pisa/pisa.h"
+#include "pisa/plugin.h"
+#include "pisa/types.h"
+#include "pisa/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
 
-#include "api/utils.h"
 #include "pcap/pcap.h"
 
 char *plugin_name = "log";
@@ -158,16 +154,19 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(packet_t *packet, void *cookie) {
+void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
   generate_result_t result = {.success = true};
 
   if (cookie != NULL) {
+
+    debug("We are here!\n");
     logp_cookie_t *lcookie = (logp_cookie_t *)cookie;
 
     size_t native_len = 1500;
     uint8_t native_packet[1500] = {
         0,
     };
+#if 0
     void *native_packet_p = &native_packet;
     bool used_default_ip = false;
     bool used_default_transport = false;
@@ -190,25 +189,26 @@ generate_result_t generate(packet_t *packet, void *cookie) {
       result.success = false;
       return result;
     }
+#endif
 
     struct pcap_pkthdr hdr;
-    hdr.caplen = native_len;
+    hdr.caplen = packet->ip.len + packet->transport.len + packet->body.len;
     hdr.len = hdr.caplen;
     hdr.ts.tv_sec = 0;
     hdr.ts.tv_usec = 0;
 
-    pcap_dump((u_char *)lcookie->dumper, &hdr, (const u_char *)native_packet);
+    pcap_dump((u_char *)lcookie->dumper, &hdr, (const u_char *)packet->ip.data);
     pcap_dump_flush(lcookie->dumper);
 
+#if 0
     if (used_default_ip) {
       memset(&packet->target, 0, sizeof(ip_addr_t));
     }
     if (used_default_transport) {
       packet->transport = 0;
     }
+#endif
   }
-
-  return result;
 }
 
 cleanup_result_t cleanup(void *cookie) {
@@ -247,7 +247,8 @@ usage_result_t usage() {
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
-  info->generator = generate;
+  info->generator = NULL;
+  info->observer = observe;
   info->cleanup = cleanup;
   info->usage = usage;
   return true;

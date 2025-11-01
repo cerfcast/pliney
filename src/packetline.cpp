@@ -13,17 +13,16 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <variant>
-#include <vector>
 
-#include "api/exthdrs.h"
-#include "api/plugin.h"
 #include "packetline/cli.hpp"
-#include "packetline/executors/pipeline.hpp"
-#include "packetline/executors/result.hpp"
 #include "packetline/logger.hpp"
-#include "packetline/pipeline.hpp"
-#include "packetline/plugin.hpp"
+#include "packetline/runner.hpp"
 #include "packetline/usage.hpp"
+#include "pisa/compiler.hpp"
+#include "pisa/exthdrs.h"
+#include "pisa/pipeline.hpp"
+#include "pisa/pisa.h"
+#include "pisa/plugin.hpp"
 
 #include <unistd.h>
 
@@ -33,13 +32,12 @@ extern int errno;
 
 int main(int argc, const char **argv) {
 
-  PipelineExecutorBuilder pipeline_executor_builder{};
+  CompilerBuilder pipeline_executor_builder{};
 
   pipeline_executor_builder.with_name(
-      "xdp", []() { return std::make_unique<XdpPipelineExecutor>(); });
-  pipeline_executor_builder.with_name("network", []() {
-    return std::make_unique<NetworkSerialPipelineExecutor>();
-  });
+      "xdp", []() { return std::make_unique<XdpCompiler>(); });
+  pipeline_executor_builder.with_name(
+      "network", []() { return std::make_unique<CliCompiler>(); });
   std::string network_executor_builder_name{"network"};
 
   uint8_t cli_connection_type = INET_STREAM;
@@ -126,8 +124,8 @@ int main(int argc, const char **argv) {
                              std::get<std::string>(maybe_pipeline_executor));
     return 1;
   }
-  auto pipeline_exec = std::move(
-      std::get<std::unique_ptr<PipelineExecutor>>(maybe_pipeline_executor));
+  auto pipeline_exec =
+      std::move(std::get<std::unique_ptr<Compiler>>(maybe_pipeline_executor));
 
   auto plugin_fs_path = std::filesystem::path(cli_plugin_path);
   auto plugins = PluginDir{plugin_fs_path};
@@ -177,27 +175,35 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  auto maybe_result = pipeline_exec->execute(
-      packet_t{.transport = cli_connection_type}, pipeline);
+  auto pisa_program = pisa_program_new();
+  auto compilation_result = pipeline_exec->compile(pisa_program, pipeline);
 
-  if (maybe_result.success && maybe_result.needs_network) {
-    auto packet = *maybe_result.packet;
-    auto netexec = CliResultExecutor();
-    if (!netexec.execute(maybe_result)) {
+  if (compilation_result.success) {
+
+    auto native_runner = PacketRunner(pipeline);
+    auto native_runner_result = native_runner.execute(compilation_result);
+    if (!native_runner_result) {
+      Logger::ActiveLogger()->log(
+          Logger::DEBUG,
+          "Error occurred generating a native packet from the PISA program.\n");
+    }
+
+    auto runner = CliRunner();
+    auto runner_result = runner.execute(compilation_result);
+
+    if (!runner_result) {
       std::cerr << "Error occurred executing the network connection.\n";
       return 1;
     } else {
       Logger::ActiveLogger()->log(Logger::DEBUG,
                                   "Execution of network connection succeeded.");
     }
-
-    free_extensions(packet.header_extensions);
     return 0;
   }
 
   std::cerr << std::format(
-      "An error occurred processing the packet pipeline: {}\n",
-      *maybe_result.error);
+      "An error occurred compiling the packet pipeline: {}\n",
+      compilation_result.error);
 
   return 1;
 }

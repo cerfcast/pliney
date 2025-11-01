@@ -1,15 +1,20 @@
-#include "api/plugin.h"
-#include "api/utils.h"
+#include "pisa/pisa.h"
+#include "pisa/plugin.h"
+#include "pisa/types.h"
+#include "pisa/priority.h"
+#include "pisa/utils.h"
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <arpa/inet.h>
-#include <fcntl.h>
-#include <memory.h>
+#include <netdb.h>
 #include <netinet/in.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
 
 char *plugin_name = "body";
 
@@ -78,7 +83,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     body_size = read_body_size;
   }
 
-  body_p *body = (body_p *)malloc(sizeof(body_p));
+  data_p *body = (data_p *)malloc(sizeof(data_p));
   body->data = body_data;
   body->len = body_size;
 
@@ -87,12 +92,19 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(packet_t *packet, void *cookie) {
+generate_result_t generate(pisa_program_t *program, void *cookie) {
   generate_result_t result;
 
   if (cookie != NULL) {
-    body_p *body = (body_p *)cookie;
-    packet->body = *body;
+    data_p *body = (data_p *)cookie;
+
+    pisa_inst_t set_body_inst;
+    set_body_inst.op = SET_FIELD;
+    set_body_inst.fk.field = BODY;
+    set_body_inst.value.tpe = PTR;
+    set_body_inst.value.value.ptr.data = body->data;
+    set_body_inst.value.value.ptr.len = body->len;
+    result.success = pisa_program_add_inst(program, &set_body_inst);
 
     result.success = 1;
 
@@ -105,7 +117,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
 
 cleanup_result_t cleanup(void *cookie) {
   if (cookie != NULL) {
-    body_p *body = (body_p *)cookie;
+    data_p *body = (data_p *)cookie;
     free(body->data);
     free(cookie);
   }

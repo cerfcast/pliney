@@ -1,24 +1,19 @@
-#include "packetline/executors/pipeline.hpp"
+#include "pisa/compiler.hpp"
+#include "pisa/pipeline.hpp"
 #include "packetline/logger.hpp"
 
-#include "api/plugin.h"
-#include "api/utils.h"
+#include "pisa/plugin.h"
+#include "pisa/pisa.h"
 
 #include <cstring>
-#include <fstream>
-#include <iostream>
+#include <format>
 #include <netinet/in.h>
-#include <regex>
 #include <sys/socket.h>
 
-PipelineResult SerialPipelineExecutor::execute(packet_t initial_packet,
-                                               const Pipeline &pipeline) {
-
-  auto packet = initial_packet;
+CompilationResult BasicCompiler::compile(pisa_program_t *program, const Pipeline &pipeline) {
 
   for (auto invocation : pipeline) {
-
-    auto result = invocation.plugin.generate(&packet, invocation.cookie);
+    auto result = invocation.plugin.generate(program, invocation.cookie);
 
     if (std::holds_alternative<generate_result_t>(result)) {
       Logger::ActiveLogger()->log(Logger::DEBUG,
@@ -26,47 +21,24 @@ PipelineResult SerialPipelineExecutor::execute(packet_t initial_packet,
                                               invocation.plugin.name()));
       generate_result_t x = std::get<generate_result_t>(result);
     } else {
-      return PipelineResult::Failure(std::format(
+      return CompilationResult::Failure(std::format(
           "There was an error: {}\n", std::get<std::string>(result)));
     }
   }
 
-  return PipelineResult::Success(packet);
+  return CompilationResult::Success(program);
 }
 
-PipelineResult
-NetworkSerialPipelineExecutor::execute(packet_t initial_packet,
-                                       const Pipeline &pipeline) {
-
-  auto packet_pipeline_result =
-      SerialPipelineExecutor::execute(initial_packet, pipeline);
-
-  if (!packet_pipeline_result.success) {
-    return packet_pipeline_result;
-  }
-
-  auto packet = *packet_pipeline_result.packet;
-  auto skt = ip_to_socket(packet.target, packet.transport);
-  if (skt < 0) {
-    packet_pipeline_result.error = std::format(
-        "Error occurred sending data: could not open the socket: \n",
-        strerror(errno));
-    return packet_pipeline_result;
-  }
-
-  packet_pipeline_result.socket = skt;
-  packet_pipeline_result.success = true;
-  packet_pipeline_result.needs_network = true;
-
-  return packet_pipeline_result;
+CompilationResult
+CliCompiler::compile(pisa_program_t *program, const Pipeline &pipeline) {
+  return BasicCompiler::compile(program, pipeline);
 }
 
-PipelineResult XdpPipelineExecutor::execute(packet_t initial_packet,
+CompilationResult XdpCompiler::compile(pisa_program_t *program,
                                             const Pipeline &pipeline) {
+  return BasicCompiler::compile(program, pipeline);
 
-  auto packet_pipeline_result =
-      SerialPipelineExecutor::execute(initial_packet, pipeline);
-
+  #if 0
   if (!packet_pipeline_result.success) {
     return packet_pipeline_result;
   }
@@ -121,4 +93,21 @@ PipelineResult XdpPipelineExecutor::execute(packet_t initial_packet,
   packet_pipeline_result.needs_network = false;
 
   return packet_pipeline_result;
+  #endif
+}
+
+void CompilerBuilder::with_name(const std::string &name,
+                                        pipeline_executor_builder_t builder) {
+  builders[name] = builder;
+}
+
+std::variant<std::string, std::unique_ptr<Compiler>>
+CompilerBuilder::by_name(const std::string &name) {
+
+  if (builders.contains(name)) {
+    return std::variant<std::string, std::unique_ptr<Compiler>>{
+        std::move(builders[name]())};
+  }
+
+  return std::format("No builder named {} is registered.", name);
 }

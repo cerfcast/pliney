@@ -1,5 +1,5 @@
 #include "packetline/cli.hpp"
-#include "api/plugin.h"
+#include "pisa/types.h"
 #include "packetline/logger.hpp"
 
 #include <ranges>

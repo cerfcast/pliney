@@ -2,7 +2,7 @@
 #define _PIPELINE_H
 
 #include <vector>
-#include "packetline/plugin.hpp"
+#include "plugin.hpp"
 #include "packetline/invocation.hpp"
 
 class Pipeline {

@@ -1,17 +1,19 @@
-#include "api/plugin.h"
-#include "api/utils.h"
+#include "pisa/pisa.h"
+#include "pisa/plugin.h"
+#include "pisa/types.h"
+#include "pisa/utils.h"
 #include <fcntl.h>
-#include <netinet/ip.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <arpa/inet.h>
-#include <errno.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
+
 
 char *plugin_name = "raw";
 
@@ -99,7 +101,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(packet_t *packet, void *cookie) {
+void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
   generate_result_t result = {.success = true};
 
   if (cookie != NULL) {
@@ -110,8 +112,6 @@ generate_result_t generate(packet_t *packet, void *cookie) {
       result.success = false;
     }
   }
-
-  return result;
 }
 
 cleanup_result_t cleanup(void *cookie) {
@@ -144,7 +144,8 @@ usage_result_t usage() {
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
-  info->generator = generate;
+  info->generator = NULL;
+  info->observer = observe;
   info->cleanup = cleanup;
   info->usage = usage;
   return true;

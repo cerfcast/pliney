@@ -9,9 +9,8 @@
 #include <sys/socket.h>
 #include <variant>
 
-#include "api/exthdrs.h"
-#include "api/plugin.h"
-#include "api/utils.h"
+#include "pisa/exthdrs.h"
+#include "pisa/types.h"
 #include "packetline/executors/pipeline.hpp"
 #include "packetline/executors/result.hpp"
 #include "packetline/logger.hpp"
@@ -75,7 +74,8 @@ ssize_t sendto(int sockfd, const void *buff, size_t len, int flags,
   initial_packet.transport = connection_type;
 
   auto executor = NetworkSerialPipelineExecutor{};
-  auto pipeline_result = executor.execute(initial_packet, *maybe_pipeline);
+  auto pisa_program = pisa_program_new();
+  auto pipeline_result = executor.execute(pisa_program, *maybe_pipeline);
 
   if (pipeline_result.success && pipeline_result.needs_network) {
     auto packet = *pipeline_result.packet;
@@ -207,7 +207,8 @@ ssize_t sendmsg(int sockfd, const struct msghdr *hdr, int flags) {
   }
 
   auto executor = NetworkSerialPipelineExecutor{};
-  auto maybe_result = executor.execute(initial_packet, *maybe_pipeline);
+  auto pisa_program = pisa_program_new();
+  auto maybe_result = executor.execute(pisa_program, *maybe_pipeline);
 
   if (maybe_result.success && maybe_result.needs_network) {
     auto packet = *maybe_result.packet;

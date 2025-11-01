@@ -1,7 +1,7 @@
 #ifndef _API_EXTHDRS_H
 #define _API_EXTHDRS_H
 
-#include "api/plugin.h"
+#include "plugin.h"
 
 
 #ifdef __cplusplus

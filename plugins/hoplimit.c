@@ -8,7 +8,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-char *plugin_name = "ttl";
+char *plugin_name = "hoplimit";
 
 #define DEFAULT_TTL 64
 
@@ -19,7 +19,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   uint8_t *ttl = (uint8_t *)malloc(sizeof(uint8_t));
 
   if (argc == 0) {
-    warn("TTL plugin using default TTL of %d.\n", DEFAULT_TTL);
+    warn("Hoplimit plugin using default limit of %d.\n", DEFAULT_TTL);
     *ttl = DEFAULT_TTL;
     configuration_result.configuration_cookie = (void *)ttl;
     return configuration_result;
@@ -36,7 +36,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
 
   free(ttl);
   char *err = (char *)calloc(255, sizeof(char));
-  snprintf(err, 255, "Could not convert %s to a TTL value", args[0]);
+  snprintf(err, 255, "Could not convert %s to a hoplimit value", args[0]);
   configuration_result.errstr = err;
 
   return configuration_result;
@@ -52,8 +52,8 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
     pisa_inst_t set_ttl_inst;
 
     set_ttl_inst.op = SET_FIELD;
-    set_ttl_inst.prot = IPV4;
-    set_ttl_inst.fk.field = IPV4_TTL;
+    set_ttl_inst.prot = IPV6;
+    set_ttl_inst.fk.field = IPV6_HL;
     set_ttl_inst.value.value.byte = *ttl;
     set_ttl_inst.value.tpe = BYTE;
 
@@ -76,9 +76,9 @@ usage_result_t usage() {
   usage_result_t result;
 
   // clang-format off
-  result.params = "<TTL>";
+  result.params = "<HL>";
   result.usage = 
-  "Set the time to live on the packet to TTL.";
+  "Set the hoplimit on the packet to HL.";
   // clang-format on
 
   return result;

@@ -1,7 +1,7 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 
-#include "api/plugin.h"
+#include "types.h"
 #include <sys/socket.h>
 
 #ifdef __cplusplus
@@ -16,7 +16,7 @@ extern "C" {
 int ip_to_sockaddr(ip_addr_t addr, struct sockaddr **result);
 int sockaddr_to_ip(const struct sockaddr *saddr, socklen_t saddr_len,
                    ip_addr_t *addr);
-int ip_to_socket(ip_addr_t addr, uint8_t type);
+bool ip_to_socket(ip_addr_t addr, uint8_t type, int *fd);
 int ip_parse(const char *to_parse, ip_addr_t *result);
 int ip_set(ip_addr_t addr);
 void selectively_copy_ip(ip_addr_t *dest, ip_addr_t *src);
@@ -36,7 +36,6 @@ void selectively_copy_ip(ip_addr_t *dest, ip_addr_t *src);
 bool parse_to_value(const char *valuev, uint8_t *valuec, const char **names,
                     const uint8_t *values, size_t nvalues);
 
-bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len);
 
 void trace(const char *fmt, ...);
 void debug(const char *fmt, ...);

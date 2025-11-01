@@ -1,5 +1,6 @@
-#include "api/utils.h"
-#include "api/plugin.h"
+#include "pisa/utils.h"
+#include "pisa/plugin.h"
+#include "pisa/types.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <netinet/in.h>
@@ -54,14 +55,19 @@ int ip_set(ip_addr_t addr) {
   return addr.family != 0;
 }
 
-int ip_to_socket(ip_addr_t addr, uint8_t type) {
+bool ip_to_socket(ip_addr_t addr, uint8_t type, int *fd) {
   // Check whether the IP address is valid. If it is not, then return -1.
   if (!ip_set(addr)) {
-    return -1;
+    return false;
   }
 
-  return socket(addr.family == INET_ADDR_V4 ? AF_INET : AF_INET6,
+  if (type != INET_DGRAM && type != INET_STREAM) {
+    return false;
+  }
+
+  *fd = socket(addr.family == INET_ADDR_V4 ? AF_INET : AF_INET6,
                 type == INET_STREAM ? SOCK_STREAM : SOCK_DGRAM, 0);
+  return true;
 }
 
 int ip_parse(const char *to_parse, ip_addr_t *result) {
@@ -185,29 +191,6 @@ void error(const char *fmt, ...) {
   vprintf(fmt, args);
   va_end(args);
   printf("\n");
-}
-
-bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len) {
-  void *existing_cmsg_buf = mhdr->msg_control;
-  size_t existing_cmsg_controllen = mhdr->msg_controllen;
-
-  // Make new space that is bigger (enough to accommodate the new payload).
-  mhdr->msg_controllen += CMSG_SPACE(additional_payload_len);
-  mhdr->msg_control = (void *)calloc(mhdr->msg_controllen, sizeof(uint8_t));
-
-  struct cmsghdr *nhdr = CMSG_FIRSTHDR(mhdr);
-  // Set the length of the newly allocated header, but
-  // leave all others blank for user to configure.
-  nhdr->cmsg_len = CMSG_LEN(additional_payload_len);
-
-  // Now, copy over the existing payload.
-  nhdr = CMSG_NXTHDR(mhdr, nhdr);
-  memcpy(nhdr, existing_cmsg_buf, existing_cmsg_controllen);
-
-  // Finally, get rid of the old stuff!
-  free(existing_cmsg_buf);
-
-  return true;
 }
 
 bool parse_to_value(const char *valuev, uint8_t *valuec, const char **names,
