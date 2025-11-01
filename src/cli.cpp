@@ -1,6 +1,6 @@
 #include "packetline/cli.hpp"
-#include "pisa/types.h"
 #include "packetline/logger.hpp"
+#include "pisa/types.h"
 
 #include <ranges>
 #include <string>

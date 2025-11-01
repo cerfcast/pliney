@@ -51,7 +51,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
     // TODO: Fix
     pisa_value_t meta_value;
     meta_value.tpe = BYTE;
-    meta_value.value.byte = *(uint8_t*)cookie;
+    meta_value.value.byte = *(uint8_t *)cookie;
     pisa_program_add_meta_inst(program, "TRANSPORT", meta_value);
     result.success = 1;
   } else {

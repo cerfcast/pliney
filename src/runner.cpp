@@ -553,8 +553,8 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
     }
 #endif
 
-  struct msghdr msg{};
-  struct iovec iov{};
+  struct msghdr msg {};
+  struct iovec iov {};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;

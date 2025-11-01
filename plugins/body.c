@@ -1,7 +1,7 @@
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
-#include "pisa/types.h"
 #include "pisa/priority.h"
+#include "pisa/types.h"
 #include "pisa/utils.h"
 #include <fcntl.h>
 #include <stdio.h>
@@ -14,7 +14,6 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
 
 char *plugin_name = "body";
 

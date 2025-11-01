@@ -1,7 +1,7 @@
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
-#include "pisa/types.h"
 #include "pisa/priority.h"
+#include "pisa/types.h"
 #include "pisa/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,7 +54,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
     set_ecn_inst.op = SET_FIELD;
     set_ecn_inst.fk.field = target_family == INET_ADDR_V4 ? IPV4_ECN : IPV6_ECN;
     set_ecn_inst.value.tpe = BYTE;
-    set_ecn_inst.value.value.byte = *(uint8_t*)cookie;
+    set_ecn_inst.value.value.byte = *(uint8_t *)cookie;
     result.success = pisa_program_add_inst(program, &set_ecn_inst);
 
   } else {

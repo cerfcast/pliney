@@ -77,7 +77,8 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
 
     pisa_inst_t set_target_inst;
     set_target_inst.op = SET_FIELD;
-    set_target_inst.fk.field = parsed_target->family == INET_ADDR_V4 ? IPV4_TARGET : IPV6_TARGET;
+    set_target_inst.fk.field =
+        parsed_target->family == INET_ADDR_V4 ? IPV4_TARGET : IPV6_TARGET;
     set_target_inst.value.value.ipaddr = *parsed_target;
 
     result.success = pisa_program_add_inst(program, &set_target_inst);

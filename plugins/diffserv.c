@@ -1,7 +1,7 @@
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
-#include "pisa/types.h"
 #include "pisa/priority.h"
+#include "pisa/types.h"
 #include "pisa/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,6 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <sys/socket.h>
-
 
 char *plugin_name = "diffserv";
 
@@ -54,9 +53,10 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
 
     pisa_inst_t set_ecn_inst;
     set_ecn_inst.op = SET_FIELD;
-    set_ecn_inst.fk.field = target_family == INET_ADDR_V4 ? IPV4_DSCP : IPV6_DSCP;
+    set_ecn_inst.fk.field =
+        target_family == INET_ADDR_V4 ? IPV4_DSCP : IPV6_DSCP;
     set_ecn_inst.value.tpe = BYTE;
-    set_ecn_inst.value.value.byte = (*(uint8_t*)cookie) << 2;
+    set_ecn_inst.value.value.byte = (*(uint8_t *)cookie) << 2;
     result.success = pisa_program_add_inst(program, &set_ecn_inst);
   }
 

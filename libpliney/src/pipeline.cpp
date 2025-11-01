@@ -1,6 +1,6 @@
 #include "pisa/pipeline.hpp"
-#include "pisa/plugin.h"
 #include "packetline/logger.hpp"
+#include "pisa/plugin.h"
 
 #include <algorithm>
 #include <ranges>
