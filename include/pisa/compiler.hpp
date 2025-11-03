@@ -11,61 +11,39 @@
 #include <sys/socket.h>
 #include <variant>
 
-struct CompilationResult {
-  bool success{false};
-  std::string error{};
-  pisa_program_t *program{};
-  packet_t packet;
-
-  static CompilationResult Success(pisa_program_t *program) {
-    return CompilationResult{.success = true, .error = "", .program = program};
-  }
-  static CompilationResult Failure(std::string error) {
-    return CompilationResult{.success = false, .error = error, .program = nullptr};
-  }
-
-  ~CompilationResult() {
-    if (packet.ip.data != nullptr) {
-      free(packet.ip.data );
-      packet.ip.data = nullptr;
-      packet.ip.len = 0;
-      packet.transport.data = nullptr;
-      packet.transport.len = 0;
-
-      // Because the body comes from a plugin, that's not our problem!
-    }
-    pisa_program_release(program);
-  }
-};
+#include "compilation.hpp"
+#include "packetline/runner.hpp"
 
 class Compiler {
 public:
-  virtual CompilationResult compile(pisa_program_t *program, const Pipeline &pipeline) = 0;
+  virtual CompilationResult compile(pisa_program_t *program,
+                                    const Pipeline *pipeline) = 0;
   virtual ~Compiler() = default;
 };
 
 class BasicCompiler : public Compiler {
 public:
-  CompilationResult compile(pisa_program_t *program, const Pipeline &pipeline);
+  CompilationResult compile(pisa_program_t *program, const Pipeline *pipeline) override;
 };
 
 class CliCompiler : public BasicCompiler {
 public:
-  CompilationResult compile(pisa_program_t *program, const Pipeline &pipeline);
+  CompilationResult compile(pisa_program_t *program, const Pipeline *pipeline) override;
 };
 
 class XdpCompiler : public BasicCompiler {
 public:
-  CompilationResult compile(pisa_program_t *program, const Pipeline &pipeline);
+  CompilationResult compile(pisa_program_t *program, const Pipeline *pipeline) override;
 };
 
-using pipeline_executor_builder_t =
-    std::function<std::unique_ptr<Compiler>()>;
+using pipeline_executor_builder_t = std::function<
+    std::pair<std::unique_ptr<Compiler>, std::unique_ptr<Runner>>()>;
 
 class CompilerBuilder {
 public:
   void with_name(const std::string &name, pipeline_executor_builder_t builder);
-  std::variant<std::string, std::unique_ptr<Compiler>>
+  std::variant<std::string,
+               std::pair<std::unique_ptr<Compiler>, std::unique_ptr<Runner>>>
   by_name(const std::string &name);
 
 private:

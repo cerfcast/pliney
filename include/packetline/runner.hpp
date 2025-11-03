@@ -1,10 +1,10 @@
 #ifndef _RESULT_EXECUTORS_HPP
 #define _RESULT_EXECUTORS_HPP
 
-#include "pisa/compiler.hpp"
-
 #include <cstring>
 #include <sys/socket.h>
+
+#include "pisa/compilation.hpp"
 
 class Runner {
 public:
@@ -19,10 +19,17 @@ public:
 
 class PacketRunner : public Runner {
 public:
-  PacketRunner(const Pipeline &pipeline): m_pipeline{pipeline} {}
   bool execute(CompilationResult &execution_ctx) override;
-private:
-  const Pipeline &m_pipeline;
+};
+
+class PacketObserverRunner : public PacketRunner {
+public:
+  bool execute(CompilationResult &execution_ctx) override;
+};
+
+class PacketSenderRunner : public PacketRunner {
+public:
+  bool execute(CompilationResult &execution_ctx) override;
 };
 
 class XdpRunner : public Runner {

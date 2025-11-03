@@ -8,10 +8,12 @@
 #include <filesystem>
 #include <format>
 #include <iostream>
+#include <memory>
 #include <netinet/in.h>
 #include <numeric>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <utility>
 #include <variant>
 
 #include "packetline/cli.hpp"
@@ -32,15 +34,23 @@ extern int errno;
 
 int main(int argc, const char **argv) {
 
-  CompilerBuilder pipeline_executor_builder{};
+  CompilerBuilder pipeline_compiler_builder{};
 
-  pipeline_executor_builder.with_name(
-      "xdp", []() { return std::make_unique<XdpCompiler>(); });
-  pipeline_executor_builder.with_name(
-      "network", []() { return std::make_unique<CliCompiler>(); });
-  std::string network_executor_builder_name{"network"};
+  pipeline_compiler_builder.with_name("xdp", []() {
+    return std::make_pair(std::make_unique<XdpCompiler>(),
+                          std::make_unique<XdpRunner>());
+  });
+  pipeline_compiler_builder.with_name("cli", []() {
+    return std::make_pair(std::make_unique<CliCompiler>(),
+                          std::make_unique<CliRunner>());
+  });
+  pipeline_compiler_builder.with_name("packet", []() {
+    return std::make_pair(std::make_unique<CliCompiler>(),
+                          std::make_unique<PacketSenderRunner>());
+  });
 
-  uint8_t cli_connection_type = INET_STREAM;
+  std::string runner_builder_name{"cli"};
+
   Logger::Level cli_logger_level{Logger::ERROR};
   std::string cli_plugin_path{"./build"};
 
@@ -73,16 +83,6 @@ int main(int argc, const char **argv) {
 
     if (maybe_arg.starts_with('-')) {
       std::string arg{maybe_arg.substr(1)};
-      if (arg == "type") {
-        HAS_ANOTHER_ARG;
-        if (!Cli::parse_connection_type(argv[pliney_arg_idx],
-                                        cli_connection_type)) {
-          std::cerr << std::format("Invalid connection type given: {}\n",
-                                   argv[pliney_arg_idx]);
-          return 1;
-        }
-        continue;
-      }
       if (arg == "log") {
         HAS_ANOTHER_ARG;
         if (!Cli::parse_logger_level(argv[pliney_arg_idx], cli_logger_level)) {
@@ -101,9 +101,9 @@ int main(int argc, const char **argv) {
         should_show_help = true;
         continue;
       }
-      if (arg == "netexec-name") {
+      if (arg == "runner-name") {
         HAS_ANOTHER_ARG;
-        network_executor_builder_name = argv[pliney_arg_idx];
+        runner_builder_name = argv[pliney_arg_idx];
         continue;
       }
     }
@@ -117,15 +117,17 @@ int main(int argc, const char **argv) {
   // let's set it and use it.
   logger->set_level(cli_logger_level);
 
-  auto maybe_pipeline_executor =
-      pipeline_executor_builder.by_name(network_executor_builder_name);
-  if (std::holds_alternative<std::string>(maybe_pipeline_executor)) {
-    std::cerr << std::format("No pipeline executor named {} is registered.",
-                             std::get<std::string>(maybe_pipeline_executor));
+  auto maybe_pipeline_compiler_runner =
+      pipeline_compiler_builder.by_name(runner_builder_name);
+  if (std::holds_alternative<std::string>(maybe_pipeline_compiler_runner)) {
+    std::cerr << std::format(
+        "No pipeline executor named {} is registered.",
+        std::get<std::string>(maybe_pipeline_compiler_runner));
     return 1;
   }
-  auto pipeline_exec =
-      std::move(std::get<std::unique_ptr<Compiler>>(maybe_pipeline_executor));
+  auto pipeline_compiler_runner = std::move(
+      std::get<std::pair<std::unique_ptr<Compiler>, std::unique_ptr<Runner>>>(
+          maybe_pipeline_compiler_runner));
 
   auto plugin_fs_path = std::filesystem::path(cli_plugin_path);
   auto plugins = PluginDir{plugin_fs_path};
@@ -175,21 +177,15 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
+  auto pipeline_compiler = std::move(std::get<0>(pipeline_compiler_runner));
+  auto pipeline_runner = std::move(std::get<1>(pipeline_compiler_runner));
+
   auto pisa_program = pisa_program_new();
-  auto compilation_result = pipeline_exec->compile(pisa_program, pipeline);
+  auto compilation_result = pipeline_compiler->compile(pisa_program, &pipeline);
 
   if (compilation_result.success) {
 
-    auto native_runner = PacketRunner(pipeline);
-    auto native_runner_result = native_runner.execute(compilation_result);
-    if (!native_runner_result) {
-      Logger::ActiveLogger()->log(
-          Logger::DEBUG,
-          "Error occurred generating a native packet from the PISA program.\n");
-    }
-
-    auto runner = CliRunner();
-    auto runner_result = runner.execute(compilation_result);
+    auto runner_result = pipeline_runner->execute(compilation_result);
 
     if (!runner_result) {
       std::cerr << "Error occurred executing the network connection.\n";
@@ -198,6 +194,7 @@ int main(int argc, const char **argv) {
       Logger::ActiveLogger()->log(Logger::DEBUG,
                                   "Execution of network connection succeeded.");
     }
+
     return 0;
   }
 

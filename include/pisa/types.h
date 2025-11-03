@@ -46,7 +46,9 @@ typedef struct {
 } ip_addr_t;
 
 typedef struct {
+  data_p all;
   data_p ip;
+  data_p ip_options;
   data_p transport;
   data_p body;
 } packet_t;

@@ -1,29 +1,48 @@
-#include "api/plugin.h"
-#include "api/utils.h"
+#include "pisa/pisa.h"
+#include "pisa/plugin.h"
+#include "pisa/types.h"
+#include "pisa/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
 char *plugin_name = "source";
 
-char *name() { return plugin_name; }
-
 configuration_result_t generate_configuration(int argc, const char **args) {
+
   configuration_result_t configuration_result = {.configuration_cookie = NULL,
                                                  .errstr = NULL};
 
-  if (argc == 0) {
-    warn("Source plugin used without specifying either address or port -- "
-         "Making no changes.\n");
+  if (!argc) {
+    char *err = (char *)calloc(255, sizeof(char));
+    snprintf(err, 255, "source plugin got no target.");
+    configuration_result.errstr = err;
     return configuration_result;
   }
 
-  ip_addr_t *addr = (ip_addr_t *)malloc(sizeof(ip_addr_t));
+  ip_addr_t *addr = (ip_addr_t *)calloc(sizeof(ip_addr_t), 1);
 
-  if (argc > 1) {
+  // If it is not possible to parse as an IP address, try a DNS lookup.
+  if (0 > ip_parse(args[0], addr)) {
+    struct addrinfo *resolveds = NULL;
+    int dns_result = getaddrinfo(args[0], NULL, NULL, &resolveds);
+    if (dns_result < 0) {
+      char *err = (char *)calloc(255, sizeof(char));
+      snprintf(err, 255, "Error looking up %s: %s", args[0],
+               gai_strerror(dns_result));
+      configuration_result.errstr = err;
+    } else {
+      struct addrinfo *resolved = resolveds;
+      sockaddr_to_ip(resolved->ai_addr, resolved->ai_addrlen, addr);
+      freeaddrinfo(resolveds);
+    }
+  }
+
+  if (!configuration_result.errstr && argc > 1) {
     char *invalid = NULL;
     uint16_t port = strtol(args[1], &invalid, 10);
     if (invalid && *invalid == '\0') {
@@ -32,33 +51,53 @@ configuration_result_t generate_configuration(int argc, const char **args) {
       char *err = (char *)calloc(255, sizeof(char));
       snprintf(err, 255, "Could not convert %s to a port number", args[1]);
       configuration_result.errstr = err;
-      return configuration_result;
     }
   } else {
-    warn("Source plugin using OS-selected ephemeral port.\n");
-    addr->port = 0;
+    warn("Source plugin was not given a port.\n");
   }
 
-  if (argc > 0 && (0 < ip_parse(args[0], addr))) {
-    configuration_result.configuration_cookie = addr;
+  if (configuration_result.errstr) {
+    configuration_result.configuration_cookie = NULL;
+    free(addr);
     return configuration_result;
   }
 
-  free(addr);
-  configuration_result.errstr = "Invalid IP/port combination";
+  configuration_result.configuration_cookie = addr;
   return configuration_result;
 }
 
-generate_result_t generate(packet_t *packet, void *cookie) {
-
+generate_result_t generate(pisa_program_t *program, void *cookie) {
   generate_result_t result;
 
-  if (cookie) {
-    ip_addr_t *addr = (ip_addr_t *)cookie;
-    selectively_copy_ip(&packet->source, addr);
+  if (cookie != NULL) {
+    ip_addr_t *parsed_source = (ip_addr_t *)cookie;
+
+    parsed_source->family = parsed_source->family;
+    parsed_source->port = parsed_source->port;
+
+    pisa_inst_t set_source_inst;
+    set_source_inst.op = SET_FIELD;
+    set_source_inst.fk.field =
+        parsed_source->family == INET_ADDR_V4 ? IPV4_SOURCE : IPV6_SOURCE;
+    set_source_inst.value.value.ipaddr = *parsed_source;
+    result.success = pisa_program_add_inst(program, &set_source_inst);
+
+    if (!result.success) {
+      return result;
+    }
+
+    pisa_inst_t set_source_port_inst;
+    set_source_port_inst.op = SET_FIELD;
+    set_source_port_inst.fk.field = parsed_source->family == INET_ADDR_V4
+                                   ? IPV4_SOURCE_PORT
+                                   : IPV6_SOURCE_PORT;
+    set_source_port_inst.value.value.ipaddr = *parsed_source;
+    result.success = pisa_program_add_inst(program, &set_source_port_inst);
+
+  } else {
+    result.success = 0;
   }
 
-  result.success = true;
   return result;
 }
 
@@ -79,7 +118,7 @@ usage_result_t usage() {
   result.usage = 
   "Set the source address of the packet to IP or the address\n"
   "resolved from a DNS lookup of HOSTNAME. The packet's\n"
-  "existing source port will only be overwritten if PORT\n"
+  "existing target port will only be overwritten if PORT\n"
   "is specified.";
   // clang-format on
 

@@ -67,7 +67,6 @@ bool pisa_program_find_meta_value(pisa_program_t *pgm, const char *key,
 }
 
 bool pisa_program_find_target_value(pisa_program_t *pgm, pisa_value_t *value) {
-  // First, find the destination. The program must set one.
   if (!pisa_program_find_field_value(pgm, IPV4_TARGET, value) &&
       !pisa_program_find_field_value(pgm, IPV6_TARGET, value)) {
     return false;
@@ -117,17 +116,10 @@ const char *pisa_opcode_name(pisa_opcode_t opcode) {
   return NULL;
 }
 
-void pisa_value_release(pisa_value_t *value) {
-  if (value->tpe == PTR && value->value.ptr.len != 0) {
-    free(value->value.ptr.data);
-  }
-}
-
 void pisa_instruction_release(pisa_inst_t *inst) {
   // We only release values that are from SET_META. Everyone
   // else is on their own!
   if (inst->op == SET_META) {
-    pisa_value_release(&inst->value);
     if (inst->fk.key.len != 0) {
       free(inst->fk.key.data);
       inst->fk.key.len = 0;
@@ -137,6 +129,10 @@ void pisa_instruction_release(pisa_inst_t *inst) {
 }
 
 void pisa_program_release(pisa_program_t *program) {
+  if (!program) {
+    return;
+  }
+
   for (size_t indx = 0; indx < program->inst_count; indx++) {
     pisa_instruction_release(&program->insts[indx]);
   }
