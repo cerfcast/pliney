@@ -32,13 +32,14 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  metap_cookie_t *meta_cookie = (metap_cookie_t*)calloc(1, sizeof(metap_cookie_t));
+  metap_cookie_t *meta_cookie =
+      (metap_cookie_t *)calloc(1, sizeof(metap_cookie_t));
 
   size_t key_len = strlen(args[0]) + 1;
   size_t value_len = strlen(args[1]) + 1;
 
-  char *key = (char*)calloc(key_len, sizeof(char));
-  char *value = (char*)calloc(value_len, sizeof(char));
+  char *key = (char *)calloc(key_len, sizeof(char));
+  char *value = (char *)calloc(value_len, sizeof(char));
 
   strcpy(key, args[0]);
   strcpy(value, args[1]);
@@ -48,7 +49,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   meta_cookie->key = key;
   meta_cookie->key_len = key_len;
 
-  configuration_result.configuration_cookie = (void*)meta_cookie;
+  configuration_result.configuration_cookie = (void *)meta_cookie;
   return configuration_result;
 }
 
@@ -57,11 +58,11 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
 
   if (cookie != NULL) {
     // TODO: Fix
-    metap_cookie_t *meta_cookie = (metap_cookie_t*)cookie;
+    metap_cookie_t *meta_cookie = (metap_cookie_t *)cookie;
 
     pisa_value_t meta_value;
     meta_value.tpe = PTR;
-    meta_value.value.ptr.data = (uint8_t*)meta_cookie->value;
+    meta_value.value.ptr.data = (uint8_t *)meta_cookie->value;
     meta_value.value.ptr.len = meta_cookie->value_len;
     pisa_program_add_meta_inst(program, meta_cookie->key, meta_value);
 
@@ -76,7 +77,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
 
 cleanup_result_t cleanup(void *cookie) {
   if (cookie != NULL) {
-    metap_cookie_t *meta_cookie = (metap_cookie_t*)cookie;
+    metap_cookie_t *meta_cookie = (metap_cookie_t *)cookie;
     free(meta_cookie->key);
     free(meta_cookie->value);
     free(cookie);

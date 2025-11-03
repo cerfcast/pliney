@@ -420,7 +420,7 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)execution_ctx.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -778,8 +778,8 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
     }
 #endif
 
-  struct msghdr msg{};
-  struct iovec iov{};
+  struct msghdr msg {};
+  struct iovec iov {};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;
