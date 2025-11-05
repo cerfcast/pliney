@@ -358,7 +358,7 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)execution_ctx.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -396,21 +396,23 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
   return true;
 }
 
-bool CliRunner::execute(CompilationResult &execution_ctx) {
-
+bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
   if (!execution_ctx.success || !execution_ctx.program) {
     return false;
   }
 
   auto program = execution_ctx.program;
 
-  // As part of our work, we also run another runner!
-  auto native_runner = PacketRunner();
-  auto native_runner_result = native_runner.execute(execution_ctx);
-  if (!native_runner_result) {
+  // As part of our work, we also run another runner that lets
+  // each of the plugins in the pipeline see the packet that was
+  // built.
+  auto packet_observer_runner = PacketObserverRunner();
+  auto packet_observer_runner_result =
+      packet_observer_runner.execute(execution_ctx);
+  if (!packet_observer_runner_result) {
     Logger::ActiveLogger()->log(
         Logger::DEBUG,
-        "Error occurred generating a native packet from the PISA program.\n");
+        "Error occurred running the packet observer on the PISA program.\n");
   }
 
   pisa_value_t pgm_body{};
@@ -431,8 +433,8 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
                  "system-compatible destination.\n";
     return false;
   }
-  auto destination_d{
-      unique_sockaddr((struct sockaddr *)destination, destination_len)};
+  m_destination = unique_sockaddr((struct sockaddr *)destination, destination_len);
+  m_destination_len = destination_len;
 
   // Now, find out the transport type. The program must set one.
   if (!pisa_program_find_meta_value(program, "TRANSPORT",
@@ -441,13 +443,13 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
                                 "Could not find the transport value!");
     return false;
   }
-  auto transport_value = pisa_transport_value.value.byte;
+  auto pisa_pgm_transport_type{
+      Pliney::from_pisa_transport(pisa_transport_value.value.byte)};
 
   // Now, open a socket!
-  int socket{0};
-  auto socket_success =
-      ip_to_socket(pliney_destination, transport_value, &socket);
-  if (!socket_success || socket < 0) {
+  auto socket_success = ip_to_socket(
+      pliney_destination, to_pisa_transport(pisa_pgm_transport_type), &m_socket);
+  if (!socket_success || m_socket < 0) {
     std::string reason{"Ill-formatted target"};
     if (socket_success) {
       reason = strerror(errno);
@@ -456,13 +458,11 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
         Logger::ERROR,
         std::format("Could not open a {} socket to the target address ({}): "
                     "{}.",
-                    transport_value == INET_STREAM ? "TCP" : "UDP",
+                    to_string(pisa_pgm_transport_type),
                     stringify_ip(pgm_dest.value.ipaddr), reason));
     return false;
   }
 
-  std::optional<Swapsockopt<int>> ttlhl{};
-  std::optional<Swapsockopt<int>> toss{};
 
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
     switch (program->insts[insn_idx].op) {
@@ -502,19 +502,19 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
               Logger::ActiveLogger()->log(
                   Logger::WARN,
                   std::format(
-                      "Will not set the IPV4 ECN on an non-IPv4 packet"));
+                      "Will not set ECN value on socket with mismatched IP version"));
               break;
             }
-            if (toss) {
-              (*toss).again(ecn, 0x3);
+            if (m_toss) {
+              (*m_toss).again(ecn, 0x3);
             } else {
               if (pliney_destination.family == INET_ADDR_V6) {
-                toss.emplace(socket, IPPROTO_IPV6, IPV6_TCLASS, ecn, 0x3);
+                m_toss.emplace(m_socket, IPPROTO_IPV6, IPV6_TCLASS, ecn, 0x3);
               } else {
-                toss.emplace(socket, IPPROTO_IP, IP_TOS, ecn, 0x3);
+                m_toss.emplace(m_socket, IPPROTO_IP, IP_TOS, ecn, 0x3);
               }
             }
-            if (!toss->ok()) {
+            if (!m_toss->ok()) {
               std::cerr << std::format(
                   "There was an error setting the ECN on the socket: {}\n",
                   std::strerror(errno));
@@ -533,19 +533,19 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
               // Better error message.
               Logger::ActiveLogger()->log(
                   Logger::WARN,
-                  std::format("Will not set the DSCP on an non-IPv4 packet"));
+                  std::format("Will not set DSCP value on socket with mismatched IP version"));
               break;
             }
-            if (toss) {
-              (*toss).again(dscp, 0xfc);
+            if (m_toss) {
+              (*m_toss).again(dscp, 0xfc);
             } else {
               if (pliney_destination.family == INET_ADDR_V6) {
-                toss.emplace(socket, IPPROTO_IPV6, IPV6_TCLASS, dscp, 0xfc);
+                m_toss.emplace(m_socket, IPPROTO_IPV6, IPV6_TCLASS, dscp, 0xfc);
               } else {
-                toss.emplace(socket, IPPROTO_IP, IP_TOS, dscp, 0xfc);
+                m_toss.emplace(m_socket, IPPROTO_IP, IP_TOS, dscp, 0xfc);
               }
             }
-            if (!toss->ok()) {
+            if (!m_toss->ok()) {
               std::cerr << std::format(
                   "There was an error setting the DSCP on the socket: {}\n",
                   std::strerror(errno));
@@ -556,16 +556,10 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
 
           case IPV6_HL: {
             int hoplimit = program->insts[insn_idx].value.value.byte;
-            if (pliney_destination.family != INET_ADDR_V6) {
-              Logger::ActiveLogger()->log(
-                  Logger::WARN,
-                  std::format(
-                      "Will not set the IPV6 TTL on an non-IPv6 packet"));
-              break;
-            }
+            PISA_COWARDLY_VERSION_CHECK(INET_ADDR_V6, pliney_destination.family, "Will not set the IPv6 hoplimit on a non-IPv6 packet");
 
-            ttlhl.emplace(socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, hoplimit);
-            if (!ttlhl->ok()) {
+            m_ttlhl.emplace(m_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, hoplimit);
+            if (!m_ttlhl->ok()) {
               std::cerr << std::format(
                   "There was an error setting the hoplimit on the socket: {}\n",
                   std::strerror(errno));
@@ -574,16 +568,11 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
             break;
           }
           case IPV4_TTL: {
-            int hoplimit = program->insts[insn_idx].value.value.byte;
-            if (pliney_destination.family != INET_ADDR_V4) {
-              Logger::ActiveLogger()->log(
-                  Logger::WARN,
-                  std::format(
-                      "Will not set the IPV4 TTL on an non-IPv4 packet"));
-              break;
-            }
-            ttlhl.emplace(socket, IPPROTO_IP, IP_TTL, hoplimit);
-            if (!ttlhl->ok()) {
+            int ttl = program->insts[insn_idx].value.value.byte;
+            PISA_COWARDLY_VERSION_CHECK(INET_ADDR_V4, pliney_destination.family, "Will not set the IPv4 TTL on a non-IPv4 packet");
+
+            m_ttlhl.emplace(m_socket, IPPROTO_IP, IP_TTL, ttl);
+            if (!m_ttlhl->ok()) {
               std::cerr << std::format(
                   "There was an error setting the TTL on the socket: {}\n",
                   std::strerror(errno));
@@ -604,8 +593,8 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
   }
 
   // Now, do I have to connect?
-  if (transport_value == INET_STREAM) {
-    auto connect_result = connect(socket, destination, destination_len);
+  if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
+    auto connect_result = connect(m_socket, destination, destination_len);
     Logger::ActiveLogger()->log(
         Logger::ERROR,
         std::format("Could not connect to the target address: {}",
@@ -716,37 +705,6 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
     }
 #endif
 
-  struct msghdr msg {};
-  struct iovec iov {};
-
-  memset(&msg, 0, sizeof(struct msghdr));
-  iov.iov_base = nullptr;
-  iov.iov_len = 0;
-
-  if (pgm_body.value.ptr.len) {
-    iov.iov_base = pgm_body.value.ptr.data;
-    iov.iov_len = pgm_body.value.ptr.len;
-  }
-
-  msg.msg_iov = &iov;
-  msg.msg_iovlen = 1;
-
-  msg.msg_name = destination;
-  msg.msg_namelen = destination_len;
-
-  msg.msg_control = nullptr;
-  msg.msg_controllen = 0;
-
-  int write_result = sendmsg(socket, &msg, 0);
-
-  if (write_result < 0) {
-    Logger::ActiveLogger()->log(
-        Logger::ERROR, std::format("Error occurred sending data: could not "
-                                   "write to the socket: {}",
-                                   strerror(errno)));
-    return false;
-  }
-
 #if 0
   } else {
     Logger::ActiveLogger()->log(
@@ -756,6 +714,51 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
                     strerror(errno)));
   }
 #endif
+  return true;
+}
+
+bool CliRunner::execute(CompilationResult &execution_ctx) {
+
+  if (!execution_ctx.success || !execution_ctx.program) {
+    return false;
+  }
+
+  SocketBuilderRunner::execute(execution_ctx);
+  if (!execution_ctx.success || !execution_ctx.program) {
+    return false;
+  }
+
+  struct msghdr msg{};
+  struct iovec iov{};
+
+  memset(&msg, 0, sizeof(struct msghdr));
+  iov.iov_base = nullptr;
+  iov.iov_len = 0;
+
+  if (execution_ctx.packet.body.len) {
+    iov.iov_base = execution_ctx.packet.body.data;
+    iov.iov_len = execution_ctx.packet.body.len;
+  }
+
+  msg.msg_iov = &iov;
+  msg.msg_iovlen = 1;
+
+  msg.msg_name = m_destination->get();
+  msg.msg_namelen = m_destination_len;
+
+  msg.msg_control = nullptr;
+  msg.msg_controllen = 0;
+
+  int write_result = sendmsg(m_socket, &msg, 0);
+
+  if (write_result < 0) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR, std::format("Error occurred sending data: could not "
+                                   "write to the socket: {}",
+                                   strerror(errno)));
+    return false;
+  }
+
   return true;
 }
 
@@ -868,3 +871,4 @@ bool XdpRunner::execute(CompilationResult &execution_ctx) {
 
   return true;
 }
+
