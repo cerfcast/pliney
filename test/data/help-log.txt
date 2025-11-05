@@ -66,6 +66,13 @@ Plugin Usage:
 		Write the contents of the body of the packet to <file path>.
 		Optionally specify a mode to determine how existing contents
 		of <file path> are handled.
+	source
+		<IP or HOSTNAME> [PORT]
+		Usage:
+		Set the source address of the packet to IP or the address
+		resolved from a DNS lookup of HOSTNAME. The packet's
+		existing target port will only be overwritten if PORT
+		is specified.
 	target
 		<IP or HOSTNAME> [PORT]
 		Usage:
