@@ -33,8 +33,8 @@ typedef struct {
 #define INET_ADDR_V4 4
 #define INET_ADDR_V6 6
 
-#define INET_STREAM 1
-#define INET_DGRAM 2
+#define INET_STREAM 6
+#define INET_DGRAM 17
 
 typedef struct {
   uint8_t family;

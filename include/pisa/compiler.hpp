@@ -1,7 +1,7 @@
 #ifndef _PIPELINE_EXECUTORS_HPP
 #define _PIPELINE_EXECUTORS_HPP
 
-#include "pisa/pipeline.hpp"
+#include "lib/pipeline.hpp"
 #include "pisa/pisa.h"
 
 #include <cstring>

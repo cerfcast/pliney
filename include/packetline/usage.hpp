@@ -1,7 +1,7 @@
 #ifndef _USAGE_HPP
 #define _USAGE_HPP
 
-#include "pisa/pipeline.hpp"
+#include "lib/pipeline.hpp"
 
 class Usage {
 public:

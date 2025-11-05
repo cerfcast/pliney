@@ -1,5 +1,5 @@
-#include "pisa/pipeline.hpp"
-#include "packetline/logger.hpp"
+#include "lib/pipeline.hpp"
+#include "lib/logger.hpp"
 #include "pisa/plugin.h"
 
 #include <algorithm>

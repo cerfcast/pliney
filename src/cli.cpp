@@ -1,5 +1,6 @@
 #include "packetline/cli.hpp"
-#include "packetline/logger.hpp"
+#include "lib/logger.hpp"
+#include "packetline/constants.hpp"
 #include "pisa/types.h"
 
 #include <ranges>
@@ -25,21 +26,6 @@ bool Cli::find_pipeline_start(size_t argc, const char **args,
     *position = argc;
   }
   return false;
-}
-
-bool Cli::parse_connection_type(const char *maybe_stream_type_raw,
-                                uint8_t &type) {
-  std::string maybe_stream_type{maybe_stream_type_raw};
-
-  bool is_valid{true};
-  if (maybe_stream_type == "stream") {
-    type = INET_STREAM;
-  } else if (maybe_stream_type == "dgram") {
-    type = INET_DGRAM;
-  } else {
-    is_valid = false;
-  }
-  return is_valid;
 }
 
 bool Cli::parse_logger_level(const char *maybe_logger_level_raw,

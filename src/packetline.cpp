@@ -17,12 +17,12 @@
 #include <variant>
 
 #include "packetline/cli.hpp"
-#include "packetline/logger.hpp"
+#include "lib/logger.hpp"
 #include "packetline/runner.hpp"
 #include "packetline/usage.hpp"
 #include "pisa/compiler.hpp"
 #include "pisa/exthdrs.h"
-#include "pisa/pipeline.hpp"
+#include "lib/pipeline.hpp"
 #include "pisa/pisa.h"
 #include "pisa/plugin.hpp"
 

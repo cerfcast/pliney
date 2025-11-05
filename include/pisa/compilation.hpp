@@ -1,7 +1,7 @@
 #ifndef _COMPILATION_HPP
 #define _COMPILATION_HPP
 
-#include "pisa/pipeline.hpp"
+#include "lib/pipeline.hpp"
 #include "pisa/pisa.h"
 
 #include <string>

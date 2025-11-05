@@ -1,9 +1,10 @@
 #include "packetline/runner.hpp"
+#include "lib/ip.hpp"
+#include "lib/pipeline.hpp"
 #include "packetline/constants.hpp"
 #include "pisa/compiler.hpp"
-#include "pisa/pipeline.hpp"
 
-#include "packetline/logger.hpp"
+#include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
@@ -28,75 +29,6 @@
     break;                                                                     \
   }
 
-uint16_t compute_udp_ones(uint16_t *start, uint16_t *stop) {
-  uint32_t cksum = 0;
-  uint16_t *cksumv = (uint16_t *)&cksum;
-  size_t s{0};
-  for (; start + s < stop; s++) {
-    cksum += ntohs(start[s]);
-    if (cksumv[1]) {
-      cksumv[1] = 0;
-      cksum += 1;
-    }
-  }
-
-  // Could have to pad!
-  if ((start + s) != stop) {
-    cksum += *(uint8_t *)(start + s);
-    if (cksumv[1]) {
-      cksumv[1] = 0;
-      cksum += 1;
-    }
-  }
-  return cksum;
-}
-
-uint16_t compute_udp_cksum(uint8_t type, void *ip, struct udphdr *udp,
-                           data_p body) {
-  uint32_t cksum = 0;
-  uint16_t *cksumv = (uint16_t *)&cksum;
-
-  if (type == INET_ADDR_V6) {
-    struct ip6_hdr *hdr = (struct ip6_hdr *)ip;
-
-    uint16_t *source = (uint16_t *)&hdr->ip6_src;
-
-    cksum = compute_udp_ones(source, source + 16);
-
-    uint32_t length{
-        htonl(static_cast<uint32_t>(sizeof(struct udphdr) + body.len))};
-    uint16_t *lengthp{reinterpret_cast<uint16_t *>(&length)};
-    cksum += compute_udp_ones(lengthp, lengthp + 2);
-    if (cksumv[1]) {
-      cksumv[1] = 0;
-      cksum += 1;
-    }
-
-    cksum += uint8_t(17);
-    if (cksumv[1]) {
-      cksumv[1] = 0;
-      cksum += 1;
-    }
-
-    uint16_t *udpp{reinterpret_cast<uint16_t *>(udp)};
-    cksum += compute_udp_ones(udpp, udpp + 4);
-    if (cksumv[1]) {
-      cksumv[1] = 0;
-      cksum += 1;
-    }
-  } else {
-  }
-
-  cksum += compute_udp_ones((uint16_t *)body.data,
-                            (uint16_t *)(body.data + body.len));
-  if (cksumv[1]) {
-    cksumv[1] = 0;
-    cksum += 1;
-  }
-
-  return htons(~(cksum & 0xffff));
-}
-
 bool PacketRunner::execute(CompilationResult &execution_ctx) {
 
   if (!execution_ctx.success || !execution_ctx.program) {
@@ -113,6 +45,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
   if (!pisa_program_find_target_value(program, &pgm_dest)) {
     Logger::ActiveLogger()->log(Logger::ERROR,
                                 "Could not find the target value!");
+    execution_ctx.error = "PISA program does not contain a target value.";
     return false;
   }
 
@@ -121,49 +54,52 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
                                     &pisa_transport_value)) {
     Logger::ActiveLogger()->log(Logger::ERROR,
                                 "Could not find the transport value!");
+    execution_ctx.error = "PISA program does not contain a transport value.";
     return false;
   }
 
-  auto pisa_pgm_transport_type = pisa_transport_value.value.byte;
-  auto pisa_pgm_ip_version{pgm_dest.value.ipaddr.family};
+  auto pisa_pgm_transport_type{
+      Pliney::from_pisa_transport(pisa_transport_value.value.byte)};
+  auto pisa_pgm_ip_version{
+      Pliney::from_pisa_version(pgm_dest.value.ipaddr.family)};
 
-  Logger::ActiveLogger()->log(
-      Logger::DEBUG, std::format("PISA program IP version: {}",
-                                 pisa_pgm_ip_version == INET_ADDR_V4 ? 4 : 6));
-  Logger::ActiveLogger()->log(
-      Logger::DEBUG,
-      std::format("PISA program transport type: {}",
-                  pisa_pgm_transport_type == INET_STREAM ? "tcp" : "udp"));
+  Logger::ActiveLogger()->log(Logger::DEBUG,
+                              std::format("PISA program IP version: {}",
+                                          to_string(pisa_pgm_ip_version)));
+  Logger::ActiveLogger()->log(Logger::DEBUG,
+                              std::format("PISA program transport type: {}",
+                                          to_string(pisa_pgm_transport_type)));
 
   // Let's say that there is an IP header -- make one as big as legal
   // (appropriate to the type).
-  size_t iphdr_len{pisa_pgm_ip_version == INET_ADDR_V4 ? size_t{20}
-                                                       : size_t{40}};
+  size_t iphdr_len{pisa_pgm_ip_version == Pliney::IpVersion::FOUR
+                       ? Pliney::IPV4_DEFAULT_HEADER_LENGTH
+                       : Pliney::IPV6_DEFAULT_HEADER_LENGTH};
   void *iphdr{(void *)calloc(iphdr_len, sizeof(uint8_t))};
 
   // Put some initial values into the packet.
-  if (pisa_pgm_ip_version == INET_ADDR_V4) {
+  if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
     struct iphdr *typed_hdr = (struct iphdr *)iphdr;
     typed_hdr->version = Pliney::IPV4_VERSION;
-    typed_hdr->ihl = Pliney::IPV4_DEFAULT_HEADER_LENGTH;
-    if (pisa_pgm_transport_type == INET_STREAM) {
+    typed_hdr->ihl = Pliney::IPV4_DEFAULT_HEADER_LENGTH_OCTETS;
+    if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
       typed_hdr->protocol = IPPROTO_TCP;
-    } else if (pisa_pgm_transport_type == INET_DGRAM) {
+    } else if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
       typed_hdr->protocol = IPPROTO_UDP;
     }
   } else {
     struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
     typed_hdr->ip6_vfc |= Pliney::IPV6_VERSION << 4;
-    if (pisa_pgm_transport_type == INET_STREAM) {
+    if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
       typed_hdr->ip6_nxt = IPPROTO_TCP;
-    } else if (pisa_pgm_transport_type == INET_DGRAM) {
+    } else if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
       typed_hdr->ip6_nxt = IPPROTO_UDP;
     }
   }
 
   // Let's say that there is a transport header -- make one of the appropriate
   // size.
-  size_t transport_len{pisa_pgm_transport_type == INET_DGRAM
+  size_t transport_len{pisa_pgm_transport_type == Pliney::Transport::UDP
                            ? size_t{Pliney::UDP_DEFAULT_HEADER_LENGTH}
                            : size_t{Pliney::TCP_DEFAULT_HEADER_LENGTH}};
   void *transport{(void *)calloc(transport_len, sizeof(uint8_t))};
@@ -181,7 +117,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
         switch (program->insts[insn_idx].fk.field) {
           case IPV6_TARGET_PORT:
           case IPV4_TARGET_PORT: {
-            if (pisa_pgm_transport_type == INET_STREAM) {
+            if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
               struct tcphdr *typed_hdr = (struct tcphdr *)transport;
               typed_hdr->dest =
                   program->insts[insn_idx].value.value.ipaddr.port;
@@ -194,7 +130,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
           }
           case IPV4_SOURCE_PORT:
           case IPV6_SOURCE_PORT: {
-            if (pisa_pgm_transport_type == INET_STREAM) {
+            if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
               struct tcphdr *typed_hdr = (struct tcphdr *)transport;
               typed_hdr->source =
                   program->insts[insn_idx].value.value.ipaddr.port;
@@ -207,7 +143,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
           }
           case IPV4_TARGET: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V4, pisa_pgm_ip_version,
+                Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
                 "Will not set an IPv4 target on a non-IPv4 PISA program.");
 
             struct iphdr *typed_hdr = (struct iphdr *)iphdr;
@@ -218,7 +154,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
           }
           case IPV6_TARGET: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V6, pisa_pgm_ip_version,
+                Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                 "Will not set an IPv6 target on a non-IPv6 PISA program.");
             struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
             typed_hdr->ip6_dst =
@@ -227,7 +163,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
           }
           case IPV4_SOURCE: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V4, pisa_pgm_ip_version,
+                Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
                 "Will not set an IPv4 target on a non-IPv4 PISA program.");
 
             struct iphdr *typed_hdr = (struct iphdr *)iphdr;
@@ -236,7 +172,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
           }
           case IPV6_SOURCE: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V6, pisa_pgm_ip_version,
+                Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                 "Will not set an IPv6 target on a non-IPv6 PISA program.");
             struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
             typed_hdr->ip6_src =
@@ -252,7 +188,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
             pgm_body = program->insts[insn_idx].value;
 
             // Update the total length field of the IP header.
-            if (pisa_pgm_ip_version == INET_ADDR_V4) {
+            if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
               struct iphdr *typed_hdr = (struct iphdr *)iphdr;
               typed_hdr->tot_len = htons((typed_hdr->ihl * 4) + transport_len +
                                          pgm_body.value.ptr.len);
@@ -263,7 +199,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
             }
 
             // Update the length of the transport (if udp)!
-            if (pisa_pgm_transport_type == INET_DGRAM) {
+            if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
               struct udphdr *typed_hdr = (struct udphdr *)transport;
               typed_hdr->len = htons(pgm_body.value.ptr.len +
                                      Pliney::UDP_DEFAULT_HEADER_LENGTH);
@@ -272,7 +208,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
             break;
           }
           case IPV6_ECN: {
-            PISA_COWARDLY_VERSION_CHECK(INET_ADDR_V6, pisa_pgm_ip_version,
+            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                                         "Will not set an IPv6 ECN value on a "
                                         "non-IPv6 PISA program.");
             int ecn = program->insts[insn_idx].value.value.byte;
@@ -283,7 +219,8 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
             break;
           }
           case IPV4_ECN: {
-            PISA_COWARDLY_VERSION_CHECK(INET_ADDR_V4, pisa_pgm_ip_version,
+            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::FOUR,
+                                        pisa_pgm_ip_version,
                                         "Will not set an IPv4 ECN value on a "
                                         "non-IPv4 PISA program.");
             int ecn = program->insts[insn_idx].value.value.byte;
@@ -295,7 +232,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
             break;
           }
           case IPV6_DSCP: {
-            PISA_COWARDLY_VERSION_CHECK(INET_ADDR_V6, pisa_pgm_ip_version,
+            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                                         "Will not set an IPv6 DSCP value on a "
                                         "non-IPv6 PISA program.");
             int dscp = program->insts[insn_idx].value.value.byte;
@@ -306,7 +243,8 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
             break;
           }
           case IPV4_DSCP: {
-            PISA_COWARDLY_VERSION_CHECK(INET_ADDR_V4, pisa_pgm_ip_version,
+            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::FOUR,
+                                        pisa_pgm_ip_version,
                                         "Will not set an IPv4 DSCP value on a "
                                         "non-IPv4 PISA program.");
             int dscp = program->insts[insn_idx].value.value.byte;
@@ -317,7 +255,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
           }
           case IPV6_HL: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V6, pisa_pgm_ip_version,
+                Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                 "Will not set a hoplimit a non-IPv6 PISA program.");
             int hl = program->insts[insn_idx].value.value.byte;
             struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
@@ -326,7 +264,7 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
           }
           case IPV4_TTL: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V4, pisa_pgm_ip_version,
+                Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
                 "Will not set a ttl a non-IPv4 PISA program.");
             int ttl = program->insts[insn_idx].value.value.byte;
             struct iphdr *typed_hdr = (struct iphdr *)iphdr;
@@ -354,8 +292,8 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
   }
 
   // If we have a UDP packet (for v6), we _must_ calculate the checksum.
-  if (pisa_pgm_transport_type == INET_DGRAM &&
-      pisa_pgm_ip_version == INET_ADDR_V6) {
+  if (pisa_pgm_transport_type == Pliney::Transport::UDP &&
+      pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
     struct udphdr *typed_hdr = (struct udphdr *)transport;
 
     data_p body{
