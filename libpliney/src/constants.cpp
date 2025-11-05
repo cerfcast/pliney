@@ -43,9 +43,9 @@ uint8_t to_pisa_transport(const Transport &transport) {
   }
 }
 
-    std::string to_string(const IpVersion &version);
-    IpVersion from_pisa_version(uint8_t version);
-    uint8_t to_pisa_version(const IpVersion &version);
+std::string to_string(const IpVersion &version);
+IpVersion from_pisa_version(uint8_t version);
+uint8_t to_pisa_version(const IpVersion &version);
 
 std::string to_string(const Pliney::IpVersion &version) {
   switch (version) {

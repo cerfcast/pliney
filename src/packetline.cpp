@@ -16,13 +16,13 @@
 #include <utility>
 #include <variant>
 
-#include "packetline/cli.hpp"
 #include "lib/logger.hpp"
+#include "lib/pipeline.hpp"
+#include "packetline/cli.hpp"
 #include "packetline/runner.hpp"
 #include "packetline/usage.hpp"
 #include "pisa/compiler.hpp"
 #include "pisa/exthdrs.h"
-#include "lib/pipeline.hpp"
 #include "pisa/pisa.h"
 #include "pisa/plugin.hpp"
 

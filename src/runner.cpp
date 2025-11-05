@@ -208,7 +208,8 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
             break;
           }
           case IPV6_ECN: {
-            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::SIX, pisa_pgm_ip_version,
+            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::SIX,
+                                        pisa_pgm_ip_version,
                                         "Will not set an IPv6 ECN value on a "
                                         "non-IPv6 PISA program.");
             int ecn = program->insts[insn_idx].value.value.byte;
@@ -232,7 +233,8 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
             break;
           }
           case IPV6_DSCP: {
-            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::SIX, pisa_pgm_ip_version,
+            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::SIX,
+                                        pisa_pgm_ip_version,
                                         "Will not set an IPv6 DSCP value on a "
                                         "non-IPv6 PISA program.");
             int dscp = program->insts[insn_idx].value.value.byte;
@@ -358,7 +360,7 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)execution_ctx.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -433,7 +435,8 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
                  "system-compatible destination.\n";
     return false;
   }
-  m_destination = unique_sockaddr((struct sockaddr *)destination, destination_len);
+  m_destination =
+      unique_sockaddr((struct sockaddr *)destination, destination_len);
   m_destination_len = destination_len;
 
   // Now, find out the transport type. The program must set one.
@@ -447,8 +450,9 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
       Pliney::from_pisa_transport(pisa_transport_value.value.byte)};
 
   // Now, open a socket!
-  auto socket_success = ip_to_socket(
-      pliney_destination, to_pisa_transport(pisa_pgm_transport_type), &m_socket);
+  auto socket_success =
+      ip_to_socket(pliney_destination,
+                   to_pisa_transport(pisa_pgm_transport_type), &m_socket);
   if (!socket_success || m_socket < 0) {
     std::string reason{"Ill-formatted target"};
     if (socket_success) {
@@ -462,7 +466,6 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
                     stringify_ip(pgm_dest.value.ipaddr), reason));
     return false;
   }
-
 
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
     switch (program->insts[insn_idx].op) {
@@ -500,9 +503,8 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
             if (pliney_destination.family != set_type) {
               // Better error message.
               Logger::ActiveLogger()->log(
-                  Logger::WARN,
-                  std::format(
-                      "Will not set ECN value on socket with mismatched IP version"));
+                  Logger::WARN, std::format("Will not set ECN value on socket "
+                                            "with mismatched IP version"));
               break;
             }
             if (m_toss) {
@@ -532,8 +534,8 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
             if (pliney_destination.family != set_type) {
               // Better error message.
               Logger::ActiveLogger()->log(
-                  Logger::WARN,
-                  std::format("Will not set DSCP value on socket with mismatched IP version"));
+                  Logger::WARN, std::format("Will not set DSCP value on socket "
+                                            "with mismatched IP version"));
               break;
             }
             if (m_toss) {
@@ -556,9 +558,12 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
 
           case IPV6_HL: {
             int hoplimit = program->insts[insn_idx].value.value.byte;
-            PISA_COWARDLY_VERSION_CHECK(INET_ADDR_V6, pliney_destination.family, "Will not set the IPv6 hoplimit on a non-IPv6 packet");
+            PISA_COWARDLY_VERSION_CHECK(
+                INET_ADDR_V6, pliney_destination.family,
+                "Will not set the IPv6 hoplimit on a non-IPv6 packet");
 
-            m_ttlhl.emplace(m_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, hoplimit);
+            m_ttlhl.emplace(m_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS,
+                            hoplimit);
             if (!m_ttlhl->ok()) {
               std::cerr << std::format(
                   "There was an error setting the hoplimit on the socket: {}\n",
@@ -569,7 +574,9 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
           }
           case IPV4_TTL: {
             int ttl = program->insts[insn_idx].value.value.byte;
-            PISA_COWARDLY_VERSION_CHECK(INET_ADDR_V4, pliney_destination.family, "Will not set the IPv4 TTL on a non-IPv4 packet");
+            PISA_COWARDLY_VERSION_CHECK(
+                INET_ADDR_V4, pliney_destination.family,
+                "Will not set the IPv4 TTL on a non-IPv4 packet");
 
             m_ttlhl.emplace(m_socket, IPPROTO_IP, IP_TTL, ttl);
             if (!m_ttlhl->ok()) {
@@ -728,8 +735,8 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
     return false;
   }
 
-  struct msghdr msg{};
-  struct iovec iov{};
+  struct msghdr msg {};
+  struct iovec iov {};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;
@@ -871,4 +878,3 @@ bool XdpRunner::execute(CompilationResult &execution_ctx) {
 
   return true;
 }
-
