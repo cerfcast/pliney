@@ -27,7 +27,7 @@ target_compile_options(lua-socket
 
 if(LUA_SOCKET_LUA_PATH)
 	message(WARNING "Using specialized lua path!")
-	target_include_directories(lua-socket PRIVATE ${LUA_SOCKET_LUA_PATH}/include)
+	target_include_directories(lua-socket PRIVATE ${LUA_SOCKET_LUA_PATH})
 else()
 	message(WARNING "Using built in lua")
 endif()
