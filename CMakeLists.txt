@@ -14,6 +14,9 @@ set(PLUGIN_PLUGIN_SRCS)
 # the shared/static type is explicitly set.
 option(BUILD_SHARED_LIBS "Build dependencies as shared libraries by default" OFF)
 add_subdirectory(third_party/lua)
+# By default, build from the LUA that we have embeded. The user
+# can override, if they choose.
+set(LUA_SOCKET_LUA_PATH TYPE PATH VALUE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/lua/upstream)
 add_subdirectory(third_party/luasocket)
 list(APPEND PLINEY_SRCS "src/luaforkrunner.cpp")
 

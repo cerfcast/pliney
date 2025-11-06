@@ -2,8 +2,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(lua-sockets-cmake VERSION 1.0.0 DESCRIPTION "Lua build for a project subdirectory" LANGUAGES C)
 
-option(BUILD_SHARED_LIBS "Build as shared library" ON)
-
 set(srcDir luasocket/src)
 
 set(srcFiles luasocket.c timeout.c buffer.c io.c auxiliar.c compat.c options.c inet.c except.c select.c tcp.c udp.c usocket.c)
@@ -26,6 +24,13 @@ target_compile_options(lua-socket
     -Wextra -Wshadow -Wsign-compare -Wundef -Wwrite-strings -Wredundant-decls
     -Wdisabled-optimization -Waggregate-return -Wdouble-promotion -Wdeclaration-after-statement
     -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes -Wc++-compat -Wold-style-definition>)
+
+if(LUA_SOCKET_LUA_PATH)
+	message(WARNING "Using specialized lua path!")
+	target_include_directories(lua-socket PRIVATE ${LUA_SOCKET_LUA_PATH}/include)
+else()
+	message(WARNING "Using built in lua")
+endif()
 
 set(includeDir ${CMAKE_CURRENT_BINARY_DIR}/include/)
 file(COPY ${publicHeaderFiles} DESTINATION ${includeDir}/luasocket/)
