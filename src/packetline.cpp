@@ -44,6 +44,10 @@ int main(int argc, const char **argv) {
     return std::make_pair(std::make_unique<CliCompiler>(),
                           std::make_unique<CliRunner>());
   });
+  pipeline_compiler_builder.with_name("lua", []() {
+    return std::make_pair(std::make_unique<CliCompiler>(),
+                          std::make_unique<LuaForkRunner>());
+  });
   pipeline_compiler_builder.with_name("packet", []() {
     return std::make_pair(std::make_unique<CliCompiler>(),
                           std::make_unique<PacketSenderRunner>());
