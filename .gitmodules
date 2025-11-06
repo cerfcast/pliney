@@ -1,0 +1,6 @@
+[submodule "third_party/lua"]
+	path = third_party/lua
+	url = https://github.com/lubgr/lua-cmake
+[submodule "third_party/luasocket"]
+	path = third_party/luasocket/luasocket
+	url = https://github.com/lunarmodules/luasocket.git
