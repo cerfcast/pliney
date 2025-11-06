@@ -2,9 +2,10 @@
 
 export RUNNER_TEMP=/tmp/
 
-tests="raw_tests.sh local_help_tests.sh log_tests.sh"
+tests="raw_tests.sh local_help_tests.sh log_tests.sh lua_tests.sh"
 
 for i in ${tests}; do
+		echo "Running tests in ${i} ..."
     ./test/${i}
     if [ $? -ne 0 ]; then
         echo "There was an error executing tests in ${i}"
