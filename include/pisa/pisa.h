@@ -13,6 +13,8 @@ typedef enum {
   SET_META,
   SET_FIELD,
   SET_OFFSET,
+  ADD_OBSERVER,
+  EXEC,
   PISA_OPCODE_MAX,
 } pisa_opcode_t;
 
@@ -52,12 +54,18 @@ typedef enum {
   EIGHT_BYTES,
   SIZE_T,
   PTR,
+  CALLBACK,
 } pisa_value_type_t;
 
 typedef struct {
   uint8_t *data;
   size_t len;
 } pisa_ptr_value_t;
+
+typedef struct {
+  void *callback;
+  void *cookie;
+} pisa_callback_t;
 
 typedef struct {
   pisa_value_type_t tpe;
@@ -68,6 +76,7 @@ typedef struct {
     ip_addr_t ipaddr;
     size_t szt;
     pisa_ptr_value_t ptr;
+    pisa_callback_t callback;
   } value;
 } pisa_value_t;
 
@@ -94,7 +103,7 @@ bool pisa_program_add_inst(pisa_program_t *pgm, pisa_inst_t *inst);
 bool pisa_program_add_meta_inst(pisa_program_t *pgm, const char *key,
                                 pisa_value_t value);
 bool pisa_program_rem_inst(pisa_program_t *pgm, size_t pc);
-bool pisa_program_find_inst(pisa_program_t *pgm, pisa_inst_t *inst, size_t *pc);
+bool pisa_program_find_inst(pisa_program_t *pgm, size_t *start, pisa_inst_t **inst, pisa_opcode_t op);
 bool pisa_program_find_field_value(pisa_program_t *pgm, pisa_field_t field,
                                    pisa_value_t *value);
 bool pisa_program_find_meta_value(pisa_program_t *pgm, const char *key,

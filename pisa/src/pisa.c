@@ -30,8 +30,15 @@ bool pisa_program_add_meta_inst(pisa_program_t *pgm, const char *key,
 
 bool pisa_program_rem_inst(pisa_program_t *pgm, size_t pc) { return false; }
 
-bool pisa_program_find_inst(pisa_program_t *pgm, pisa_inst_t *inst,
-                            size_t *pc) {
+bool pisa_program_find_inst(pisa_program_t *pgm, size_t *start, pisa_inst_t **found_inst, pisa_opcode_t op) {
+  for (size_t indx = *start; indx < pgm->inst_count; indx++) {
+    pisa_inst_t *inst = &pgm->insts[indx];
+    if (inst->op == op) {
+      *found_inst = inst;
+      *start = indx;
+      return true;
+    }
+  }
   return false;
 }
 
@@ -107,6 +114,8 @@ const char *__pisa_opcode_names[] = {
     "SET_META",
     "SET_FIELD",
     "SET_OFFSET",
+    "ADD_OBSERVER",
+    "EXEC",
 };
 
 const char *pisa_opcode_name(pisa_opcode_t opcode) {
