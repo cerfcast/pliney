@@ -360,7 +360,7 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)execution_ctx.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -735,8 +735,8 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
     return false;
   }
 
-  struct msghdr msg{};
-  struct iovec iov{};
+  struct msghdr msg {};
+  struct iovec iov {};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;
@@ -886,7 +886,6 @@ bool ForkRunner::execute(CompilationResult &execution_ctx) {
 
   auto program = execution_ctx.program;
 
-
   SocketBuilderRunner::execute(execution_ctx);
   if (!execution_ctx.success || !execution_ctx.program) {
     return false;
@@ -896,7 +895,8 @@ bool ForkRunner::execute(CompilationResult &execution_ctx) {
     Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
   }
 
-  // For as many exec instructions as there are in the PISA program, do the bidding!
+  // For as many exec instructions as there are in the PISA program, do the
+  // bidding!
   pisa_inst_t *pisa_exec_inst{nullptr};
   size_t last_pisa_exec_inst{0};
   while (pisa_program_find_inst(program, &last_pisa_exec_inst, &pisa_exec_inst,
