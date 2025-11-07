@@ -1,4 +1,3 @@
-
 cmake_minimum_required(VERSION 3.12)
 project(lua-sockets-cmake VERSION 1.0.0 DESCRIPTION "Lua build for a project subdirectory" LANGUAGES C)
 
@@ -11,27 +10,21 @@ set(publicHeaderFiles luasocket.h compat.h)
 list(TRANSFORM srcFiles PREPEND ${srcDir}/)
 list(TRANSFORM publicHeaderFiles PREPEND ${srcDir}/)
 
-add_library(lua-socket
+add_library(lua-socket-lib
     ${srcFiles})
 
-target_compile_definitions(lua-socket
+target_compile_definitions(lua-socket-lib
     PRIVATE
     $<$<PLATFORM_ID:Linux>:LUA_USE_LINUX LUA_COMPAT_5_2>)
 
-target_compile_options(lua-socket
+target_compile_options(lua-socket-lib
     PRIVATE
     $<$<OR:$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:GNU>>:
     -Wextra -Wshadow -Wsign-compare -Wundef -Wwrite-strings -Wredundant-decls
     -Wdisabled-optimization -Waggregate-return -Wdouble-promotion -Wdeclaration-after-statement
     -Wmissing-prototypes -Wnested-externs -Wstrict-prototypes -Wc++-compat -Wold-style-definition>)
 
-if(LUA_SOCKET_LUA_PATH)
-	message(WARNING "Using specialized lua path!")
-	target_include_directories(lua-socket PRIVATE ${LUA_SOCKET_LUA_PATH})
-else()
-	message(WARNING "Using built in lua")
-endif()
-
+target_include_directories(lua-socket-lib PRIVATE $<TARGET_PROPERTY:lua-socket-lib,LUA_PATH>)
 set(includeDir ${CMAKE_CURRENT_BINARY_DIR}/include/)
 file(COPY ${publicHeaderFiles} DESTINATION ${includeDir}/luasocket/)
 
@@ -42,11 +35,11 @@ target_include_directories(lua-socket-header
     INTERFACE
     ${includeDir})
 
-target_link_libraries(lua-socket
+target_link_libraries(lua-socket-lib
     INTERFACE
     lua-socket-header)
 
-add_library(lua::socket-lib ALIAS lua-socket)
+add_library(lua::socket-lib ALIAS lua-socket-lib)
 add_library(lua::socket-header ALIAS lua-socket-header)
 
 

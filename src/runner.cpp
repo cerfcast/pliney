@@ -360,7 +360,7 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)execution_ctx.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -599,6 +599,7 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
     }
   }
 
+#if 0
   // Now, do I have to connect?
   if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
     auto connect_result = connect(m_socket, destination, destination_len);
@@ -608,7 +609,6 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
                     strerror(errno)));
   }
 
-#if 0
   std::optional<Swapsockopt<int>> toss{};
   int tos = (packet.header.diffserv << 2) | packet.header.cong;
 
@@ -735,8 +735,8 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
     return false;
   }
 
-  struct msghdr msg {};
-  struct iovec iov {};
+  struct msghdr msg{};
+  struct iovec iov{};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;
@@ -876,5 +876,35 @@ bool XdpRunner::execute(CompilationResult &execution_ctx) {
       std::regex_replace(xdp_skel_contents, skel_ipv6_regex, xdp_ipv6_code);
   xdp_output_skel << xdp_skel_contents;
 
+  return true;
+}
+
+bool ForkRunner::execute(CompilationResult &execution_ctx) {
+  if (!execution_ctx.success || !execution_ctx.program) {
+    return false;
+  }
+
+  auto program = execution_ctx.program;
+
+
+  SocketBuilderRunner::execute(execution_ctx);
+  if (!execution_ctx.success || !execution_ctx.program) {
+    return false;
+  }
+
+  if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
+    Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
+  }
+
+  // For as many exec instructions as there are in the PISA program, do the bidding!
+  pisa_inst_t *pisa_exec_inst{nullptr};
+  size_t last_pisa_exec_inst{0};
+  while (pisa_program_find_inst(program, &last_pisa_exec_inst, &pisa_exec_inst,
+                                EXEC)) {
+    pisa_callback_t exec_func{
+        (pisa_callback_t)(pisa_exec_inst->value.value.callback.callback)};
+    exec_func(m_socket, pisa_exec_inst->value.value.callback.cookie);
+    last_pisa_exec_inst += 1;
+  }
   return true;
 }

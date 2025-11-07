@@ -44,7 +44,8 @@ public:
   bool execute(CompilationResult &execution_ctx) override;
 };
 
-class LuaForkRunner : public SocketBuilderRunner {
+class ForkRunner : public SocketBuilderRunner {
+  using pisa_callback_t = void (*)(int, void *);
 public:
   bool execute(CompilationResult &execution_ctx) override;
 };

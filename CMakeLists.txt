@@ -7,23 +7,8 @@ set(PLINEY_SRCS src/cli.cpp src/utilities.cpp src/usage.cpp src/runner.cpp libpl
 set(PISA_SRCS pisa/src/pisa.c pisa/src/exthdrs.c pisa/src/utils.c pisa/src/compiler.cpp pisa/src/plugin.cpp)
 set(PLUGIN_PLUGIN_SRCS)
 
-# According to the documentation, because the Lua integration
-# library being used has this option, this CMakeLists.txt has
-# to set it as an option, too! We default to OFF. Note: This
-# setting does _not_ change how the plugins are built because
-# the shared/static type is explicitly set.
-option(BUILD_SHARED_LIBS "Build dependencies as shared libraries by default" OFF)
-add_subdirectory(third_party/lua)
-# By default, build from the LUA that we have embeded. The user
-# can override, if they choose.
-set(LUA_SOCKET_LUA_PATH TYPE PATH VALUE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/lua/upstream)
-add_subdirectory(third_party/luasocket)
-list(APPEND PLINEY_SRCS "src/luaforkrunner.cpp")
-
 add_executable(pliney ${PLINEY_MAIN} ${PLINEY_SRCS} ${PISA_SRCS})
 target_include_directories(pliney PRIVATE include)
-target_link_libraries(pliney PRIVATE lua::lib)
-target_link_libraries(pliney PRIVATE lua::socket-lib)
 set_property(TARGET pliney PROPERTY CXX_STANDARD 23)
 set_property(TARGET pliney PROPERTY C_STANDARD 23)
 target_link_options(pliney PRIVATE "-Wl,--export-dynamic")
@@ -107,6 +92,29 @@ set_property(TARGET raw PROPERTY OUTPUT_NAME pliney_pl_raw)
 #set_property(TARGET gre PROPERTY OUTPUT_NAME pliney_pl_gre)
 
 
+option(BUILD_LUA_PLUGIN "Build the pcap-logging plugin" On)
+if(${BUILD_LUA_PLUGIN})
+    # According to the documentation, because the Lua integration
+    # library being used has this option, this CMakeLists.txt has
+    # to set it as an option, too! We default to OFF. Note: This
+    # setting does _not_ change how the plugins are built because
+    # the shared/static type is explicitly set.
+    option(BUILD_SHARED_LIBS "Build dependencies as shared libraries by default" ON)
+    add_subdirectory(third_party/lua)
+
+    # By default, build the socket library from the LUA that we have embedded. The user
+    # can override, if they choose.
+    add_subdirectory(third_party/luasocket)
+    set_target_properties(lua-socket-lib PROPERTIES LUA_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party/lua/upstream)
+    add_library(luap SHARED "plugins/lua.c")
+    list(APPEND PLUGIN_PLUGIN_SRCS "plugins/lua.c")
+    target_include_directories(luap PRIVATE include)
+    set_property(TARGET luap PROPERTY C_STANDARD 23)
+    set_property(TARGET luap PROPERTY OUTPUT_NAME pliney_pl_lua)
+    target_link_libraries(luap PRIVATE lua::lib)
+    target_link_libraries(luap PRIVATE lua::socket-lib)
+endif()
+
 add_dependencies(pliney target)
 #add_dependencies(pliney source)
 add_dependencies(pliney body)
@@ -118,6 +126,7 @@ add_dependencies(pliney cong)
 #add_dependencies(pliney error)
 add_dependencies(pliney raw)
 #add_dependencies(pliney gre)
+add_dependencies(pliney luap)
 
 # Try to find libpcap to determine whether to enable log plugin support.
 option(BUILD_LOG_PLUGIN "Build the pcap-logging plugin" On)
