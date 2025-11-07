@@ -56,6 +56,12 @@ Plugin Usage:
 		specify a target IP if the packet does not have one. Optionally
 		specify a default-transport protocol if the packet does not have
 		one.
+	lua
+		<FILE_PATH>
+		Usage:
+		With the socket configured according to the pipeline (seen
+		so far, execute the lua code contained in FILE_PATH. The
+		socket variable is _G.PLINEY_SOCKET.
 	meta
 		<udp,tcp>
 		Usage:
