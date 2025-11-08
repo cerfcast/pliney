@@ -38,7 +38,7 @@ uint16_t compute_ones_compliment(void *start, void *stop) {
     // 0xVVPP
     // where PP is the padding. Make it so!
     uint16_t leftover{};
-    uint8_t *upper_leftover = (uint8_t*)&leftover;
+    uint8_t *upper_leftover = (uint8_t *)&leftover;
     *upper_leftover = *(uint8_t *)(value_start + s);
     cksum += ntohs(leftover);
     HANDLE_OVERFLOW(cksumv[1], cksum);

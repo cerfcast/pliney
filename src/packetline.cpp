@@ -195,7 +195,9 @@ int main(int argc, const char **argv) {
     auto runner_result = pipeline_runner->execute(compilation_result);
 
     if (!runner_result) {
-      std::cerr << std::format("Error occurred executing the network connection: {}\n", compilation_result.error);
+      std::cerr << std::format(
+          "Error occurred executing the network connection: {}\n",
+          compilation_result.error);
       return 1;
     } else {
       Logger::ActiveLogger()->log(Logger::DEBUG,

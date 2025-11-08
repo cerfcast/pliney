@@ -360,7 +360,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -731,8 +731,8 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  struct msghdr msg{};
-  struct iovec iov{};
+  struct msghdr msg {};
+  struct iovec iov {};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;
