@@ -9,6 +9,7 @@
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
 #include "pisa/types.h"
+#include "pisa/utils.h"
 
 #include <cstdint>
 #include <cstring>
@@ -19,6 +20,7 @@
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <optional>
 #include <regex>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -169,6 +171,7 @@ bool PacketRunner::execute(Compilation &compilation) {
             struct iphdr *typed_hdr = (struct iphdr *)iphdr;
             typed_hdr->saddr =
                 program->insts[insn_idx].value.value.ipaddr.addr.ipv4.s_addr;
+            break;
           }
           case IPV6_SOURCE: {
             PISA_COWARDLY_VERSION_CHECK(
@@ -419,6 +422,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
 
   pisa_value_t pgm_body{};
   pisa_value_t pgm_dest;
+  std::optional<pisa_value_t> maybe_pgm_source;
   pisa_value_t pisa_transport_value = {.tpe = BYTE};
 
   // First, find the destination. The program must set one.
@@ -481,6 +485,80 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           }
           case IPV6_TARGET: {
             // A noop.
+            break;
+          }
+          case IPV4_SOURCE: {
+            PISA_COWARDLY_VERSION_CHECK(
+                INET_ADDR_V4, pliney_destination.family,
+                "Will not set the IPv4 source on a non-IPv4 packet");
+
+            auto addr = program->insts[insn_idx].value.value.ipaddr.addr;
+            auto family = program->insts[insn_idx].value.value.ipaddr.family;
+
+            maybe_pgm_source =
+                maybe_pgm_source
+                    .or_else([]() {
+                      return std::optional<pisa_value_t>{pisa_value_t{}};
+                    })
+                    .transform([&addr, &family](auto existing) {
+                      existing.value.ipaddr.addr = addr;
+                      existing.value.ipaddr.family = family;
+                      return existing;
+                    });
+            break;
+          }
+          case IPV4_SOURCE_PORT: {
+            PISA_COWARDLY_VERSION_CHECK(
+                INET_ADDR_V4, pliney_destination.family,
+                "Will not set the IPv4 source port on a non-IPv4 packet");
+            auto port = program->insts[insn_idx].value.value.ipaddr.port;
+
+            maybe_pgm_source =
+                maybe_pgm_source
+                    .or_else([]() {
+                      return std::optional<pisa_value_t>{pisa_value_t{}};
+                    })
+                    .transform([&port](auto existing) {
+                      existing.value.ipaddr.port = port;
+                      return existing;
+                    });
+            break;
+          }
+          case IPV6_SOURCE: {
+            PISA_COWARDLY_VERSION_CHECK(
+                INET_ADDR_V6, pliney_destination.family,
+                "Will not set the IPv6 source on a non-IPv6 packet");
+
+            auto addr = program->insts[insn_idx].value.value.ipaddr.addr;
+            auto family = program->insts[insn_idx].value.value.ipaddr.family;
+
+            maybe_pgm_source =
+                maybe_pgm_source
+                    .or_else([]() {
+                      return std::optional<pisa_value_t>{pisa_value_t{}};
+                    })
+                    .transform([&addr, &family](auto existing) {
+                      existing.value.ipaddr.addr = addr;
+                      existing.value.ipaddr.family = family;
+                      return existing;
+                    });
+            break;
+          }
+          case IPV6_SOURCE_PORT: {
+            PISA_COWARDLY_VERSION_CHECK(
+                INET_ADDR_V6, pliney_destination.family,
+                "Will not set the IPv6 source port on a non-IPv6 packet");
+            auto port = program->insts[insn_idx].value.value.ipaddr.port;
+
+            maybe_pgm_source =
+                maybe_pgm_source
+                    .or_else([]() {
+                      return std::optional<pisa_value_t>{pisa_value_t{}};
+                    })
+                    .transform([&port](auto existing) {
+                      existing.value.ipaddr.port = port;
+                      return existing;
+                    });
             break;
           }
           case BODY: {
@@ -597,6 +675,18 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
                         (int)program->insts[insn_idx].op));
       }
     }
+  }
+
+  if (maybe_pgm_source) {
+    struct sockaddr *source_saddr{nullptr};
+    auto saddr_size{
+        ip_to_sockaddr(maybe_pgm_source->value.ipaddr, &source_saddr)};
+    if (bind(m_socket, source_saddr, saddr_size) < 0) {
+      Logger::ActiveLogger()->log(
+          Logger::WARN, std::format("Failed to bind to the source address: {}",
+                                    strerror(errno)));
+      return false;
+    };
   }
 
 #if 0
@@ -725,11 +815,13 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
+#if 0
   if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
     compilation.error = "Could not connect the socket.";
     Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
     return false;
   }
+#endif
 
   struct msghdr msg {};
   struct iovec iov {};
