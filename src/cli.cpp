@@ -1,7 +1,5 @@
 #include "packetline/cli.hpp"
 #include "lib/logger.hpp"
-#include "packetline/constants.hpp"
-#include "pisa/types.h"
 
 #include <ranges>
 #include <string>

@@ -1,6 +1,5 @@
 #include "pisa/utils.h"
 #include "pisa/plugin.h"
-#include "pisa/types.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <netinet/in.h>

@@ -1,14 +1,11 @@
 #include "packetline/runner.hpp"
 #include "lib/ip.hpp"
-#include "lib/pipeline.hpp"
 #include "packetline/constants.hpp"
-#include "pisa/compiler.hpp"
 
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
-#include "pisa/types.h"
 #include "pisa/utils.h"
 
 #include <cstdint>
@@ -24,6 +21,8 @@
 #include <regex>
 #include <sys/socket.h>
 #include <sys/types.h>
+
+#include <iostream>
 
 #define PISA_COWARDLY_VERSION_CHECK(expected, actual, message)                 \
   if (actual != expected) {                                                    \
@@ -815,13 +814,11 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
-#if 0
   if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
     compilation.error = "Could not connect the socket.";
     Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
     return false;
   }
-#endif
 
   struct msghdr msg {};
   struct iovec iov {};

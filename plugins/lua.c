@@ -1,7 +1,5 @@
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
-#include "pisa/priority.h"
-#include "pisa/types.h"
 #include "pisa/utils.h"
 #include <asm-generic/socket.h>
 #include <fcntl.h>

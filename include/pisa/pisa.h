@@ -1,13 +1,56 @@
 #ifndef _PISA_H
 #define _PISA_H
 
-#include "types.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <netinet/in.h>
+
+#include "lib/types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct {
+  uint8_t type;
+  uint8_t len;
+  uint8_t *data;
+} extension_p;
+
+typedef struct {
+  size_t extensions_count;
+  extension_p **extensions_values;
+} extensions_p;
+
+typedef struct {
+  uint8_t diffserv;
+  uint8_t cong;
+  uint8_t ttl;
+} header_p;
+
+#define INET_ADDR_V4 4
+#define INET_ADDR_V6 6
+
+#define INET_STREAM 6
+#define INET_DGRAM 17
+
+typedef struct {
+  uint8_t family;
+  union {
+    struct in_addr ipv4;
+    struct in6_addr ipv6;
+  } addr;
+  uint16_t port;
+} ip_addr_t;
+
+typedef struct {
+  data_p all;
+  data_p ip;
+  data_p ip_options;
+  data_p transport;
+  data_p body;
+} packet_t;
+
 
 typedef enum {
   SET_META,
