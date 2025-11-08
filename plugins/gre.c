@@ -122,7 +122,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
   iph->ihl = 0x5;
   iph->ttl = 64;
 
-  if (gcookie->addr.family == INET_ADDR_V4) {
+  if (gcookie->addr.family == PLINEY_IPVERSION4) {
     struct sockaddr_in *saddr = (struct sockaddr_in *)&gcookie->addr;
     iph->daddr = saddr->sin_addr.s_addr;
   } else {

@@ -7,10 +7,12 @@ std::string to_string(const Pliney::Transport &transport) {
   switch (transport) {
     case Pliney::Transport::UDP: {
       return "UDP";
-      break;
     }
     case Pliney::Transport::TCP: {
-      return "IP";
+      return "TCP";
+    }
+    case Pliney::Transport::ICMP: {
+      return "ICMP";
     }
     default:
       std::unreachable();
@@ -19,11 +21,14 @@ std::string to_string(const Pliney::Transport &transport) {
 
 Pliney::Transport from_pisa_transport(uint8_t transport) {
   switch (transport) {
-    case INET_STREAM: {
+    case PLINEY_TCP: {
       return Pliney::Transport::TCP;
     }
-    case INET_DGRAM: {
+    case PLINEY_UDP: {
       return Pliney::Transport::UDP;
+    }
+    case PLINEY_ICMP: {
+      return Pliney::Transport::ICMP;
     }
     default:
       std::unreachable();
@@ -33,10 +38,13 @@ Pliney::Transport from_pisa_transport(uint8_t transport) {
 uint8_t to_pisa_transport(const Transport &transport) {
   switch (transport) {
     case Pliney::Transport::TCP: {
-      return INET_STREAM;
+      return PLINEY_TCP;
     }
     case Pliney::Transport::UDP: {
-      return INET_DGRAM;
+      return PLINEY_UDP;
+    }
+    case Pliney::Transport::ICMP: {
+      return PLINEY_ICMP;
     }
     default:
       std::unreachable();
@@ -51,7 +59,6 @@ std::string to_string(const Pliney::IpVersion &version) {
   switch (version) {
     case Pliney::IpVersion::FOUR: {
       return "IP Version 4";
-      break;
     }
     case Pliney::IpVersion::SIX: {
       return "IP Version 6";
@@ -63,10 +70,10 @@ std::string to_string(const Pliney::IpVersion &version) {
 
 Pliney::IpVersion from_pisa_version(uint8_t version) {
   switch (version) {
-    case INET_ADDR_V4: {
+    case PLINEY_IPVERSION4: {
       return Pliney::IpVersion::FOUR;
     }
-    case INET_ADDR_V6: {
+    case PLINEY_IPVERSION6: {
       return Pliney::IpVersion::SIX;
     }
     default:
@@ -77,10 +84,10 @@ Pliney::IpVersion from_pisa_version(uint8_t version) {
 uint8_t to_pisa_version(const IpVersion &version) {
   switch (version) {
     case Pliney::IpVersion::FOUR: {
-      return INET_ADDR_V4;
+      return PLINEY_IPVERSION4;
     }
     case Pliney::IpVersion::SIX: {
-      return INET_ADDR_V6;
+      return PLINEY_IPVERSION6;
     }
     default:
       std::unreachable();

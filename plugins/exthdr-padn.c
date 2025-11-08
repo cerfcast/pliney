@@ -75,7 +75,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
 
   generate_result_t result;
 
-  if (packet->target.family != INET_ADDR_V6) {
+  if (packet->target.family != PLINEY_IPVERSION6) {
     error("Can only set extension headers for IPv6 targets.\n");
     result.success = 0;
   }

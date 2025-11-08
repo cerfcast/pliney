@@ -21,6 +21,7 @@ namespace Pliney {
     enum class Transport {
         UDP,
         TCP,
+        ICMP,
     };
 
     std::string to_string(const Transport &transport);

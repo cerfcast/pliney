@@ -77,7 +77,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
     pisa_inst_t set_source_inst;
     set_source_inst.op = SET_FIELD;
     set_source_inst.fk.field =
-        parsed_source->family == INET_ADDR_V4 ? IPV4_SOURCE : IPV6_SOURCE;
+        parsed_source->family == PLINEY_IPVERSION4 ? IPV4_SOURCE : IPV6_SOURCE;
     set_source_inst.value.value.ipaddr = *parsed_source;
     result.success = pisa_program_add_inst(program, &set_source_inst);
 
@@ -87,7 +87,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
 
     pisa_inst_t set_source_port_inst;
     set_source_port_inst.op = SET_FIELD;
-    set_source_port_inst.fk.field = parsed_source->family == INET_ADDR_V4
+    set_source_port_inst.fk.field = parsed_source->family == PLINEY_IPVERSION4
                                    ? IPV4_SOURCE_PORT
                                    : IPV6_SOURCE_PORT;
     set_source_port_inst.value.value.ipaddr = *parsed_source;

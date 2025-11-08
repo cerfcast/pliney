@@ -488,7 +488,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           }
           case IPV4_SOURCE: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V4, pliney_destination.family,
+                PLINEY_IPVERSION4, pliney_destination.family,
                 "Will not set the IPv4 source on a non-IPv4 packet");
 
             auto addr = program->insts[insn_idx].value.value.ipaddr.addr;
@@ -508,7 +508,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           }
           case IPV4_SOURCE_PORT: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V4, pliney_destination.family,
+                PLINEY_IPVERSION4, pliney_destination.family,
                 "Will not set the IPv4 source port on a non-IPv4 packet");
             auto port = program->insts[insn_idx].value.value.ipaddr.port;
 
@@ -525,7 +525,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           }
           case IPV6_SOURCE: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V6, pliney_destination.family,
+                PLINEY_IPVERSION6, pliney_destination.family,
                 "Will not set the IPv6 source on a non-IPv6 packet");
 
             auto addr = program->insts[insn_idx].value.value.ipaddr.addr;
@@ -545,7 +545,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           }
           case IPV6_SOURCE_PORT: {
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V6, pliney_destination.family,
+                PLINEY_IPVERSION6, pliney_destination.family,
                 "Will not set the IPv6 source port on a non-IPv6 packet");
             auto port = program->insts[insn_idx].value.value.ipaddr.port;
 
@@ -575,8 +575,8 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
             int ecn = program->insts[insn_idx].value.value.byte;
 
             uint8_t set_type = program->insts[insn_idx].fk.field == IPV6_ECN
-                                   ? INET_ADDR_V6
-                                   : INET_ADDR_V4;
+                                   ? PLINEY_IPVERSION6
+                                   : PLINEY_IPVERSION4;
             if (pliney_destination.family != set_type) {
               // Better error message.
               Logger::ActiveLogger()->log(
@@ -587,7 +587,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
             if (m_toss) {
               (*m_toss).again(ecn, 0x3);
             } else {
-              if (pliney_destination.family == INET_ADDR_V6) {
+              if (pliney_destination.family == PLINEY_IPVERSION6) {
                 m_toss.emplace(m_socket, IPPROTO_IPV6, IPV6_TCLASS, ecn, 0x3);
               } else {
                 m_toss.emplace(m_socket, IPPROTO_IP, IP_TOS, ecn, 0x3);
@@ -606,8 +606,8 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
             int dscp = program->insts[insn_idx].value.value.byte;
 
             uint8_t set_type = program->insts[insn_idx].fk.field == IPV6_DSCP
-                                   ? INET_ADDR_V6
-                                   : INET_ADDR_V4;
+                                   ? PLINEY_IPVERSION6
+                                   : PLINEY_IPVERSION4;
             if (pliney_destination.family != set_type) {
               // Better error message.
               Logger::ActiveLogger()->log(
@@ -618,7 +618,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
             if (m_toss) {
               (*m_toss).again(dscp, 0xfc);
             } else {
-              if (pliney_destination.family == INET_ADDR_V6) {
+              if (pliney_destination.family == PLINEY_IPVERSION6) {
                 m_toss.emplace(m_socket, IPPROTO_IPV6, IPV6_TCLASS, dscp, 0xfc);
               } else {
                 m_toss.emplace(m_socket, IPPROTO_IP, IP_TOS, dscp, 0xfc);
@@ -636,7 +636,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           case IPV6_HL: {
             int hoplimit = program->insts[insn_idx].value.value.byte;
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V6, pliney_destination.family,
+                PLINEY_IPVERSION6, pliney_destination.family,
                 "Will not set the IPv6 hoplimit on a non-IPv6 packet");
 
             m_ttlhl.emplace(m_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS,
@@ -652,7 +652,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           case IPV4_TTL: {
             int ttl = program->insts[insn_idx].value.value.byte;
             PISA_COWARDLY_VERSION_CHECK(
-                INET_ADDR_V4, pliney_destination.family,
+                PLINEY_IPVERSION4, pliney_destination.family,
                 "Will not set the IPv4 TTL on a non-IPv4 packet");
 
             m_ttlhl.emplace(m_socket, IPPROTO_IP, IP_TTL, ttl);
@@ -694,7 +694,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
   int tos = (packet.header.diffserv << 2) | packet.header.cong;
 
   if (tos != 0) {
-    if (packet.target.family == INET_ADDR_V6) {
+    if (packet.target.family == PLINEY_IPVERSION6) {
       toss.emplace(socket, IPPROTO_IPV6, IPV6_TCLASS, tos);
     } else {
       toss.emplace(socket, IPPROTO_IP, IP_TOS, tos);
@@ -746,7 +746,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
 
     extensions_p header_extensions{.extensions_count = 0,
                                    .extensions_values = nullptr};
-    if (packet.target.family == INET_ADDR_V6) {
+    if (packet.target.family == PLINEY_IPVERSION6) {
       header_extensions = copy_extensions(packet.header_extensions);
       if (!coalesce_extensions(&header_extensions, IPV6_HOPOPTS)) {
         Logger::ActiveLogger()->log(

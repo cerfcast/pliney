@@ -1,4 +1,5 @@
 #include "pisa/utils.h"
+#include "pisa/pisa.h"
 #include "pisa/plugin.h"
 #include <arpa/inet.h>
 #include <assert.h>
@@ -21,13 +22,13 @@ char stringify_buffer[46] = {
 const char *stringify_ip(ip_addr_t addr) {
   memset(stringify_buffer, 0, sizeof(char) * 46);
 
-  if (addr.family == INET_ADDR_V4) {
+  if (addr.family == PLINEY_IPVERSION4) {
     struct in_addr to_convert;
     to_convert.s_addr = addr.addr.ipv4.s_addr;
     const char *stringed = inet_ntop(
         AF_INET, &to_convert, (char *)stringify_buffer, 16 * sizeof(char));
     return stringed;
-  } else if (addr.family == INET_ADDR_V6) {
+  } else if (addr.family == PLINEY_IPVERSION6) {
     struct in6_addr to_convert;
     to_convert = addr.addr.ipv6;
     const char *stringed = inet_ntop(
@@ -60,12 +61,12 @@ bool ip_to_socket(ip_addr_t addr, uint8_t type, int *fd) {
     return false;
   }
 
-  if (type != INET_DGRAM && type != INET_STREAM) {
+  if (type != PLINEY_UDP && type != PLINEY_TCP && type != PLINEY_ICMP) {
     return false;
   }
 
-  *fd = socket(addr.family == INET_ADDR_V4 ? AF_INET : AF_INET6,
-                type == INET_STREAM ? SOCK_STREAM : SOCK_DGRAM, 0);
+  *fd = socket(addr.family == PLINEY_IPVERSION4 ? AF_INET : AF_INET6,
+                type == PLINEY_TCP ? SOCK_STREAM : SOCK_DGRAM, 0);
   return true;
 }
 
@@ -77,13 +78,13 @@ int ip_parse(const char *to_parse, ip_addr_t *result) {
   if (0 < inet_pton(AF_INET6, to_parse, storage)) {
     struct in6_addr *addr = (struct in6_addr *)storage;
     result->addr.ipv6 = *addr;
-    result->family = INET_ADDR_V6;
+    result->family = PLINEY_IPVERSION6;
     return 1;
   }
   if (0 < inet_pton(AF_INET, to_parse, storage)) {
     struct in_addr *addr = (struct in_addr *)storage;
     result->addr.ipv4 = *addr;
-    result->family = INET_ADDR_V4;
+    result->family = PLINEY_IPVERSION4;
     return 1;
   }
   return -1;
@@ -95,13 +96,13 @@ int sockaddr_to_ip(const struct sockaddr *saddr, socklen_t saddr_len,
   if (saddr_len == sizeof(struct sockaddr_in6)) {
     struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)saddr;
     addr->addr.ipv6 = sin6->sin6_addr;
-    addr->family = INET_ADDR_V6;
+    addr->family = PLINEY_IPVERSION6;
     addr->port = sin6->sin6_port;
     return 1;
   } else {
     struct sockaddr_in *sin = (struct sockaddr_in *)saddr;
     addr->addr.ipv4 = sin->sin_addr;
-    addr->family = INET_ADDR_V4;
+    addr->family = PLINEY_IPVERSION4;
     addr->port = sin->sin_port;
     return 1;
   }
@@ -112,14 +113,14 @@ int ip_to_sockaddr(ip_addr_t addr, struct sockaddr **result) {
   struct sockaddr_storage *saddr_raw =
       (struct sockaddr_storage *)calloc(sizeof(struct sockaddr_storage), 1);
 
-  if (addr.family == INET_ADDR_V4) {
+  if (addr.family == PLINEY_IPVERSION4) {
     struct sockaddr_in *saddr = (struct sockaddr_in *)saddr_raw;
     saddr->sin_family = AF_INET;
     saddr->sin_addr.s_addr = addr.addr.ipv4.s_addr;
     saddr->sin_port = addr.port;
     *result = (struct sockaddr *)saddr;
     return sizeof(struct sockaddr_in);
-  } else if (addr.family == INET_ADDR_V6) {
+  } else if (addr.family == PLINEY_IPVERSION6) {
     struct sockaddr_in6 *saddr = (struct sockaddr_in6 *)saddr_raw;
     saddr->sin6_addr = addr.addr.ipv6;
     saddr->sin6_family = AF_INET6;

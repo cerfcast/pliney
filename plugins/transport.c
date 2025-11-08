@@ -26,9 +26,9 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   uint8_t transport = 0;
 
   if (!strcmp(args[0], "tcp")) {
-    transport = INET_STREAM;
+    transport = PLINEY_TCP;
   } else if (!strcmp(args[0], "udp")) {
-    transport = INET_DGRAM;
+    transport = PLINEY_UDP;
   } else {
     char *err = (char *)calloc(255, sizeof(char));
     snprintf(err, 255, "Transport value invalid: %s.", args[0]);

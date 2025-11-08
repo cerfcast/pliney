@@ -28,11 +28,12 @@ typedef struct {
   uint8_t ttl;
 } header_p;
 
-#define INET_ADDR_V4 4
-#define INET_ADDR_V6 6
+#define PLINEY_IPVERSION4 44
+#define PLINEY_IPVERSION6 66
 
-#define INET_STREAM 6
-#define INET_DGRAM 17
+#define PLINEY_TCP 6
+#define PLINEY_UDP 17
+#define PLINEY_ICMP 1
 
 typedef struct {
   uint8_t family;

@@ -86,9 +86,9 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     } else if ((!strcmp(args[arg], "-default-transport"))) {
       HAS_ANOTHER_ARG;
       if (!strcmp(args[arg], "dgram")) {
-        default_transport = INET_DGRAM;
+        default_transport = PLINEY_UDP;
       } else if (!strcmp(args[arg], "stream")) {
-        default_transport = INET_STREAM;
+        default_transport = PLINEY_TCP;
       } else {
         char *err = (char *)calloc(255, sizeof(char));
         snprintf(err, 255,
