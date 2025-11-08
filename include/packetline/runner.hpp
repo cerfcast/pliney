@@ -9,28 +9,28 @@
 
 class Runner {
 public:
-  virtual bool execute(CompilationResult &compilation) = 0;
+  virtual bool execute(Compilation &compilation) = 0;
   virtual ~Runner() = default;
 };
 
 class PacketRunner : public Runner {
 public:
-  bool execute(CompilationResult &execution_ctx) override;
+  bool execute(Compilation &compilation) override;
 };
 
 class PacketObserverRunner : public PacketRunner {
 public:
-  bool execute(CompilationResult &execution_ctx) override;
+  bool execute(Compilation &compilation) override;
 };
 
 class PacketSenderRunner : public PacketRunner {
 public:
-  bool execute(CompilationResult &execution_ctx) override;
+  bool execute(Compilation &) override;
 };
 
 class SocketBuilderRunner : public Runner {
 public:
-  bool execute(CompilationResult &execution_ctx) override;
+  bool execute(Compilation &compilation) override;
 protected:
   int m_socket;
   std::optional<Swapsockopt<int>> m_ttlhl{};
@@ -41,18 +41,18 @@ protected:
 
 class CliRunner : public SocketBuilderRunner {
 public:
-  bool execute(CompilationResult &execution_ctx) override;
+  bool execute(Compilation &compilation) override;
 };
 
 class ForkRunner : public SocketBuilderRunner {
   using pisa_callback_t = void (*)(int, void *);
 public:
-  bool execute(CompilationResult &execution_ctx) override;
+  bool execute(Compilation &compilation) override;
 };
 
 class XdpRunner : public Runner {
 public:
-  bool execute(CompilationResult &execution_ctx) override;
+  bool execute(Compilation &compilation) override;
 };
 
 #endif

@@ -11,11 +11,11 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-CompilationResult BasicCompiler::compile(pisa_program_t *program,
+Compilation BasicCompiler::compile(unique_pisa_program_t program,
                                          const Pipeline *pipeline) {
 
   for (auto invocation : *pipeline) {
-    auto result = invocation.plugin.generate(program, invocation.cookie);
+    auto result = invocation.plugin.generate(program.get(), invocation.cookie);
 
     if (std::holds_alternative<generate_result_t>(result)) {
       Logger::ActiveLogger()->log(Logger::DEBUG,
@@ -23,22 +23,22 @@ CompilationResult BasicCompiler::compile(pisa_program_t *program,
                                               invocation.plugin.name()));
       generate_result_t x = std::get<generate_result_t>(result);
     } else {
-      return CompilationResult::Failure(std::format(
-          "There was an error: {}\n", std::get<std::string>(result)), program);
+      return Compilation::Failure(std::format(
+          "There was an error: {}\n", std::get<std::string>(result)), std::move(program));
     }
   }
 
-  return CompilationResult::Success(program, pipeline);
+  return Compilation::Success(std::move(program), pipeline);
 }
 
-CompilationResult CliCompiler::compile(pisa_program_t *program,
+Compilation CliCompiler::compile(unique_pisa_program_t program,
                                        const Pipeline *pipeline) {
-  return BasicCompiler::compile(program, pipeline);
+  return BasicCompiler::compile(std::move(program), pipeline);
 }
 
-CompilationResult XdpCompiler::compile(pisa_program_t *program,
+Compilation XdpCompiler::compile(unique_pisa_program_t program,
                                        const Pipeline *pipeline) {
-  return BasicCompiler::compile(program, pipeline);
+  return BasicCompiler::compile(std::move(program), pipeline);
 }
 
 void CompilerBuilder::with_name(const std::string &name,

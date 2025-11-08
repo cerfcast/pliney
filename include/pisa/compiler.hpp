@@ -2,7 +2,6 @@
 #define _PIPELINE_EXECUTORS_HPP
 
 #include "lib/pipeline.hpp"
-#include "pisa/pisa.h"
 
 #include <cstring>
 #include <functional>
@@ -16,24 +15,23 @@
 
 class Compiler {
 public:
-  virtual CompilationResult compile(pisa_program_t *program,
-                                    const Pipeline *pipeline) = 0;
+  virtual Compilation compile(unique_pisa_program_t program, const Pipeline *pipeline) = 0;
   virtual ~Compiler() = default;
 };
 
 class BasicCompiler : public Compiler {
 public:
-  CompilationResult compile(pisa_program_t *program, const Pipeline *pipeline) override;
+  Compilation compile(unique_pisa_program_t program, const Pipeline *pipeline) override;
 };
 
 class CliCompiler : public BasicCompiler {
 public:
-  CompilationResult compile(pisa_program_t *program, const Pipeline *pipeline) override;
+  Compilation compile(unique_pisa_program_t program, const Pipeline *pipeline) override;
 };
 
 class XdpCompiler : public BasicCompiler {
 public:
-  CompilationResult compile(pisa_program_t *program, const Pipeline *pipeline) override;
+  Compilation compile(unique_pisa_program_t program, const Pipeline *pipeline) override;
 };
 
 using pipeline_executor_builder_t = std::function<

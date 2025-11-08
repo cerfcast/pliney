@@ -21,6 +21,7 @@
 #include "packetline/cli.hpp"
 #include "packetline/runner.hpp"
 #include "packetline/usage.hpp"
+#include "pisa/compilation.hpp"
 #include "pisa/compiler.hpp"
 #include "pisa/exthdrs.h"
 #include "pisa/pisa.h"
@@ -184,15 +185,17 @@ int main(int argc, const char **argv) {
   auto pipeline_compiler = std::move(std::get<0>(pipeline_compiler_runner));
   auto pipeline_runner = std::move(std::get<1>(pipeline_compiler_runner));
 
-  auto pisa_program = pisa_program_new();
-  auto compilation_result = pipeline_compiler->compile(pisa_program, &pipeline);
+  auto pisa_program =
+      std::unique_ptr<pisa_program_t, PisaProgramDeleter>{pisa_program_new()};
+  auto compilation_result =
+      pipeline_compiler->compile(std::move(pisa_program), &pipeline);
 
   if (compilation_result.success) {
 
     auto runner_result = pipeline_runner->execute(compilation_result);
 
     if (!runner_result) {
-      std::cerr << "Error occurred executing the network connection.\n";
+      std::cerr << std::format("Error occurred executing the network connection: {}\n", compilation_result.error);
       return 1;
     } else {
       Logger::ActiveLogger()->log(Logger::DEBUG,

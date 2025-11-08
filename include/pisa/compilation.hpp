@@ -4,25 +4,39 @@
 #include "lib/pipeline.hpp"
 #include "pisa/pisa.h"
 
+#include <memory>
 #include <string>
 #include <sys/socket.h>
 
-struct CompilationResult {
+
+struct PisaProgramDeleter {
+  void operator()(pisa_program_t *to_delete){
+    pisa_program_release(to_delete);
+  }
+};
+
+using unique_pisa_program_t = std::unique_ptr<pisa_program_t, PisaProgramDeleter>;
+
+struct Compilation {
   bool success{false};
   std::string error{};
-  pisa_program_t *program{};
+  unique_pisa_program_t program{};
   const Pipeline *pipeline;
   packet_t packet;
 
-  static CompilationResult Success(pisa_program_t *program, const Pipeline *pipeline) {
-    return CompilationResult{.success = true, .error = "", .program = program, .pipeline = pipeline};
+  static Compilation Success(unique_pisa_program_t program, const Pipeline *pipeline) {
+    return Compilation{.success = true, .error = "", .program = std::move(program), .pipeline = pipeline};
   }
-  static CompilationResult Failure(std::string error, pisa_program_t *program = nullptr) {
-    return CompilationResult{
-        .success = false, .error = error, .program = program};
+  static Compilation Failure(std::string error, unique_pisa_program_t program) {
+    return Compilation{
+        .success = false, .error = error, .program = std::move(program)};
   }
 
-  ~CompilationResult() {
+  explicit operator bool() const {
+    return success && program;
+  }
+
+  ~Compilation() {
     if (packet.all.data != nullptr) {
       free(packet.all.data);
       packet.ip.data = nullptr;
@@ -34,7 +48,6 @@ struct CompilationResult {
       packet.body.data = nullptr;
       packet.body.len = 0;
     }
-    pisa_program_release(program);
   }
 };
 

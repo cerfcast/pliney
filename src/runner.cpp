@@ -29,32 +29,32 @@
     break;                                                                     \
   }
 
-bool PacketRunner::execute(CompilationResult &execution_ctx) {
+bool PacketRunner::execute(Compilation &compilation) {
 
-  if (!execution_ctx.success || !execution_ctx.program) {
+  if (!compilation) {
     return false;
   }
 
-  auto program = execution_ctx.program;
+  auto &program = compilation.program;
 
   pisa_value_t pgm_body{};
   pisa_value_t pgm_dest{};
   pisa_value_t pisa_transport_value = {.tpe = BYTE};
 
   // First, find the target of the packet. The program must set one.
-  if (!pisa_program_find_target_value(program, &pgm_dest)) {
+  if (!pisa_program_find_target_value(program.get(), &pgm_dest)) {
     Logger::ActiveLogger()->log(Logger::ERROR,
                                 "Could not find the target value!");
-    execution_ctx.error = "PISA program does not contain a target value.";
+    compilation.error = "PISA program does not contain a target value.";
     return false;
   }
 
   // Now, find out the transport type. The program must set one.
-  if (!pisa_program_find_meta_value(program, "TRANSPORT",
+  if (!pisa_program_find_meta_value(program.get(), "TRANSPORT",
                                     &pisa_transport_value)) {
     Logger::ActiveLogger()->log(Logger::ERROR,
                                 "Could not find the transport value!");
-    execution_ctx.error = "PISA program does not contain a transport value.";
+    compilation.error = "PISA program does not contain a transport value.";
     return false;
   }
 
@@ -318,20 +318,20 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
          pgm_body.value.ptr.len);
 
   // The entire packet is reachable from .all, but ...
-  execution_ctx.packet.all.data = packet;
-  execution_ctx.packet.all.len = total_len;
+  compilation.packet.all.data = packet;
+  compilation.packet.all.len = total_len;
 
   // ... there are views for different pieces ...
-  execution_ctx.packet.ip.data = packet;
-  execution_ctx.packet.ip.len = iphdr_len;
+  compilation.packet.ip.data = packet;
+  compilation.packet.ip.len = iphdr_len;
 
   // ... and ...
-  execution_ctx.packet.transport.data = packet + iphdr_len;
-  execution_ctx.packet.transport.len = transport_len;
+  compilation.packet.transport.data = packet + iphdr_len;
+  compilation.packet.transport.len = transport_len;
 
   // ... and one more!
-  execution_ctx.packet.body.data = packet + iphdr_len + transport_len;
-  execution_ctx.packet.body.len = pgm_body.value.ptr.len;
+  compilation.packet.body.data = packet + iphdr_len + transport_len;
+  compilation.packet.body.len = pgm_body.value.ptr.len;
 
   // Free what we allocated locally.
   free(iphdr);
@@ -340,27 +340,27 @@ bool PacketRunner::execute(CompilationResult &execution_ctx) {
   return true;
 }
 
-bool PacketObserverRunner::execute(CompilationResult &execution_ctx) {
-  if (!PacketRunner::execute(execution_ctx)) {
+bool PacketObserverRunner::execute(Compilation &compilation) {
+  if (!PacketRunner::execute(compilation)) {
     return false;
   }
 
-  for (auto invocation : *execution_ctx.pipeline) {
-    invocation.plugin.observe(execution_ctx.program, &execution_ctx.packet,
+  for (auto invocation : *compilation.pipeline) {
+    invocation.plugin.observe(compilation.program.get(), &compilation.packet,
                               invocation.cookie);
   }
 
   return true;
 }
 
-bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
-  if (!PacketRunner::execute(execution_ctx)) {
+bool PacketSenderRunner::execute(Compilation &compilation) {
+  if (!PacketRunner::execute(compilation)) {
     return false;
   }
 
   // Find out the target and transport.
-  struct iphdr *iphdr = (struct iphdr *)execution_ctx.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -368,7 +368,7 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
     saddri->sin_family = AF_INET;
     saddrs_len = sizeof(struct sockaddr_in);
   } else {
-    struct ip6_hdr *iphdr = (struct ip6_hdr *)execution_ctx.packet.ip.data;
+    struct ip6_hdr *iphdr = (struct ip6_hdr *)compilation.packet.ip.data;
     struct sockaddr_in6 *saddri{
         reinterpret_cast<struct sockaddr_in6 *>(&saddrs)};
     saddri->sin6_addr = iphdr->ip6_dst;
@@ -386,8 +386,8 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
     return false;
   }
 
-  if (sendto(send_socket, execution_ctx.packet.all.data,
-             execution_ctx.packet.all.len, 0, (struct sockaddr *)&saddrs,
+  if (sendto(send_socket, compilation.packet.all.data,
+             compilation.packet.all.len, 0, (struct sockaddr *)&saddrs,
              saddrs_len) < 0) {
     Logger::ActiveLogger()->log(
         Logger::ERROR,
@@ -398,19 +398,19 @@ bool PacketSenderRunner::execute(CompilationResult &execution_ctx) {
   return true;
 }
 
-bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
-  if (!execution_ctx.success || !execution_ctx.program) {
+bool SocketBuilderRunner::execute(Compilation &compilation) {
+  if (!compilation) {
     return false;
   }
 
-  auto program = execution_ctx.program;
+  auto &program = compilation.program;
 
   // As part of our work, we also run another runner that lets
   // each of the plugins in the pipeline see the packet that was
   // built.
   auto packet_observer_runner = PacketObserverRunner();
   auto packet_observer_runner_result =
-      packet_observer_runner.execute(execution_ctx);
+      packet_observer_runner.execute(compilation);
   if (!packet_observer_runner_result) {
     Logger::ActiveLogger()->log(
         Logger::DEBUG,
@@ -422,7 +422,7 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
   pisa_value_t pisa_transport_value = {.tpe = BYTE};
 
   // First, find the destination. The program must set one.
-  if (!pisa_program_find_target_value(program, &pgm_dest)) {
+  if (!pisa_program_find_target_value(program.get(), &pgm_dest)) {
     Logger::ActiveLogger()->log(Logger::ERROR,
                                 "Could not find the target value!");
     return false;
@@ -440,7 +440,7 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
   m_destination_len = destination_len;
 
   // Now, find out the transport type. The program must set one.
-  if (!pisa_program_find_meta_value(program, "TRANSPORT",
+  if (!pisa_program_find_meta_value(program.get(), "TRANSPORT",
                                     &pisa_transport_value)) {
     Logger::ActiveLogger()->log(Logger::ERROR,
                                 "Could not find the transport value!");
@@ -601,14 +601,6 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
 
 #if 0
   // Now, do I have to connect?
-  if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
-    auto connect_result = connect(m_socket, destination, destination_len);
-    Logger::ActiveLogger()->log(
-        Logger::ERROR,
-        std::format("Could not connect to the target address: {}",
-                    strerror(errno)));
-  }
-
   std::optional<Swapsockopt<int>> toss{};
   int tos = (packet.header.diffserv << 2) | packet.header.cong;
 
@@ -724,27 +716,31 @@ bool SocketBuilderRunner::execute(CompilationResult &execution_ctx) {
   return true;
 }
 
-bool CliRunner::execute(CompilationResult &execution_ctx) {
-
-  if (!execution_ctx.success || !execution_ctx.program) {
+bool CliRunner::execute(Compilation &compilation) {
+  if (!compilation) {
+    return false;
+  }
+  SocketBuilderRunner::execute(compilation);
+  if (!compilation) {
     return false;
   }
 
-  SocketBuilderRunner::execute(execution_ctx);
-  if (!execution_ctx.success || !execution_ctx.program) {
+  if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
+    compilation.error = "Could not connect the socket.";
+    Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
     return false;
   }
 
-  struct msghdr msg {};
-  struct iovec iov {};
+  struct msghdr msg{};
+  struct iovec iov{};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;
   iov.iov_len = 0;
 
-  if (execution_ctx.packet.body.len) {
-    iov.iov_base = execution_ctx.packet.body.data;
-    iov.iov_len = execution_ctx.packet.body.len;
+  if (compilation.packet.body.len) {
+    iov.iov_base = compilation.packet.body.data;
+    iov.iov_len = compilation.packet.body.len;
   }
 
   msg.msg_iov = &iov;
@@ -759,31 +755,34 @@ bool CliRunner::execute(CompilationResult &execution_ctx) {
   int write_result = sendmsg(m_socket, &msg, 0);
 
   if (write_result < 0) {
-    Logger::ActiveLogger()->log(
-        Logger::ERROR, std::format("Error occurred sending data: could not "
-                                   "write to the socket: {}",
-                                   strerror(errno)));
+    auto error_msg = std::format("Error occurred sending data: could not "
+                                 "write to the socket: {}",
+                                 strerror(errno));
+
+    Logger::ActiveLogger()->log(Logger::ERROR, error_msg);
+    compilation.error = error_msg;
     return false;
   }
 
   return true;
 }
 
-bool XdpRunner::execute(CompilationResult &execution_ctx) {
+bool XdpRunner::execute(Compilation &compilation) {
 
-  if (!execution_ctx.success || !execution_ctx.program) {
+  if (!compilation) {
     return false;
   }
 
-  auto program = execution_ctx.program;
+  auto &program = compilation.program;
 
   pisa_value_t pisa_xdp_output_file{.tpe = PTR};
 
   // Now, find out the transport type. The program must set one.
-  if (!pisa_program_find_meta_value(program, "XDP_OUTPUT_FILE",
+  if (!pisa_program_find_meta_value(program.get(), "XDP_OUTPUT_FILE",
                                     &pisa_xdp_output_file)) {
-    Logger::ActiveLogger()->log(
-        Logger::ERROR, "Could not find the name of the XDP output file!");
+    auto error_msg{"Could not find the name of the XDP output file!"};
+    Logger::ActiveLogger()->log(Logger::ERROR, error_msg);
+    compilation.error = error_msg;
     return false;
   }
 
@@ -879,28 +878,30 @@ bool XdpRunner::execute(CompilationResult &execution_ctx) {
   return true;
 }
 
-bool ForkRunner::execute(CompilationResult &execution_ctx) {
-  if (!execution_ctx.success || !execution_ctx.program) {
+bool ForkRunner::execute(Compilation &compilation) {
+  if (!compilation) {
     return false;
   }
 
-  auto program = execution_ctx.program;
+  auto &program = compilation.program;
 
-  SocketBuilderRunner::execute(execution_ctx);
-  if (!execution_ctx.success || !execution_ctx.program) {
+  SocketBuilderRunner::execute(compilation);
+  if (!compilation) {
     return false;
   }
 
   if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
+    compilation.error = "Could not connect the socket.";
     Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
+    return false;
   }
 
   // For as many exec instructions as there are in the PISA program, do the
   // bidding!
   pisa_inst_t *pisa_exec_inst{nullptr};
   size_t last_pisa_exec_inst{0};
-  while (pisa_program_find_inst(program, &last_pisa_exec_inst, &pisa_exec_inst,
-                                EXEC)) {
+  while (pisa_program_find_inst(program.get(), &last_pisa_exec_inst,
+                                &pisa_exec_inst, EXEC)) {
     pisa_callback_t exec_func{
         (pisa_callback_t)(pisa_exec_inst->value.value.callback.callback)};
     exec_func(m_socket, pisa_exec_inst->value.value.callback.cookie);
