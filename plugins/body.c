@@ -1,6 +1,5 @@
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
-#include "pisa/pisa.h"
 #include "pisa/utils.h"
 #include <fcntl.h>
 #include <stdio.h>
