@@ -25,7 +25,7 @@ uint16_t compute_ones_compliment(void *start, void *stop) {
 
   uint16_t *value_start{static_cast<uint16_t *>(start)};
   uint16_t *value_stop{static_cast<uint16_t *>(stop)};
-  for (; value_start + s < value_stop; s++) {
+  for (; value_start + s + 1 <= value_stop; s++) {
     cksum += ntohs(value_start[s]);
     HANDLE_OVERFLOW(cksumv[1], cksum);
   }
@@ -33,13 +33,13 @@ uint16_t compute_ones_compliment(void *start, void *stop) {
   // If the distance between start and stop is not a multiple of 2,
   // then there is a byte left that we have to consider!
   // Could have to pad!
-  if ((value_start + s) != value_stop) {
+  if ((value_start + s) < value_stop) {
     // In network order, the value to compute would look like
     // 0xVVPP
-    // where PP is the padding. Make it so! (Note: If we could guarantee
-    // that this was a little endian machine, we would not need to be so
-    // cautious.)
-    uint16_t leftover{htons(*(uint8_t *)(value_start + s))};
+    // where PP is the padding. Make it so!
+    uint16_t leftover{};
+    uint8_t *upper_leftover = (uint8_t*)&leftover;
+    *upper_leftover = *(uint8_t *)(value_start + s);
     cksum += ntohs(leftover);
     HANDLE_OVERFLOW(cksumv[1], cksum);
   }
