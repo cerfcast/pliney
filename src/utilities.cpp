@@ -46,7 +46,7 @@ size_t transport_header_size(Pliney::Transport transport) {
       return Pliney::TCP_DEFAULT_HEADER_LENGTH;
     }
     case Pliney::Transport::UDP: {
-      return Pliney::TCP_DEFAULT_HEADER_LENGTH;
+      return Pliney::UDP_DEFAULT_HEADER_LENGTH;
     }
   }
   std::unreachable();
