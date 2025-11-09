@@ -29,6 +29,8 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     transport = PLINEY_TCP;
   } else if (!strcmp(args[0], "udp")) {
     transport = PLINEY_UDP;
+  } else if (!strcmp(args[0], "icmp")) {
+    transport = PLINEY_ICMP;
   } else {
     char *err = (char *)calloc(255, sizeof(char));
     snprintf(err, 255, "Transport value invalid: %s.", args[0]);
@@ -73,7 +75,7 @@ usage_result_t usage() {
   usage_result_t result;
 
   // clang-format off
-  result.params = "<udp,tcp>";
+  result.params = "<udp,tcp,icmp>";
   result.usage = "TODO";
   // clang-format on
 

@@ -87,6 +87,9 @@ typedef enum {
   IPV6_ECN,
   IPV4_DSCP,
   IPV6_DSCP,
+  ICMP_TYPE,
+  ICMP_CODE,
+  ICMP_DEPENDS,
   BODY,
   PISA_FIELD_MAX,
 } pisa_field_t;

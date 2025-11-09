@@ -1,5 +1,7 @@
 #include <cstring>
+#include <utility>
 
+#include "packetline/constants.hpp"
 #include "packetline/utilities.hpp"
 
 bool operator==(const ip_addr_t &left, const ip_addr_t &right) {
@@ -33,4 +35,29 @@ bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len) {
   free(existing_cmsg_buf);
 
   return true;
+}
+
+size_t transport_header_size(Pliney::Transport transport) {
+  switch (transport) {
+    case Pliney::Transport::ICMP: {
+      return Pliney::ICMP_DEFAULT_HEADER_LENGTH;
+    }
+    case Pliney::Transport::TCP: {
+      return Pliney::TCP_DEFAULT_HEADER_LENGTH;
+    }
+    case Pliney::Transport::UDP: {
+      return Pliney::TCP_DEFAULT_HEADER_LENGTH;
+    }
+  }
+  std::unreachable();
+}
+
+size_t transport_has_port(Pliney::Transport transport) {
+  switch (transport) {
+    case Pliney::Transport::ICMP: {
+      return false;
+    }
+    default:
+      return true;
+  }
 }

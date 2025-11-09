@@ -17,6 +17,7 @@
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
 #include <optional>
 #include <regex>
 #include <sys/socket.h>
@@ -27,6 +28,13 @@
 #define PISA_COWARDLY_VERSION_CHECK(expected, actual, message)                 \
   if (actual != expected) {                                                    \
     Logger::ActiveLogger()->log(Logger::WARN, std::format(message));           \
+    break;                                                                     \
+  }
+
+#define PISA_WARN_NOOP(op, fr)                                                 \
+  {                                                                            \
+    Logger::ActiveLogger()->log(Logger::WARN,                                  \
+                                std::format("{} is a noop for {}", op, fr));   \
     break;                                                                     \
   }
 
@@ -87,6 +95,8 @@ bool PacketRunner::execute(Compilation &compilation) {
       typed_hdr->protocol = IPPROTO_TCP;
     } else if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
       typed_hdr->protocol = IPPROTO_UDP;
+    } else if (pisa_pgm_transport_type == Pliney::Transport::ICMP) {
+      typed_hdr->protocol = IPPROTO_ICMP;
     }
   } else {
     struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
@@ -95,14 +105,14 @@ bool PacketRunner::execute(Compilation &compilation) {
       typed_hdr->ip6_nxt = IPPROTO_TCP;
     } else if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
       typed_hdr->ip6_nxt = IPPROTO_UDP;
+    } else if (pisa_pgm_transport_type == Pliney::Transport::ICMP) {
+      typed_hdr->ip6_nxt = IPPROTO_ICMP;
     }
   }
 
   // Let's say that there is a transport header -- make one of the appropriate
   // size.
-  size_t transport_len{pisa_pgm_transport_type == Pliney::Transport::UDP
-                           ? size_t{Pliney::UDP_DEFAULT_HEADER_LENGTH}
-                           : size_t{Pliney::TCP_DEFAULT_HEADER_LENGTH}};
+  size_t transport_len{transport_header_size(pisa_pgm_transport_type)};
   void *transport{(void *)calloc(transport_len, sizeof(uint8_t))};
 
   // And, now let's follow instructions.
@@ -116,8 +126,37 @@ bool PacketRunner::execute(Compilation &compilation) {
       } // SET_META
       case SET_FIELD: {
         switch (program->insts[insn_idx].fk.field) {
+          case ICMP_CODE: {
+            PISA_COWARDLY_VERSION_CHECK(
+                Pliney::Transport::ICMP, pisa_pgm_transport_type,
+                "Will not set an ICMP field on a non-ICMP PISA program");
+            struct icmphdr *typed_hdr = (struct icmphdr*)transport;
+            typed_hdr->code = program->insts[insn_idx].value.value.byte;
+            break;
+          }
+          case ICMP_TYPE: {
+            PISA_COWARDLY_VERSION_CHECK(
+                Pliney::Transport::ICMP, pisa_pgm_transport_type,
+                "Will not set an ICMP field on a non-ICMP PISA program");
+            struct icmphdr *typed_hdr = (struct icmphdr*)transport;
+            typed_hdr->type = program->insts[insn_idx].value.value.byte;
+            break;
+          }
+          case ICMP_DEPENDS: {
+            PISA_COWARDLY_VERSION_CHECK(
+                Pliney::Transport::ICMP, pisa_pgm_transport_type,
+                "Will not set an ICMP field on a non-ICMP PISA program");
+            struct icmphdr *typed_hdr = (struct icmphdr*)transport;
+            typed_hdr->un.echo.id = program->insts[insn_idx].value.value.four_bytes;
+            typed_hdr->un.echo.sequence = program->insts[insn_idx].value.value.four_bytes >> 16;
+            break;
+          }
           case IPV6_TARGET_PORT:
           case IPV4_TARGET_PORT: {
+            if (!transport_has_port(pisa_pgm_transport_type)) {
+              PISA_WARN_NOOP("Setting the target port",
+                             to_string(pisa_pgm_transport_type));
+            }
             if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
               struct tcphdr *typed_hdr = (struct tcphdr *)transport;
               typed_hdr->dest =
@@ -131,14 +170,20 @@ bool PacketRunner::execute(Compilation &compilation) {
           }
           case IPV4_SOURCE_PORT:
           case IPV6_SOURCE_PORT: {
+            if (!transport_has_port(pisa_pgm_transport_type)) {
+              PISA_WARN_NOOP("Setting the target port",
+                             to_string(pisa_pgm_transport_type));
+            }
             if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
-              struct tcphdr *typed_hdr = (struct tcphdr *)transport;
-              typed_hdr->source =
-                  program->insts[insn_idx].value.value.ipaddr.port;
-            } else {
-              struct udphdr *typed_hdr = (struct udphdr *)transport;
-              typed_hdr->source =
-                  program->insts[insn_idx].value.value.ipaddr.port;
+              if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
+                struct tcphdr *typed_hdr = (struct tcphdr *)transport;
+                typed_hdr->source =
+                    program->insts[insn_idx].value.value.ipaddr.port;
+              } else {
+                struct udphdr *typed_hdr = (struct udphdr *)transport;
+                typed_hdr->source =
+                    program->insts[insn_idx].value.value.ipaddr.port;
+              }
             }
             break;
           }
@@ -306,6 +351,14 @@ bool PacketRunner::execute(Compilation &compilation) {
     };
     typed_hdr->check =
         compute_udp_cksum(pisa_pgm_ip_version, iphdr, typed_hdr, body);
+  } else if (pisa_pgm_transport_type == Pliney::Transport::ICMP) {
+    struct icmphdr *typed_hdr = (struct icmphdr *)transport;
+    data_p body{
+        .len = pgm_body.value.ptr.len,
+        .data = pgm_body.value.ptr.data,
+    };
+    typed_hdr->checksum =
+        compute_icmp_cksum(typed_hdr, body);
   }
 
   size_t total_len{iphdr_len + transport_len + pgm_body.value.ptr.len};
@@ -362,7 +415,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -428,6 +481,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
   if (!pisa_program_find_target_value(program.get(), &pgm_dest)) {
     Logger::ActiveLogger()->log(Logger::ERROR,
                                 "Could not find the target value!");
+    compilation.success = false;
     return false;
   }
   auto pliney_destination = pgm_dest.value.ipaddr;
@@ -436,6 +490,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
   if (destination_len < 0) {
     std::cerr << "Error occurred converting generated destination into "
                  "system-compatible destination.\n";
+    compilation.success = false;
     return false;
   }
   m_destination =
@@ -447,10 +502,23 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
                                     &pisa_transport_value)) {
     Logger::ActiveLogger()->log(Logger::ERROR,
                                 "Could not find the transport value!");
+    compilation.success = false;
     return false;
   }
   auto pisa_pgm_transport_type{
       Pliney::from_pisa_transport(pisa_transport_value.value.byte)};
+
+  // Only the TCP and UDP transports are valid for this runner.
+  if (pisa_pgm_transport_type != Pliney::Transport::TCP &&
+      pisa_pgm_transport_type != Pliney::Transport::UDP) {
+    auto error{std::format("Invalid transport type ({}); only TCP and UDP are "
+                           "allowed for this runner.",
+                           to_string(pisa_pgm_transport_type))};
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
+    compilation.success = false;
+    return false;
+  }
 
   // Now, open a socket!
   auto socket_success =
@@ -642,9 +710,9 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
             m_ttlhl.emplace(m_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS,
                             hoplimit);
             if (!m_ttlhl->ok()) {
-              std::cerr << std::format(
-                  "There was an error setting the hoplimit on the socket: {}\n",
-                  std::strerror(errno));
+              std::cerr << std::format("There was an error setting the "
+                                       "hoplimit on the socket: {}\n",
+                                       std::strerror(errno));
               return false;
             }
             break;
@@ -820,8 +888,8 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  struct msghdr msg {};
-  struct iovec iov {};
+  struct msghdr msg{};
+  struct iovec iov{};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;

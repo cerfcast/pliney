@@ -1,6 +1,7 @@
 #ifndef __UTILITIES_HPP
 #define __UTILITIES_HPP
 
+#include "packetline/constants.hpp"
 #include "pisa/pisa.h"
 #include <cstdlib>
 #include <memory>
@@ -96,4 +97,6 @@ private:
 
 bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len);
 
+size_t transport_header_size(Pliney::Transport transport);
+size_t transport_has_port(Pliney::Transport transport);
 #endif

@@ -14,6 +14,7 @@ namespace Pliney {
 
     const uint8_t UDP_DEFAULT_HEADER_LENGTH{0x8};
     const uint8_t TCP_DEFAULT_HEADER_LENGTH{0x14};
+    const uint8_t ICMP_DEFAULT_HEADER_LENGTH{0x8};
 
     const uint8_t UDP_PROTOCOL{17};
     const uint8_t TCP_PROTOCOL{6};

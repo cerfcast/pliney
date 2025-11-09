@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#include <netinet/ip_icmp.h>
 #include <netinet/udp.h>
 
 #define HANDLE_OVERFLOW(view, sum)                                             \
@@ -95,4 +96,16 @@ uint16_t compute_udp_cksum(Pliney::IpVersion type, void *ip, struct udphdr *udp,
   } else {
     assert(false);
   }
+}
+
+uint16_t compute_icmp_cksum(struct icmphdr *hdr, data_p body) {
+  void *start{static_cast<void*>(hdr)};
+  void *stop{static_cast<void*>(hdr + 1)};
+  uint32_t cksum;
+  uint16_t *cksumv = (uint16_t *)&cksum;
+  cksum = compute_ones_compliment(start, stop);
+  HANDLE_OVERFLOW(cksumv[1], cksum);
+  cksum += compute_ones_compliment(body.data, body.data + body.len);
+  HANDLE_OVERFLOW(cksumv[1], cksum);
+  return htons(~(cksum & 0xffff));
 }

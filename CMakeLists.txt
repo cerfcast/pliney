@@ -73,6 +73,12 @@ target_include_directories(cong PRIVATE include)
 set_property(TARGET cong PROPERTY C_STANDARD 23)
 set_property(TARGET cong PROPERTY OUTPUT_NAME pliney_pl_cong)
 
+add_library(icmp SHARED "plugins/icmp.c")
+list(APPEND PLUGIN_PLUGIN_SRCS "plugins/icmp.c")
+target_include_directories(icmp PRIVATE include)
+set_property(TARGET icmp PROPERTY C_STANDARD 23)
+set_property(TARGET icmp PROPERTY OUTPUT_NAME pliney_pl_icmp)
+
 #add_library(error SHARED "plugins/error.c")
 list(APPEND PLUGIN_PLUGIN_SRCS "plugins/target.c")
 #target_include_directories(error PRIVATE include)
