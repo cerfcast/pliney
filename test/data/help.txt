@@ -45,6 +45,10 @@ Plugin Usage:
 		<HL>
 		Usage:
 		Set the hoplimit on the packet to HL.
+	icmp
+		<echo> [TYPE_SPECIFIC_OPTIONS]
+		Usage:
+		Create an ICMP packet with the given type. Depending ...
 	lua
 		<FILE_PATH>
 		Usage:
@@ -76,7 +80,7 @@ Plugin Usage:
 		existing target port will only be overwritten if PORT
 		is specified.
 	transport
-		<udp,tcp>
+		<udp,tcp,icmp>
 		Usage:
 		TODO
 	ttl
