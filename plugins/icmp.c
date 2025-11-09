@@ -1,10 +1,8 @@
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
-#include "pisa/priority.h"
 #include "pisa/utils.h"
 #include <endian.h>
 #include <netinet/ip_icmp.h>
-#include <pcap/socket.h>
 #include <stdio.h>
 #include <stdlib.h>
 
