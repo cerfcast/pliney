@@ -15,9 +15,9 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <netinet/ip_icmp.h>
 #include <optional>
 #include <regex>
 #include <sys/socket.h>
@@ -130,7 +130,7 @@ bool PacketRunner::execute(Compilation &compilation) {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
                 "Will not set an ICMP field on a non-ICMP PISA program");
-            struct icmphdr *typed_hdr = (struct icmphdr*)transport;
+            struct icmphdr *typed_hdr = (struct icmphdr *)transport;
             typed_hdr->code = program->insts[insn_idx].value.value.byte;
             break;
           }
@@ -138,7 +138,7 @@ bool PacketRunner::execute(Compilation &compilation) {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
                 "Will not set an ICMP field on a non-ICMP PISA program");
-            struct icmphdr *typed_hdr = (struct icmphdr*)transport;
+            struct icmphdr *typed_hdr = (struct icmphdr *)transport;
             typed_hdr->type = program->insts[insn_idx].value.value.byte;
             break;
           }
@@ -146,9 +146,11 @@ bool PacketRunner::execute(Compilation &compilation) {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
                 "Will not set an ICMP field on a non-ICMP PISA program");
-            struct icmphdr *typed_hdr = (struct icmphdr*)transport;
-            typed_hdr->un.echo.id = program->insts[insn_idx].value.value.four_bytes;
-            typed_hdr->un.echo.sequence = program->insts[insn_idx].value.value.four_bytes >> 16;
+            struct icmphdr *typed_hdr = (struct icmphdr *)transport;
+            typed_hdr->un.echo.id =
+                program->insts[insn_idx].value.value.four_bytes;
+            typed_hdr->un.echo.sequence =
+                program->insts[insn_idx].value.value.four_bytes >> 16;
             break;
           }
           case IPV6_TARGET_PORT:
@@ -357,8 +359,7 @@ bool PacketRunner::execute(Compilation &compilation) {
         .len = pgm_body.value.ptr.len,
         .data = pgm_body.value.ptr.data,
     };
-    typed_hdr->checksum =
-        compute_icmp_cksum(typed_hdr, body);
+    typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
   }
 
   size_t total_len{iphdr_len + transport_len + pgm_body.value.ptr.len};
@@ -415,7 +416,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -888,8 +889,8 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  struct msghdr msg{};
-  struct iovec iov{};
+  struct msghdr msg {};
+  struct iovec iov {};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;

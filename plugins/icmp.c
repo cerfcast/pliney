@@ -71,7 +71,8 @@ configuration_result_t generate_configuration(int argc, const char **args) {
         return configuration_result;
       }
     }
-    maybe_parsed_icmp_rest = htonl((maybe_parsed_echo_id << 16) | maybe_parsed_echo_seq);
+    maybe_parsed_icmp_rest =
+        htonl((maybe_parsed_echo_id << 16) | maybe_parsed_echo_seq);
   }
 
   icmp_cookie_t *cookie = (icmp_cookie_t *)calloc(1, sizeof(icmp_cookie_t));
