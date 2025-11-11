@@ -1,0 +1,4 @@
+#!/bin/env bash
+
+./build/pliney \!\> transport icmp =\> icmp extended-echo =\> icmp-extension environment ff
+

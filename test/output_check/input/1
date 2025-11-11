@@ -1,0 +1,4 @@
+#!/bin/env bash
+
+./build/pliney \!\> transport icmp =\> icmp ech0
+

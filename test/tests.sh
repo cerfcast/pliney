@@ -1,6 +1,6 @@
 #/bin/env bash
 
-tests="raw_tests.sh help_tests.sh lua/sanity_test.sh lua/http_tests.sh"
+tests="raw_tests.sh help_tests.sh lua/sanity_test.sh lua/http_tests.sh output_check/check.sh"
 
 for i in ${tests}; do
 		echo "Running tests in ${i} ..."
