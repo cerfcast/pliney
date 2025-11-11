@@ -133,14 +133,18 @@ bool PacketRunner::execute(Compilation &compilation) {
         break;
       } // SET_META
       case SET_TRANSPORT_EXTENSION: {
-        // Because this replaces what was there before, release anything that earlier!
+        // Because this replaces what was there before, release anything that
+        // earlier!
         if (transportoptionhdr) {
           free(transportoptionhdr);
           transportoptionhdr_len = 0;
         }
         transportoptionhdr_len = program->insts[insn_idx].value.value.ptr.len;
-        transportoptionhdr = (uint8_t*)calloc(transportoptionhdr_len, sizeof(uint8_t));
-        memcpy(transportoptionhdr, program->insts[insn_idx].value.value.ptr.data, transportoptionhdr_len);
+        transportoptionhdr =
+            (uint8_t *)calloc(transportoptionhdr_len, sizeof(uint8_t));
+        memcpy(transportoptionhdr,
+               program->insts[insn_idx].value.value.ptr.data,
+               transportoptionhdr_len);
       } // SET_TRANSPORT_EXTENSION
       case SET_FIELD: {
         switch (program->insts[insn_idx].fk.field) {
@@ -406,7 +410,6 @@ bool PacketRunner::execute(Compilation &compilation) {
   compilation.packet.ip.data = packet;
   compilation.packet.ip.len = iphdr_len;
 
-
   // ... there are views for different pieces ...
   compilation.packet.ip_options.data = ipoptionhdr;
   compilation.packet.ip_options.len = ipoptionhdr_len;
@@ -415,11 +418,13 @@ bool PacketRunner::execute(Compilation &compilation) {
   compilation.packet.transport.data = packet + iphdr_len + ipoptionhdr_len;
   compilation.packet.transport.len = transport_len;
 
-  compilation.packet.transport_options.data = packet + iphdr_len +  ipoptionhdr_len + transport_len;
+  compilation.packet.transport_options.data =
+      packet + iphdr_len + ipoptionhdr_len + transport_len;
   compilation.packet.transport_options.len = transportoptionhdr_len;
 
   // ... and one more!
-  compilation.packet.body.data = packet + iphdr_len + ipoptionhdr_len + transport_len + transportoptionhdr_len;
+  compilation.packet.body.data = packet + iphdr_len + ipoptionhdr_len +
+                                 transport_len + transportoptionhdr_len;
   compilation.packet.body.len = pgm_body.value.ptr.len;
 
   // Free what we allocated locally.
@@ -451,7 +456,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -924,8 +929,8 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  struct msghdr msg{};
-  struct iovec iov{};
+  struct msghdr msg {};
+  struct iovec iov {};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;

@@ -36,8 +36,8 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  if (!parse_to_value(args[0], &maybe_parsed_icmp_type, ICMP_EXT_NAMES, ICMP_EXT_VALUES,
-                      sizeof(ICMP_EXT_VALUES))) {
+  if (!parse_to_value(args[0], &maybe_parsed_icmp_type, ICMP_EXT_NAMES,
+                      ICMP_EXT_VALUES, sizeof(ICMP_EXT_VALUES))) {
     char *err = (char *)calloc(255, sizeof(char));
     snprintf(err, 255, "Could not convert %s to a value ICMP type", args[0]);
     configuration_result.errstr = err;
@@ -80,7 +80,8 @@ configuration_result_t generate_configuration(int argc, const char **args) {
         htonl((maybe_parsed_echo_id << 16) | maybe_parsed_echo_seq);
   }
 
-  icmp_extension_cookie_t *cookie = (icmp_extension_cookie_t *)calloc(1, sizeof(icmp_extension_cookie_t));
+  icmp_extension_cookie_t *cookie =
+      (icmp_extension_cookie_t *)calloc(1, sizeof(icmp_extension_cookie_t));
 
   cookie->type = maybe_parsed_icmp_type;
   cookie->rest = maybe_parsed_icmp_rest;
