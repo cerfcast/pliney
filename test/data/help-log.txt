@@ -48,7 +48,22 @@ Plugin Usage:
 	icmp
 		<echo> [TYPE_SPECIFIC_OPTIONS]
 		Usage:
-		Create an ICMP packet with the given type. Depending ...
+		Create an ICMP packet with the given type. Depending on
+		the type, TYPE_SPECIFIC_OPTIONS will be different:
+		echo: [ID] [SEQUENCE]
+		      The id and sequence in the request packet.
+		extended-echo: [ID] [SEQUENCE]
+		               The id and sequence in the request packet.
+	icmp-extension
+		<probe, environment> [TYPE_SPECIFIC_OPTIONS]
+		Usage:
+		Create the ICMP extension object with the given type to
+		be placed in an ICMP packet. Depending on the type,
+		TYPE_SPECIFIC_OPTIONS will be:
+		probe: INTERFACE_NAME
+		       The interface name for which to probe.
+		environment: [PRESENT] [IDLE]
+		             The present and idle power of the host.
 	log
 		[-mode <overwrite, append>]
 		[-default-ip <IP>]

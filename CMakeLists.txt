@@ -79,6 +79,12 @@ target_include_directories(icmp PRIVATE include)
 set_property(TARGET icmp PROPERTY C_STANDARD 23)
 set_property(TARGET icmp PROPERTY OUTPUT_NAME pliney_pl_icmp)
 
+add_library(icmp-extension SHARED "plugins/icmp-extension.c")
+list(APPEND PLUGIN_PLUGIN_SRCS "plugins/icmp-extension.c")
+target_include_directories(icmp-extension PRIVATE include)
+set_property(TARGET icmp-extension PROPERTY C_STANDARD 23)
+set_property(TARGET icmp-extension PROPERTY OUTPUT_NAME pliney_pl_icmp_extension)
+
 #add_library(error SHARED "plugins/error.c")
 list(APPEND PLUGIN_PLUGIN_SRCS "plugins/target.c")
 #target_include_directories(error PRIVATE include)
@@ -133,6 +139,8 @@ add_dependencies(pliney cong)
 add_dependencies(pliney raw)
 #add_dependencies(pliney gre)
 add_dependencies(pliney luap)
+add_dependencies(pliney icmp)
+add_dependencies(pliney icmp-extension)
 
 # Try to find libpcap to determine whether to enable log plugin support.
 option(BUILD_LOG_PLUGIN "Build the pcap-logging plugin" On)
