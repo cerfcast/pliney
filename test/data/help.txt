@@ -64,7 +64,7 @@ Plugin Usage:
 		       The interface name for which to probe.
 		environment: [PRESENT] [IDLE]
 		             The present and idle power of the host.
-		lua
+	lua
 		<FILE_PATH>
 		Usage:
 		With the socket configured according to the pipeline (seen
