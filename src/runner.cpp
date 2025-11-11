@@ -110,10 +110,18 @@ bool PacketRunner::execute(Compilation &compilation) {
     }
   }
 
+  // There could be some options that exist between the header and the
+  // transport!
+  size_t ipoptionhdr_len{0};
+  uint8_t *ipoptionhdr{nullptr};
+
   // Let's say that there is a transport header -- make one of the appropriate
   // size.
   size_t transport_len{transport_header_size(pisa_pgm_transport_type)};
   void *transport{(void *)calloc(transport_len, sizeof(uint8_t))};
+
+  size_t transportoptionhdr_len{0};
+  uint8_t *transportoptionhdr{nullptr};
 
   // And, now let's follow instructions.
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
@@ -124,6 +132,16 @@ bool PacketRunner::execute(Compilation &compilation) {
             std::format("SET_META is a no-op for Packet Runner."));
         break;
       } // SET_META
+      case SET_TRANSPORT_EXTENSION: {
+        // Because this replaces what was there before, release anything that earlier!
+        if (transportoptionhdr) {
+          free(transportoptionhdr);
+          transportoptionhdr_len = 0;
+        }
+        transportoptionhdr_len = program->insts[insn_idx].value.value.ptr.len;
+        transportoptionhdr = (uint8_t*)calloc(transportoptionhdr_len, sizeof(uint8_t));
+        memcpy(transportoptionhdr, program->insts[insn_idx].value.value.ptr.data, transportoptionhdr_len);
+      } // SET_TRANSPORT_EXTENSION
       case SET_FIELD: {
         switch (program->insts[insn_idx].fk.field) {
           case ICMP_CODE: {
@@ -362,16 +380,23 @@ bool PacketRunner::execute(Compilation &compilation) {
     typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
   }
 
-  size_t total_len{iphdr_len + transport_len + pgm_body.value.ptr.len};
+  size_t total_len{iphdr_len + ipoptionhdr_len + transport_len +
+                   transportoptionhdr_len + pgm_body.value.ptr.len};
   uint8_t *packet{(uint8_t *)calloc(total_len, sizeof(uint8_t))};
 
   // Copy the IP header into the consolidated packet.
   memcpy(packet, iphdr, iphdr_len);
+  // Copy the ip options header into the consolidated header.
+  memcpy(packet + iphdr_len, ipoptionhdr, ipoptionhdr_len);
   // Copy the transport into the consolidated header.
-  memcpy(packet + iphdr_len, transport, transport_len);
+  memcpy(packet + iphdr_len + ipoptionhdr_len, transport, transport_len);
+  // Copy the transport options into the consolidated header.
+  memcpy(packet + iphdr_len + ipoptionhdr_len + transport_len,
+         transportoptionhdr, transportoptionhdr_len);
   // Copy the body into the consolidated header!
-  memcpy(packet + iphdr_len + transport_len, pgm_body.value.ptr.data,
-         pgm_body.value.ptr.len);
+  memcpy(packet + iphdr_len + ipoptionhdr_len + transport_len +
+             transportoptionhdr_len,
+         pgm_body.value.ptr.data, pgm_body.value.ptr.len);
 
   // The entire packet is reachable from .all, but ...
   compilation.packet.all.data = packet;
@@ -381,17 +406,27 @@ bool PacketRunner::execute(Compilation &compilation) {
   compilation.packet.ip.data = packet;
   compilation.packet.ip.len = iphdr_len;
 
+
+  // ... there are views for different pieces ...
+  compilation.packet.ip_options.data = ipoptionhdr;
+  compilation.packet.ip_options.len = ipoptionhdr_len;
+
   // ... and ...
-  compilation.packet.transport.data = packet + iphdr_len;
+  compilation.packet.transport.data = packet + iphdr_len + ipoptionhdr_len;
   compilation.packet.transport.len = transport_len;
 
+  compilation.packet.transport_options.data = packet + iphdr_len +  ipoptionhdr_len + transport_len;
+  compilation.packet.transport_options.len = transportoptionhdr_len;
+
   // ... and one more!
-  compilation.packet.body.data = packet + iphdr_len + transport_len;
+  compilation.packet.body.data = packet + iphdr_len + ipoptionhdr_len + transport_len + transportoptionhdr_len;
   compilation.packet.body.len = pgm_body.value.ptr.len;
 
   // Free what we allocated locally.
   free(iphdr);
+  free(ipoptionhdr);
   free(transport);
+  free(transportoptionhdr);
 
   return true;
 }
@@ -416,7 +451,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -889,8 +924,8 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  struct msghdr msg {};
-  struct iovec iov {};
+  struct msghdr msg{};
+  struct iovec iov{};
 
   memset(&msg, 0, sizeof(struct msghdr));
   iov.iov_base = nullptr;

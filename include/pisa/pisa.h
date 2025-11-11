@@ -49,6 +49,7 @@ typedef struct {
   data_p ip;
   data_p ip_options;
   data_p transport;
+  data_p transport_options;
   data_p body;
 } packet_t;
 
@@ -56,6 +57,8 @@ typedef struct {
 typedef enum {
   SET_META,
   SET_FIELD,
+  SET_TRANSPORT_EXTENSION,
+  ADD_TRANSPORT_EXTENSION,
   SET_OFFSET,
   ADD_OBSERVER,
   EXEC,
