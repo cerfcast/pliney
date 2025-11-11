@@ -2,6 +2,7 @@
 #include "pisa/plugin.h"
 #include "pisa/utils.h"
 #include <endian.h>
+#include <netinet/icmp6.h>
 #include <netinet/ip_icmp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,10 +19,10 @@ typedef struct {
   uint8_t code;
   uint8_t type;
   uint32_t rest;
-} icmp_cookie_t;
+} icmp_extension_cookie_t;
 
-const char *ICMP_NAMES[] = {"echo"};
-const uint8_t ICMP_VALUES[] = {ICMP_ECHO};
+const char *ICMP_EXT_NAMES[] = {"echo", "extended-echo"};
+const uint8_t ICMP_EXT_VALUES[] = {ICMP_ECHO, ICMP_EXT_ECHO};
 
 configuration_result_t generate_configuration(int argc, const char **args) {
   configuration_result_t configuration_result = {.configuration_cookie = NULL,
@@ -35,15 +36,16 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  if (!parse_to_value(args[0], &maybe_parsed_icmp_type, ICMP_NAMES, ICMP_VALUES,
-                      sizeof(ICMP_VALUES))) {
+  if (!parse_to_value(args[0], &maybe_parsed_icmp_type, ICMP_EXT_NAMES, ICMP_EXT_VALUES,
+                      sizeof(ICMP_EXT_VALUES))) {
     char *err = (char *)calloc(255, sizeof(char));
     snprintf(err, 255, "Could not convert %s to a value ICMP type", args[0]);
     configuration_result.errstr = err;
     return configuration_result;
   }
 
-  if (maybe_parsed_icmp_type == ICMP_ECHO) {
+  if (maybe_parsed_icmp_type == ICMP_ECHO ||
+      maybe_parsed_icmp_type == ICMP_EXT_ECHO) {
     uint32_t maybe_parsed_echo_id = 0;
     uint32_t maybe_parsed_echo_seq = 0;
     if (argc > 1) {
@@ -68,12 +70,17 @@ configuration_result_t generate_configuration(int argc, const char **args) {
         configuration_result.errstr = err;
         return configuration_result;
       }
+
+      // TODO: Warn about the sequence being too big?
+      if (maybe_parsed_icmp_type == ICMP_EXT_ECHO) {
+        maybe_parsed_echo_seq <<= 8;
+      }
     }
     maybe_parsed_icmp_rest =
         htonl((maybe_parsed_echo_id << 16) | maybe_parsed_echo_seq);
   }
 
-  icmp_cookie_t *cookie = (icmp_cookie_t *)calloc(1, sizeof(icmp_cookie_t));
+  icmp_extension_cookie_t *cookie = (icmp_extension_cookie_t *)calloc(1, sizeof(icmp_extension_cookie_t));
 
   cookie->type = maybe_parsed_icmp_type;
   cookie->rest = maybe_parsed_icmp_rest;
@@ -86,7 +93,20 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
   generate_result_t result;
 
   if (cookie != NULL) {
-    icmp_cookie_t *icmp_cookie = (icmp_cookie_t *)cookie;
+    icmp_extension_cookie_t *icmp_cookie = (icmp_extension_cookie_t *)cookie;
+
+    uint8_t pisa_program_family = PLINEY_IPVERSION4;
+    if (!pisa_program_find_target_family(program, &pisa_program_family)) {
+      warn("ICMP plugin cannot determine the program's IP version.");
+    }
+
+    // If the family is version 6, we will need to change the code.
+    if (icmp_cookie->type == ICMP_EXT_ECHO &&
+        pisa_program_family == PLINEY_IPVERSION6) {
+      debug("Updated ICMP echo request type to type specific for IPv6.");
+      icmp_cookie->type = ICMPV6_EXT_ECHO_REQUEST;
+    }
+
     pisa_inst_t set_icmp_type_inst;
     memset(&set_icmp_type_inst, 0, sizeof(pisa_inst_t));
     set_icmp_type_inst.op = SET_FIELD;
@@ -129,7 +149,12 @@ usage_result_t usage() {
   // clang-format off
   result.params = "<echo> [TYPE_SPECIFIC_OPTIONS]";
   result.usage = 
-  "Create an ICMP packet with the given type. Depending ...";
+  "Create an ICMP packet with the given type. Depending on\n"
+  "the type, TYPE_SPECIFIC_OPTIONS will be different:\n"
+  "echo: [ID] [SEQUENCE]\n"
+  "      The id and sequence in the request packet.\n"
+  "extended-echo: [ID] [SEQUENCE]\n"
+  "               The id and sequence in the request packet.";
   // clang-format on
 
   return result;
