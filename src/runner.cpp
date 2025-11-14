@@ -251,7 +251,7 @@ bool PacketRunner::execute(Compilation &compilation) {
             break;
           }
 
-          case BODY: {
+          case APPLICATION_BODY: {
             PISA_COWARDLY_VERSION_CHECK(
                 PTR, program->insts[insn_idx].value.tpe,
                 ("Will not set a body from a non-pointer value in a "
@@ -669,7 +669,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
                     });
             break;
           }
-          case BODY: {
+          case APPLICATION_BODY: {
             if (program->insts[insn_idx].value.tpe != PTR) {
               Logger::ActiveLogger()->log(
                   Logger::WARN,
@@ -1037,7 +1037,7 @@ bool XdpRunner::execute(Compilation &compilation) {
             xdp_ipv4_code += std::format("ip->tos |= {};\n", ecn);
             break;
           }
-          case BODY:
+          case APPLICATION_BODY:
           case IPV6_ECN:
           case IPV6_DSCP:
           case IPV4_DSCP:

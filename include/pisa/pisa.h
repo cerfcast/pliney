@@ -93,7 +93,7 @@ typedef enum {
   ICMP_TYPE,
   ICMP_CODE,
   ICMP_DEPENDS,
-  BODY,
+  APPLICATION_BODY,
   PISA_FIELD_MAX,
 } pisa_field_t;
 

@@ -97,7 +97,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
 
     pisa_inst_t set_body_inst;
     set_body_inst.op = SET_FIELD;
-    set_body_inst.fk.field = BODY;
+    set_body_inst.fk.field = APPLICATION_BODY;
     set_body_inst.value.tpe = PTR;
     set_body_inst.value.value.ptr.data = body->data;
     set_body_inst.value.value.ptr.len = body->len;

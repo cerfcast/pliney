@@ -187,7 +187,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
     pisa_inst_t set_icmp_object_inst;
     memset(&set_icmp_object_inst, 0, sizeof(pisa_inst_t));
     set_icmp_object_inst.op = SET_FIELD;
-    set_icmp_object_inst.fk.field = BODY;
+    set_icmp_object_inst.fk.field = APPLICATION_BODY;
     set_icmp_object_inst.value.tpe = PTR;
     set_icmp_object_inst.value.value.ptr.data = icmp_cookie->object.data;
     set_icmp_object_inst.value.value.ptr.len = icmp_cookie->object.len;
