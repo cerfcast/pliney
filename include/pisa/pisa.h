@@ -11,16 +11,21 @@
 extern "C" {
 #endif
 
-typedef struct {
-  uint8_t type;
-  uint8_t len;
-  uint8_t *data;
-} extension_p;
+typedef union {
+  uint8_t opt;
+  uint8_t ext_type;
+} pisa_ip_opt_or_ext_type_t;
 
 typedef struct {
-  size_t extensions_count;
-  extension_p **extensions_values;
-} extensions_p;
+  pisa_ip_opt_or_ext_type_t oe;
+  uint8_t len;
+  uint8_t *data;
+} pisa_ip_opt_ext_t;
+
+typedef struct {
+  size_t opts_exts_count;
+  pisa_ip_opt_ext_t *opt_ext_values;
+} pisa_ip_opts_exts_t;
 
 typedef struct {
   uint8_t diffserv;
@@ -47,7 +52,7 @@ typedef struct {
 typedef struct {
   data_p all;
   data_p ip;
-  data_p ip_options;
+  data_p ip_opts_exts;
   data_p transport;
   data_p transport_options;
   data_p body;
@@ -57,6 +62,8 @@ typedef struct {
 typedef enum {
   SET_META,
   SET_FIELD,
+  SET_IP_OPT_EXT,
+  ADD_IP_OPT_EXT,
   SET_TRANSPORT_EXTENSION,
   ADD_TRANSPORT_EXTENSION,
   SET_OFFSET,
@@ -105,6 +112,8 @@ typedef enum {
   SIZE_T,
   PTR,
   CALLBACK,
+  IP_OPT,
+  IP_EXT,
 } pisa_value_type_t;
 
 typedef struct {
@@ -127,6 +136,8 @@ typedef struct {
     size_t szt;
     pisa_ptr_value_t ptr;
     pisa_callback_t callback;
+    pisa_ip_opt_ext_t opt;
+    pisa_ip_opt_ext_t ext;
   } value;
 } pisa_value_t;
 

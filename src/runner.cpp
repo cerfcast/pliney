@@ -4,6 +4,7 @@
 
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
+#include "pisa/exthdrs.h"
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
 #include "pisa/utils.h"
@@ -112,8 +113,8 @@ bool PacketRunner::execute(Compilation &compilation) {
 
   // There could be some options that exist between the header and the
   // transport!
-  size_t ipoptionhdr_len{0};
-  uint8_t *ipoptionhdr{nullptr};
+  size_t ip_opt_ext_hdr_len{0};
+  uint8_t *ip_opts_exts_hdr{nullptr};
 
   // Let's say that there is a transport header -- make one of the appropriate
   // size.
@@ -384,21 +385,21 @@ bool PacketRunner::execute(Compilation &compilation) {
     typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
   }
 
-  size_t total_len{iphdr_len + ipoptionhdr_len + transport_len +
+  size_t total_len{iphdr_len + ip_opt_ext_hdr_len + transport_len +
                    transportoptionhdr_len + pgm_body.value.ptr.len};
   uint8_t *packet{(uint8_t *)calloc(total_len, sizeof(uint8_t))};
 
   // Copy the IP header into the consolidated packet.
   memcpy(packet, iphdr, iphdr_len);
   // Copy the ip options header into the consolidated header.
-  memcpy(packet + iphdr_len, ipoptionhdr, ipoptionhdr_len);
+  memcpy(packet + iphdr_len, ip_opts_exts_hdr, ip_opt_ext_hdr_len);
   // Copy the transport into the consolidated header.
-  memcpy(packet + iphdr_len + ipoptionhdr_len, transport, transport_len);
+  memcpy(packet + iphdr_len + ip_opt_ext_hdr_len, transport, transport_len);
   // Copy the transport options into the consolidated header.
-  memcpy(packet + iphdr_len + ipoptionhdr_len + transport_len,
+  memcpy(packet + iphdr_len + ip_opt_ext_hdr_len + transport_len,
          transportoptionhdr, transportoptionhdr_len);
   // Copy the body into the consolidated header!
-  memcpy(packet + iphdr_len + ipoptionhdr_len + transport_len +
+  memcpy(packet + iphdr_len + ip_opt_ext_hdr_len + transport_len +
              transportoptionhdr_len,
          pgm_body.value.ptr.data, pgm_body.value.ptr.len);
 
@@ -411,25 +412,26 @@ bool PacketRunner::execute(Compilation &compilation) {
   compilation.packet.ip.len = iphdr_len;
 
   // ... there are views for different pieces ...
-  compilation.packet.ip_options.data = ipoptionhdr;
-  compilation.packet.ip_options.len = ipoptionhdr_len;
+  compilation.packet.ip_opts_exts.data = ip_opts_exts_hdr;
+  compilation.packet.ip_opts_exts.len = ip_opt_ext_hdr_len;
 
   // ... and ...
-  compilation.packet.transport.data = packet + iphdr_len + ipoptionhdr_len;
+  compilation.packet.transport.data = packet + iphdr_len + ip_opt_ext_hdr_len;
   compilation.packet.transport.len = transport_len;
 
   compilation.packet.transport_options.data =
-      packet + iphdr_len + ipoptionhdr_len + transport_len;
+      packet + iphdr_len + ip_opt_ext_hdr_len + transport_len;
   compilation.packet.transport_options.len = transportoptionhdr_len;
 
   // ... and one more!
-  compilation.packet.body.data = packet + iphdr_len + ipoptionhdr_len +
+  compilation.packet.body.data = packet + iphdr_len + ip_opt_ext_hdr_len +
                                  transport_len + transportoptionhdr_len;
   compilation.packet.body.len = pgm_body.value.ptr.len;
 
   // Free what we allocated locally.
   free(iphdr);
-  free(ipoptionhdr);
+  // TODO
+  // free(ip_opts_exts_hdr);
   free(transport);
   free(transportoptionhdr);
 
@@ -456,7 +458,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -585,6 +587,16 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
         // During execution, SET_META operations are noops.
         break;
       }
+      case ADD_IP_OPT_EXT: {
+        if (program->insts[insn_idx].value.tpe == IP_EXT) {
+          auto ip_ext{program->insts[insn_idx].value.value.ext};
+          add_ip_opt_ext(&m_ip_opts_exts_hdr, ip_ext);
+        } else {
+          Logger::ActiveLogger()->log(
+              Logger::ERROR, std::format("IP Options are not yet supported"));
+        }
+        break;
+      } // ADD_IP_OPT_EXT
       case SET_FIELD: {
         switch (program->insts[insn_idx].fk.field) {
           case IPV4_TARGET: {
@@ -797,121 +809,64 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     };
   }
 
-#if 0
-  // Now, do I have to connect?
-  std::optional<Swapsockopt<int>> toss{};
-  int tos = (packet.header.diffserv << 2) | packet.header.cong;
+  memset(&m_msg, 0, sizeof(struct msghdr));
+  m_iov.iov_base = nullptr;
+  m_iov.iov_len = 0;
 
-  if (tos != 0) {
-    if (packet.target.family == PLINEY_IPVERSION6) {
-      toss.emplace(socket, IPPROTO_IPV6, IPV6_TCLASS, tos);
-    } else {
-      toss.emplace(socket, IPPROTO_IP, IP_TOS, tos);
-    }
-    if (!toss->ok()) {
-      std::cerr << std::format(
-          "There was an error setting the TOS on the socket: {}\n",
-          std::strerror(errno));
+  m_msg.msg_control = nullptr;
+  m_msg.msg_controllen = 0;
+
+  if (m_ip_opts_exts_hdr.opts_exts_count > 0) {
+    pisa_ip_opt_ext_t coalesced_ext{};
+    auto copied_ext_hdrs{copy_ip_opts_exts(m_ip_opts_exts_hdr)};
+    if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_HOPOPTS)) {
+      Logger::ActiveLogger()->log(
+          Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
       return false;
     }
-  }
 
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("Trying to send a packet to {}.",
-                                          stringify_ip(packet.target)));
+    if (copied_ext_hdrs.opts_exts_count > 0) {
+      for (auto extension_i{0}; extension_i < copied_ext_hdrs.opts_exts_count;
+           extension_i++) {
 
-  if (packet.transport == INET_STREAM) {
-    auto connect_result = connect(socket, destination, destination_len);
-    if (connect_result < 0) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, std::format("Error occurred sending data: could not "
-                                     "connect the socket: {}",
-                                     strerror(errno)));
-      return false;
-    }
-    if (write(socket, packet.body.data, packet.body.len) < 0) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, std::format("Error occurred sending data: could not "
-                                     "write the body of the packet: {}",
-                                     strerror(errno)));
-    };
-  } else if (packet.transport == INET_DGRAM) {
-
-    struct msghdr msg {};
-    struct iovec iov {};
-
-    memset(&msg, 0, sizeof(struct msghdr));
-    iov.iov_base = packet.body.data;
-    iov.iov_len = packet.body.len;
-
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
-
-    msg.msg_name = destination;
-    msg.msg_namelen = destination_len;
-
-    msg.msg_control = nullptr;
-    msg.msg_controllen = 0;
-
-    extensions_p header_extensions{.extensions_count = 0,
-                                   .extensions_values = nullptr};
-    if (packet.target.family == PLINEY_IPVERSION6) {
-      header_extensions = copy_extensions(packet.header_extensions);
-      if (!coalesce_extensions(&header_extensions, IPV6_HOPOPTS)) {
+        auto extension_header_len =
+            ((2 /* for extension header T/L */ +
+              copied_ext_hdrs.opt_ext_values[extension_i].len + (8 - 1)) /
+             8) *
+            8;
         Logger::ActiveLogger()->log(
-            Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
-        return false;
-      }
-      if (header_extensions.extensions_count > 0) {
-        for (auto extension_i{0};
-             extension_i < header_extensions.extensions_count; extension_i++) {
+            Logger::DEBUG,
+            std::format("extension_header_len: {}", extension_header_len));
 
-          auto extension_header_len =
-              ((2 /* for extension header T/L */ +
-                header_extensions.extensions_values[extension_i]->len +
-                (8 - 1)) /
-               8) *
-              8;
-          Logger::ActiveLogger()->log(
-              Logger::DEBUG,
-              std::format("extension_header_len: {}", extension_header_len));
+        extend_cmsg(&m_msg, extension_header_len);
 
-          extend_cmsg(&msg, extension_header_len);
+        struct cmsghdr *hdr = CMSG_FIRSTHDR(&m_msg);
+        hdr->cmsg_level = SOL_IPV6;
+        hdr->cmsg_type =
+            copied_ext_hdrs.opt_ext_values[extension_i].oe.ext_type;
+        CMSG_DATA(hdr)[0] = 0; // Next header
+        CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
 
-          struct cmsghdr *hdr = CMSG_FIRSTHDR(&msg);
-          hdr->cmsg_level = SOL_IPV6;
-          hdr->cmsg_type =
-              header_extensions.extensions_values[extension_i]->type;
-          CMSG_DATA(hdr)[0] = 0; // Next header
-          CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
-
-          // HbH Extension Header Data.
-          memcpy(CMSG_DATA(hdr) + 2,
-                 header_extensions.extensions_values[extension_i]->data,
-                 header_extensions.extensions_values[extension_i]->len);
-        }
+        // HbH Extension Header Data.
+        memcpy(CMSG_DATA(hdr) + 2,
+               copied_ext_hdrs.opt_ext_values[extension_i].data,
+               copied_ext_hdrs.opt_ext_values[extension_i].len);
       }
     }
-
-    int write_result = sendmsg(socket, &msg, 0);
-
-    free_extensions(header_extensions);
-
-    if (msg.msg_controllen > 0) {
-      free(msg.msg_control);
-    }
-#endif
-
-#if 0
-  } else {
-    Logger::ActiveLogger()->log(
-        Logger::ERROR,
-        std::format("Error occurred sending data: the destination address "
-                    "had an invalid stream type.",
-                    strerror(errno)));
+    free_ip_opts_exts(copied_ext_hdrs);
   }
-#endif
+
+  m_msg.msg_iov = &m_iov;
+  m_msg.msg_iovlen = 0;
+
+  free_ip_opts_exts(m_ip_opts_exts_hdr);
   return true;
+}
+
+SocketBuilderRunner::~SocketBuilderRunner() {
+  if (m_msg.msg_control) {
+    free(m_msg.msg_control);
+  }
 }
 
 bool CliRunner::execute(Compilation &compilation) {
@@ -929,28 +884,18 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  struct msghdr msg {};
-  struct iovec iov {};
-
-  memset(&msg, 0, sizeof(struct msghdr));
-  iov.iov_base = nullptr;
-  iov.iov_len = 0;
-
   if (compilation.packet.body.len) {
-    iov.iov_base = compilation.packet.body.data;
-    iov.iov_len = compilation.packet.body.len;
+    m_iov.iov_base = compilation.packet.body.data;
+    m_iov.iov_len = compilation.packet.body.len;
   }
 
-  msg.msg_iov = &iov;
-  msg.msg_iovlen = 1;
+  m_msg.msg_iov = &m_iov;
+  m_msg.msg_iovlen = 1;
 
-  msg.msg_name = m_destination->get();
-  msg.msg_namelen = m_destination_len;
+  m_msg.msg_name = m_destination->get();
+  m_msg.msg_namelen = m_destination_len;
 
-  msg.msg_control = nullptr;
-  msg.msg_controllen = 0;
-
-  int write_result = sendmsg(m_socket, &msg, 0);
+  int write_result = sendmsg(m_socket, &m_msg, 0);
 
   if (write_result < 0) {
     auto error_msg = std::format("Error occurred sending data: could not "
@@ -1102,7 +1047,7 @@ bool ForkRunner::execute(Compilation &compilation) {
                                 &pisa_exec_inst, EXEC)) {
     pisa_callback_t exec_func{
         (pisa_callback_t)(pisa_exec_inst->value.value.callback.callback)};
-    exec_func(m_socket, pisa_exec_inst->value.value.callback.cookie);
+    exec_func(m_socket, &m_msg, pisa_exec_inst->value.value.callback.cookie);
     last_pisa_exec_inst += 1;
   }
   return true;

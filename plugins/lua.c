@@ -18,6 +18,7 @@
 #include "lua.h"
 #include "lualib.h"
 #include "luasocket/luasocket.h"
+
 struct lua_timeout {
   double block;
   double total;
@@ -46,6 +47,7 @@ struct lua_udp {
   int socket;
   struct lua_timeout timeout;
   int family;
+  struct msghdr *pliney_msghdr;
 };
 
 struct lua_tcp {
@@ -109,7 +111,68 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-void do_lua_exec(int socket, void *cookie) {
+// The C function that implements udp:sendmsg when called on the pliney socket.
+static int pliney_lua_sendmsg(lua_State *L) {
+  struct lua_udp *udp =
+      (struct lua_udp *)luaL_testudata(L, 1, "udp{connected}");
+
+  if (!udp) {
+    lua_pushnil(L);
+    lua_pushstring(L, "sendmsg called on a non-UDP-connected socket.");
+    return 2;
+  }
+
+  size_t count = 0, sent = 0;
+  const char *data = luaL_checklstring(L, 2, &count);
+
+  udp->pliney_msghdr->msg_iov->iov_base = (void *)data;
+  udp->pliney_msghdr->msg_iov->iov_len = count;
+  udp->pliney_msghdr->msg_iovlen = 1;
+  sent = sendmsg(udp->socket, udp->pliney_msghdr, 0);
+
+  if (sent < 0) {
+    lua_pushnil(L);
+    lua_pushstring(L, "Error occurred.");
+    return 2;
+  }
+
+  lua_pushnumber(L, (lua_Number)sent);
+  return 1;
+}
+
+
+// A local helper function for debugging the contents of the lua
+// interpreter stack.
+static void stackDump(lua_State *L) {
+  int i;
+  int top = lua_gettop(L);
+  printf("Lua Stack: ");
+  for (i = 1; i <= top; i++) { /* repeat for each level */
+    int t = lua_type(L, i);
+    switch (t) {
+
+      case LUA_TSTRING: /* strings */
+        printf("`%s'", lua_tostring(L, i));
+        break;
+
+      case LUA_TBOOLEAN: /* booleans */
+        printf(lua_toboolean(L, i) ? "true" : "false");
+        break;
+
+      case LUA_TNUMBER: /* numbers */
+        printf("%g", lua_tonumber(L, i));
+        break;
+
+      default: /* other values */
+        printf("%s", lua_typename(L, t));
+        break;
+    }
+    printf("  "); /* put a separator */
+  }
+  printf("\n"); /* end the listing */
+}
+
+void do_lua_exec(int socket, struct msghdr *msghdr, void *cookie) {
   data_p *source_data = (data_p *)cookie;
 
   // First, we have to get the protocol (either UDP or TCP).
@@ -121,24 +184,36 @@ void do_lua_exec(int socket, void *cookie) {
     return;
   }
 
+  // Load in the Lua socket library.
   lua_State *lstate = luaL_newstate();
   luaL_openlibs(lstate);
-
   luaL_requiref(lstate, "socket", luaopen_socket_core, 1);
-
   lua_pop(lstate, 1);
 
+  // Depending on whether the socket is UDP or TCP, do proper configuration.
   if (protocol == IPPROTO_UDP) {
+    // Add a sendmsg method to the udp class for the Pliney socket.
+    luaL_getmetatable(lstate, "udp{connected}");   // 1
+    lua_getfield(lstate, -1, "__index");           // 2
+    lua_pushstring(lstate, "sendmsg");             // 3
+    lua_pushcfunction(lstate, pliney_lua_sendmsg); // 4
+    lua_settable(lstate, -3);                      // 2
+    lua_pop(lstate, 2);                            // 0
+
     struct lua_udp *lua_udp_socket =
-        (struct lua_udp *)lua_newuserdata(lstate, sizeof(struct lua_udp));
+        (struct lua_udp *)lua_newuserdata(lstate, sizeof(struct lua_udp)); // 1
+    lua_udp_socket->pliney_msghdr = msghdr;
     lua_udp_socket->socket = socket;
     lua_udp_socket->family = AF_INET;
     lua_udp_socket->timeout.block = -1;
     lua_udp_socket->timeout.total = -1;
-    luaL_getmetatable(lstate, "udp{connected}");
-    lua_setmetatable(lstate, -2);
-  } else {
 
+    luaL_getmetatable(lstate, "udp{connected}"); // 2
+    lua_setmetatable(lstate, -2);                // 1
+
+    // Leave the socket on the stack!
+  } else {
+    // Nothing special ... just make the socket a connected TCP socket.
     lua_getglobal(lstate, "socket");
     lua_getfield(lstate, -1, "tcp");
     lua_call(lstate, 0, 1);
@@ -149,10 +224,14 @@ void do_lua_exec(int socket, void *cookie) {
     lua_tcp_socket->family = AF_INET;
     luaL_getmetatable(lstate, "tcp{client}");
     lua_setmetatable(lstate, -2);
+
+    // Leave the socket on the stack!
   }
 
+  // Set the socket's name as PLINEY_SOCKET.
   lua_setglobal(lstate, "PLINEY_SOCKET");
 
+  // Run the user's program!
   if (luaL_loadstring(lstate, (const char *)source_data->data) == LUA_OK) {
     if (lua_pcall(lstate, 0, 0, 0) == LUA_OK) {
       lua_pop(lstate, lua_gettop(lstate));

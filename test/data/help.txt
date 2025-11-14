@@ -41,6 +41,15 @@ Plugin Usage:
 		Usage:
 		Set the differentiated services value of the DSCP field to
 		the specified value.
+	exthdr-padn
+		<dst, hbh> <SIZE> [BYTE]
+		Usage:
+		Add a PadN option to the destination or hop-by-hop
+		dst, hbh, respectively) IPv6 extension header with the
+		specified SIZE. Optionally specify the value of the
+		BYTEs in the padding. User is responsible for
+		guaranteeing that the sizes of all extension headers
+		meet alignment and other requirements.
 	hoplimit
 		<HL>
 		Usage:

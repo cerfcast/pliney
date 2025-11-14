@@ -43,8 +43,8 @@ struct Compilation {
       packet.ip.len = 0;
       packet.transport.data = nullptr;
       packet.transport.len = 0;
-      packet.ip_options.data = nullptr;
-      packet.ip_options.len = 0;
+      packet.ip_opts_exts.data = nullptr;
+      packet.ip_opts_exts.len = 0;
       packet.body.data = nullptr;
       packet.body.len = 0;
     }

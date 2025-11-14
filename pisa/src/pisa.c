@@ -122,6 +122,8 @@ const char *pisa_field_name(pisa_field_t field) {
 const char *__pisa_opcode_names[] = {
     "SET_META",
     "SET_FIELD",
+    "SET_IP_EXTENSION",
+    "ADD_IP_EXTENSION",
     "SET_TRANSPORT_EXTENSION",
     "ADD_TRANSPORT_EXTENSION",
     "SET_OFFSET",

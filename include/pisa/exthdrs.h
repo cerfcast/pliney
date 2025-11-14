@@ -1,22 +1,20 @@
 #ifndef _API_EXTHDRS_H
 #define _API_EXTHDRS_H
 
-#include "plugin.h"
-
-
+#include "pisa/pisa.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-bool add_extension(extensions_p *extensions, size_t *index);
-bool remove_extension(extensions_p *extensions, size_t index);
+bool add_ip_opt_ext(pisa_ip_opts_exts_t *extensions, pisa_ip_opt_ext_t opt_ext_to_add);
+bool remove_ip_opt_ext(pisa_ip_opts_exts_t *extensions, size_t index);
 
-bool find_first_extension(extensions_p extensions, size_t *index, uint8_t type);
-bool find_next_extension(extensions_p extensions, size_t *start_found, uint8_t type);
-bool coalesce_extensions(extensions_p *extensions, uint8_t type);
-extensions_p copy_extensions(extensions_p extensions);
-void free_extensions(extensions_p extensions);
-extension_p *copy_extension(extension_p *extension);
+bool find_first_ip_ext(pisa_ip_opts_exts_t extensions, size_t *index, uint8_t type);
+bool find_next_ip_ext(pisa_ip_opts_exts_t extensions, size_t *start_found, uint8_t type);
+bool coalesce_ip_opts_exts(pisa_ip_opts_exts_t *extensions, uint8_t type);
+pisa_ip_opts_exts_t copy_ip_opts_exts(pisa_ip_opts_exts_t extensions);
+void free_ip_opts_exts(pisa_ip_opts_exts_t extensions);
+pisa_ip_opt_ext_t *copy_ipextension(pisa_ip_opt_ext_t *extension);
 
 #ifdef __cplusplus
 }
