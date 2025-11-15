@@ -2,7 +2,7 @@
 
 export RUNNER_TEMP=/tmp/
 
-tests="raw_tests.sh local_help_tests.sh log_tests.sh lua/sanity_test.sh lua/http_tests.sh output_check/check.sh"
+tests="raw_tests.sh local_help_tests.sh log_tests.sh lua/sanity_test.sh lua/http_tests.sh lua/exthdr_test.sh output_check/check.sh"
 
 for i in ${tests}; do
 		echo "Running tests in ${i} ..."
