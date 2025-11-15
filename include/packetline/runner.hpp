@@ -50,7 +50,7 @@ public:
 };
 
 class ForkRunner : public SocketBuilderRunner {
-  using pisa_callback_t = void (*)(int, struct msghdr *, void *);
+  using pisa_callback_t = void (*)(int, void *);
 public:
   bool execute(Compilation &compilation) override;
 };

@@ -47,7 +47,6 @@ struct lua_udp {
   int socket;
   struct lua_timeout timeout;
   int family;
-  struct msghdr *pliney_msghdr;
 };
 
 struct lua_tcp {
@@ -111,39 +110,9 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-// The C function that implements udp:sendmsg when called on the pliney socket.
-static int pliney_lua_sendmsg(lua_State *L) {
-  struct lua_udp *udp =
-      (struct lua_udp *)luaL_testudata(L, 1, "udp{connected}");
-
-  if (!udp) {
-    lua_pushnil(L);
-    lua_pushstring(L, "sendmsg called on a non-UDP-connected socket.");
-    return 2;
-  }
-
-  size_t count = 0, sent = 0;
-  const char *data = luaL_checklstring(L, 2, &count);
-
-  udp->pliney_msghdr->msg_iov->iov_base = (void *)data;
-  udp->pliney_msghdr->msg_iov->iov_len = count;
-  udp->pliney_msghdr->msg_iovlen = 1;
-  sent = sendmsg(udp->socket, udp->pliney_msghdr, 0);
-
-  if (sent < 0) {
-    lua_pushnil(L);
-    lua_pushstring(L, "Error occurred.");
-    return 2;
-  }
-
-  lua_pushnumber(L, (lua_Number)sent);
-  return 1;
-}
-
-
 // A local helper function for debugging the contents of the lua
 // interpreter stack.
-static void stackDump(lua_State *L) {
+static void lua_stack_dump(lua_State *L) {
   int i;
   int top = lua_gettop(L);
   printf("Lua Stack: ");
@@ -172,7 +141,7 @@ static void stackDump(lua_State *L) {
   printf("\n"); /* end the listing */
 }
 
-void do_lua_exec(int socket, struct msghdr *msghdr, void *cookie) {
+void do_lua_exec(int socket, void *cookie) {
   data_p *source_data = (data_p *)cookie;
 
   // First, we have to get the protocol (either UDP or TCP).
@@ -192,17 +161,8 @@ void do_lua_exec(int socket, struct msghdr *msghdr, void *cookie) {
 
   // Depending on whether the socket is UDP or TCP, do proper configuration.
   if (protocol == IPPROTO_UDP) {
-    // Add a sendmsg method to the udp class for the Pliney socket.
-    luaL_getmetatable(lstate, "udp{connected}");   // 1
-    lua_getfield(lstate, -1, "__index");           // 2
-    lua_pushstring(lstate, "sendmsg");             // 3
-    lua_pushcfunction(lstate, pliney_lua_sendmsg); // 4
-    lua_settable(lstate, -3);                      // 2
-    lua_pop(lstate, 2);                            // 0
-
     struct lua_udp *lua_udp_socket =
         (struct lua_udp *)lua_newuserdata(lstate, sizeof(struct lua_udp)); // 1
-    lua_udp_socket->pliney_msghdr = msghdr;
     lua_udp_socket->socket = socket;
     lua_udp_socket->family = AF_INET;
     lua_udp_socket->timeout.block = -1;

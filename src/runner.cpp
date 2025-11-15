@@ -9,6 +9,7 @@
 #include "pisa/plugin.h"
 #include "pisa/utils.h"
 
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <format>
@@ -829,28 +830,50 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
       for (auto extension_i{0}; extension_i < copied_ext_hdrs.opts_exts_count;
            extension_i++) {
 
-        auto extension_header_len =
+        auto full_extension_header_len =
             ((2 /* for extension header T/L */ +
               copied_ext_hdrs.opt_ext_values[extension_i].len + (8 - 1)) /
              8) *
             8;
-        Logger::ActiveLogger()->log(
-            Logger::DEBUG,
-            std::format("extension_header_len: {}", extension_header_len));
 
-        extend_cmsg(&m_msg, extension_header_len);
+        auto full_extension_header{
+            (uint8_t *)calloc(full_extension_header_len, sizeof(uint8_t))};
 
-        struct cmsghdr *hdr = CMSG_FIRSTHDR(&m_msg);
-        hdr->cmsg_level = SOL_IPV6;
-        hdr->cmsg_type =
-            copied_ext_hdrs.opt_ext_values[extension_i].oe.ext_type;
-        CMSG_DATA(hdr)[0] = 0; // Next header
-        CMSG_DATA(hdr)[1] = (extension_header_len / 8) - 1;
-
-        // HbH Extension Header Data.
-        memcpy(CMSG_DATA(hdr) + 2,
+        full_extension_header[0] = 0; // Next header.
+        full_extension_header[1] = (full_extension_header_len / 8) - 1;
+        memcpy(full_extension_header + 2,
                copied_ext_hdrs.opt_ext_values[extension_i].data,
                copied_ext_hdrs.opt_ext_values[extension_i].len);
+        switch (copied_ext_hdrs.opt_ext_values[extension_i].oe.ext_type) {
+          case IPV6_HOPOPTS: {
+            auto result =
+                setsockopt(m_socket, IPPROTO_IPV6, IPV6_HOPOPTS,
+                           full_extension_header, full_extension_header_len);
+            if (result < 0) {
+              Logger::ActiveLogger()->log(
+                  Logger::ERROR,
+                  std::format("Error occurred setting hop-by-hop options: {}",
+                              strerror(errno)));
+            }
+            break;
+          }
+          case IPV6_DSTOPTS: {
+            auto result =
+                setsockopt(m_socket, IPPROTO_IPV6, IPV6_DSTOPTS,
+                           full_extension_header, full_extension_header_len);
+            if (result < 0) {
+              Logger::ActiveLogger()->log(
+                  Logger::ERROR,
+                  std::format("Error occurred setting destination options: {}",
+                              strerror(errno)));
+            }
+            break;
+          }
+          default:
+            assert(false);
+        }
+
+        free(full_extension_header);
       }
     }
     free_ip_opts_exts(copied_ext_hdrs);
@@ -1047,7 +1070,7 @@ bool ForkRunner::execute(Compilation &compilation) {
                                 &pisa_exec_inst, EXEC)) {
     pisa_callback_t exec_func{
         (pisa_callback_t)(pisa_exec_inst->value.value.callback.callback)};
-    exec_func(m_socket, &m_msg, pisa_exec_inst->value.value.callback.cookie);
+    exec_func(m_socket, pisa_exec_inst->value.value.callback.cookie);
     last_pisa_exec_inst += 1;
   }
   return true;
