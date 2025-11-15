@@ -42,7 +42,8 @@ configuration_result_t generate_configuration(int argc, const char **args) {
     return configuration_result;
   }
 
-  pisa_ip_opt_ext_t *new_extension = (pisa_ip_opt_ext_t *)calloc(1, sizeof(pisa_ip_opt_ext_t));
+  pisa_ip_opt_ext_t *new_extension =
+      (pisa_ip_opt_ext_t *)calloc(1, sizeof(pisa_ip_opt_ext_t));
 
   size_t hbh_size = strtol(args[1], NULL, 10);
   size_t total_hbh_size = 2 + hbh_size;
@@ -75,7 +76,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
   generate_result_t result;
 
   if (cookie) {
-    pisa_ip_opt_ext_t *extension = (pisa_ip_opt_ext_t*)cookie;
+    pisa_ip_opt_ext_t *extension = (pisa_ip_opt_ext_t *)cookie;
 
     pisa_inst_t add_ip_extension_inst;
     add_ip_extension_inst.op = ADD_IP_OPT_EXT;
