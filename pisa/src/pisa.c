@@ -78,7 +78,14 @@ bool pisa_program_find_target_value(pisa_program_t *pgm, pisa_value_t *value) {
       !pisa_program_find_field_value(pgm, IPV6_TARGET, value)) {
     return false;
   }
+  return true;
+}
 
+bool pisa_program_find_target_port_value(pisa_program_t *pgm, pisa_value_t *value) {
+  if (!pisa_program_find_field_value(pgm, IPV4_TARGET_PORT, value) &&
+      !pisa_program_find_field_value(pgm, IPV6_TARGET_PORT, value)) {
+    return false;
+  }
   return true;
 }
 

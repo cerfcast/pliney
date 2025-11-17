@@ -171,6 +171,7 @@ bool pisa_program_find_meta_value(pisa_program_t *pgm, const char *key,
                                   pisa_value_t *value);
 
 bool pisa_program_find_target_value(pisa_program_t *pgm, pisa_value_t *value);
+bool pisa_program_find_target_port_value(pisa_program_t *pgm, pisa_value_t *value);
 bool pisa_program_find_target_family(pisa_program_t *pgm, uint8_t *family);
 
 const char *pisa_field_name(pisa_field_t field);

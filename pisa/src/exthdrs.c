@@ -6,7 +6,7 @@
 #include <assert.h>
 
 bool add_ip_opt_ext(pisa_ip_opts_exts_t *extensions,
-                pisa_ip_opt_ext_t opt_ext_to_add) {
+                    pisa_ip_opt_ext_t opt_ext_to_add) {
   size_t current_size = extensions->opts_exts_count;
   pisa_ip_opt_ext_t *existing_opts_exts = extensions->opt_ext_values;
 
@@ -28,7 +28,8 @@ bool add_ip_opt_ext(pisa_ip_opts_exts_t *extensions,
 
   extensions->opts_exts_count++;
 
-  debug("Added an IP opt/ext; there are now %lu options/extensions", extensions->opts_exts_count);
+  debug("Added an IP opt/ext; there are now %lu options/extensions",
+        extensions->opts_exts_count);
 
   return true;
 }
@@ -96,14 +97,16 @@ void free_ip_opts_exts(pisa_ip_opts_exts_t extensions) {
   free(extensions.opt_ext_values);
 }
 
-bool coalesce_ip_opts_exts(pisa_ip_opts_exts_t *extensions, pisa_ip_opt_or_ext_type_t op_ext) {
+bool coalesce_ip_opts_exts(pisa_ip_opts_exts_t *extensions,
+                           pisa_ip_opt_or_ext_type_t op_ext) {
   size_t first_index = 0;
   if (!find_next_ip_ext(*extensions, &first_index, op_ext)) {
     return true;
   }
 
   debug("Coalescing IP extensions with type %d", op_ext.ext_type);
-  debug("Found first IP extension with type %d at %d!", op_ext.ext_type, first_index);
+  debug("Found first IP extension with type %d at %d!", op_ext.ext_type,
+        first_index);
 
   size_t next_index = first_index + 1;
 
@@ -127,5 +130,18 @@ bool coalesce_ip_opts_exts(pisa_ip_opts_exts_t *extensions, pisa_ip_opt_or_ext_t
   }
 
   debug("Done coalescing IP extensions.");
+  return true;
+}
+
+bool to_raw_ip_opts_exts(pisa_ip_opt_ext_t extension, size_t *len,
+                         uint8_t **raw) {
+  *len = ((2 /* for extension header T/L */ + extension.len + (8 - 1)) / 8) * 8;
+
+  *raw = (uint8_t *)calloc(*len, sizeof(uint8_t));
+
+  (*raw)[0] = 0; // Next header.
+  (*raw)[1] = (*len / 8) - 1;
+  memcpy(*raw + 2, extension.data, extension.len);
+
   return true;
 }

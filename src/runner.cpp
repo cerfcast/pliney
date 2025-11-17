@@ -4,6 +4,7 @@
 
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
+#include "pisa/compilation.hpp"
 #include "pisa/exthdrs.h"
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
@@ -11,6 +12,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <format>
 #include <fstream>
@@ -40,6 +42,42 @@
     break;                                                                     \
   }
 
+bool Runner::find_program_target_transport(const unique_pisa_program_t &program,
+                                           ip_addr_t &pisa_target_address,
+                                           Pliney::Transport &transport) {
+  pisa_value_t pisa_transport_value = {.tpe = BYTE};
+  pisa_value_t pgm_target;
+  pisa_value_t pgm_target_port;
+
+  // First, find the destination. The program must set one.
+  if (!pisa_program_find_target_value(program.get(), &pgm_target)) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR, "Could not find the target address in the PISA program");
+    return false;
+  }
+  // Second, find the destination port. The program may set one.
+  if (!pisa_program_find_target_value(program.get(), &pgm_target_port)) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR,
+        "Could not find the target address int the PISA program");
+    return false;
+  }
+
+  pisa_target_address = pgm_target.value.ipaddr;
+  pisa_target_address.port = pgm_target.value.ipaddr.port;
+
+  // Now, find out the transport type. The program must set one.
+  if (!pisa_program_find_meta_value(program.get(), "TRANSPORT",
+                                    &pisa_transport_value)) {
+    Logger::ActiveLogger()->log(
+        Logger::ERROR, "Could not find the transport type in the PISA program");
+    return false;
+  }
+  transport = Pliney::from_pisa_transport(pisa_transport_value.value.byte);
+
+  return true;
+}
+
 bool PacketRunner::execute(Compilation &compilation) {
 
   if (!compilation) {
@@ -49,30 +87,18 @@ bool PacketRunner::execute(Compilation &compilation) {
   auto &program = compilation.program;
 
   pisa_value_t pgm_body{};
-  pisa_value_t pgm_dest{};
-  pisa_value_t pisa_transport_value = {.tpe = BYTE};
+  ip_addr_t pisa_target_address{};
+  Pliney::Transport pisa_pgm_transport_type{};
 
-  // First, find the target of the packet. The program must set one.
-  if (!pisa_program_find_target_value(program.get(), &pgm_dest)) {
-    Logger::ActiveLogger()->log(Logger::ERROR,
-                                "Could not find the target value!");
-    compilation.error = "PISA program does not contain a target value.";
+  if (!find_program_target_transport(program, pisa_target_address,
+                                     pisa_pgm_transport_type)) {
+    compilation.error =
+        "Could not find the target and/or transport in the PISA program";
     return false;
   }
 
-  // Now, find out the transport type. The program must set one.
-  if (!pisa_program_find_meta_value(program.get(), "TRANSPORT",
-                                    &pisa_transport_value)) {
-    Logger::ActiveLogger()->log(Logger::ERROR,
-                                "Could not find the transport value!");
-    compilation.error = "PISA program does not contain a transport value.";
-    return false;
-  }
-
-  auto pisa_pgm_transport_type{
-      Pliney::from_pisa_transport(pisa_transport_value.value.byte)};
   auto pisa_pgm_ip_version{
-      Pliney::from_pisa_version(pgm_dest.value.ipaddr.family)};
+      Pliney::from_pisa_version(pisa_target_address.family)};
 
   Logger::ActiveLogger()->log(Logger::DEBUG,
                               std::format("PISA program IP version: {}",
@@ -114,8 +140,9 @@ bool PacketRunner::execute(Compilation &compilation) {
 
   // There could be some options that exist between the header and the
   // transport!
-  size_t ip_opt_ext_hdr_len{0};
-  uint8_t *ip_opts_exts_hdr{nullptr};
+  size_t ip_opt_ext_hdr_raw_len{0};
+  uint8_t *ip_opts_exts_hdr_raw{};
+  pisa_ip_opts_exts_t ip_opts_exts_hdr{};
 
   // Let's say that there is a transport header -- make one of the appropriate
   // size.
@@ -148,6 +175,16 @@ bool PacketRunner::execute(Compilation &compilation) {
                program->insts[insn_idx].value.value.ptr.data,
                transportoptionhdr_len);
       } // SET_TRANSPORT_EXTENSION
+      case ADD_IP_OPT_EXT: {
+        if (program->insts[insn_idx].value.tpe == IP_EXT) {
+          auto ip_ext{program->insts[insn_idx].value.value.ext};
+          add_ip_opt_ext(&ip_opts_exts_hdr, ip_ext);
+        } else {
+          Logger::ActiveLogger()->log(
+              Logger::ERROR, std::format("IP Options are not yet supported"));
+        }
+        break;
+      } // ADD_IP_OPT_EXT
       case SET_FIELD: {
         switch (program->insts[insn_idx].fk.field) {
           case ICMP_CODE: {
@@ -263,12 +300,11 @@ bool PacketRunner::execute(Compilation &compilation) {
             // Update the total length field of the IP header.
             if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
               struct iphdr *typed_hdr = (struct iphdr *)iphdr;
-              typed_hdr->tot_len = htons((typed_hdr->ihl * 4) + transport_len +
-                                         pgm_body.value.ptr.len);
+              typed_hdr->tot_len =
+                  htons((typed_hdr->ihl * 4) + pgm_body.value.ptr.len);
             } else {
               struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
-              typed_hdr->ip6_plen =
-                  htons(transport_len + pgm_body.value.ptr.len);
+              typed_hdr->ip6_plen = htons(pgm_body.value.ptr.len);
             }
 
             // Update the length of the transport (if udp)!
@@ -366,6 +402,89 @@ bool PacketRunner::execute(Compilation &compilation) {
     }
   }
 
+  if (ip_opts_exts_hdr.opts_exts_count > 0) {
+    uint8_t first_next_header{0};
+
+    auto copied_ext_hdrs{copy_ip_opts_exts(ip_opts_exts_hdr)};
+
+    pisa_ip_opt_ext_t coalesced_ext{};
+    if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_HOPOPTS)) {
+      Logger::ActiveLogger()->log(
+          Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
+      return false;
+    }
+
+    if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_DSTOPTS)) {
+      Logger::ActiveLogger()->log(
+          Logger::ERROR, "Error occurred coalescing destination options.");
+      return false;
+    }
+
+    if (copied_ext_hdrs.opts_exts_count > 0) {
+      for (auto extension_i{0}; extension_i < copied_ext_hdrs.opts_exts_count;
+           extension_i++) {
+        size_t full_extension_header_len{};
+        uint8_t *full_extension_header{};
+
+        // Do we need to set the first header?
+
+        if (first_next_header) {
+          switch (copied_ext_hdrs.opt_ext_values[extension_i].oe.ext_type) {
+            case IPV6_DSTOPTS: {
+              first_next_header = IPPROTO_DSTOPTS;
+              break;
+            }
+            case IPV6_HOPOPTS: {
+              first_next_header = IPPROTO_HOPOPTS;
+              break;
+            }
+          }
+        }
+
+        // Assume that this is the last extension header.
+        uint8_t next_header{17};
+        if (extension_i < copied_ext_hdrs.opts_exts_count - 1) {
+          switch (copied_ext_hdrs.opt_ext_values[extension_i + 1].oe.ext_type) {
+            case IPV6_DSTOPTS: {
+              next_header = IPPROTO_DSTOPTS;
+              break;
+            }
+            case IPV6_HOPOPTS: {
+              next_header = IPPROTO_HOPOPTS;
+              break;
+            }
+          };
+        }
+
+        if (!to_raw_ip_opts_exts(copied_ext_hdrs.opt_ext_values[extension_i],
+                                 &full_extension_header_len,
+                                 &full_extension_header)) {
+          // TODO
+        }
+
+        full_extension_header[0] = next_header;
+
+        ip_opts_exts_hdr_raw = (uint8_t *)realloc(
+            ip_opts_exts_hdr_raw,
+            (ip_opt_ext_hdr_raw_len + full_extension_header_len) *
+                sizeof(uint8_t));
+        memcpy(ip_opts_exts_hdr_raw + ip_opt_ext_hdr_raw_len,
+               full_extension_header, full_extension_header_len);
+
+        ip_opt_ext_hdr_raw_len += full_extension_header_len;
+
+        free(full_extension_header);
+      }
+    }
+    free_ip_opts_exts(copied_ext_hdrs);
+
+    if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
+      struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
+      typed_hdr->ip6_nxt = first_next_header;
+    }
+  }
+  free_ip_opts_exts(ip_opts_exts_hdr);
+
   // If we have a UDP packet (for v6), we _must_ calculate the checksum.
   if (pisa_pgm_transport_type == Pliney::Transport::UDP &&
       pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
@@ -386,21 +505,35 @@ bool PacketRunner::execute(Compilation &compilation) {
     typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
   }
 
-  size_t total_len{iphdr_len + ip_opt_ext_hdr_len + transport_len +
+  // Now that we are sure what the contents of the packet hold, we _may_
+  // need to update the len!
+  if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
+    struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
+    typed_hdr->ip6_plen =
+        htons(ntohs(typed_hdr->ip6_plen) + ip_opt_ext_hdr_raw_len +
+              transport_len + transportoptionhdr_len);
+  } else {
+    struct iphdr *typed_hdr{reinterpret_cast<struct iphdr *>(iphdr)};
+    typed_hdr->tot_len =
+        htons(ntohs(typed_hdr->tot_len) + ip_opt_ext_hdr_raw_len +
+              transport_len + transportoptionhdr_len);
+  }
+
+  size_t total_len{iphdr_len + ip_opt_ext_hdr_raw_len + transport_len +
                    transportoptionhdr_len + pgm_body.value.ptr.len};
   uint8_t *packet{(uint8_t *)calloc(total_len, sizeof(uint8_t))};
 
   // Copy the IP header into the consolidated packet.
   memcpy(packet, iphdr, iphdr_len);
   // Copy the ip options header into the consolidated header.
-  memcpy(packet + iphdr_len, ip_opts_exts_hdr, ip_opt_ext_hdr_len);
+  memcpy(packet + iphdr_len, ip_opts_exts_hdr_raw, ip_opt_ext_hdr_raw_len);
   // Copy the transport into the consolidated header.
-  memcpy(packet + iphdr_len + ip_opt_ext_hdr_len, transport, transport_len);
+  memcpy(packet + iphdr_len + ip_opt_ext_hdr_raw_len, transport, transport_len);
   // Copy the transport options into the consolidated header.
-  memcpy(packet + iphdr_len + ip_opt_ext_hdr_len + transport_len,
+  memcpy(packet + iphdr_len + ip_opt_ext_hdr_raw_len + transport_len,
          transportoptionhdr, transportoptionhdr_len);
   // Copy the body into the consolidated header!
-  memcpy(packet + iphdr_len + ip_opt_ext_hdr_len + transport_len +
+  memcpy(packet + iphdr_len + ip_opt_ext_hdr_raw_len + transport_len +
              transportoptionhdr_len,
          pgm_body.value.ptr.data, pgm_body.value.ptr.len);
 
@@ -413,26 +546,27 @@ bool PacketRunner::execute(Compilation &compilation) {
   compilation.packet.ip.len = iphdr_len;
 
   // ... there are views for different pieces ...
-  compilation.packet.ip_opts_exts.data = ip_opts_exts_hdr;
-  compilation.packet.ip_opts_exts.len = ip_opt_ext_hdr_len;
+  compilation.packet.ip_opts_exts.data = packet + iphdr_len;
+  compilation.packet.ip_opts_exts.len = ip_opt_ext_hdr_raw_len;
 
   // ... and ...
-  compilation.packet.transport.data = packet + iphdr_len + ip_opt_ext_hdr_len;
+  compilation.packet.transport.data =
+      packet + iphdr_len + ip_opt_ext_hdr_raw_len;
   compilation.packet.transport.len = transport_len;
 
   compilation.packet.transport_options.data =
-      packet + iphdr_len + ip_opt_ext_hdr_len + transport_len;
+      packet + iphdr_len + ip_opt_ext_hdr_raw_len + transport_len;
   compilation.packet.transport_options.len = transportoptionhdr_len;
 
   // ... and one more!
-  compilation.packet.body.data = packet + iphdr_len + ip_opt_ext_hdr_len +
+  compilation.packet.body.data = packet + iphdr_len + ip_opt_ext_hdr_raw_len +
                                  transport_len + transportoptionhdr_len;
   compilation.packet.body.len = pgm_body.value.ptr.len;
 
   // Free what we allocated locally.
   free(iphdr);
   // TODO
-  // free(ip_opts_exts_hdr);
+  free(ip_opts_exts_hdr_raw);
   free(transport);
   free(transportoptionhdr);
 
@@ -453,13 +587,13 @@ bool PacketObserverRunner::execute(Compilation &compilation) {
 }
 
 bool PacketSenderRunner::execute(Compilation &compilation) {
-  if (!PacketRunner::execute(compilation)) {
+  if (!PacketObserverRunner::execute(compilation)) {
     return false;
   }
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -497,6 +631,204 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
   return true;
 }
 
+bool SocketBuilderRunner::execute_set_field(
+    Compilation &compilation, pisa_inst_t instruction,
+    pisa_value_t &pisa_pgm_body, std::optional<ip_addr_t> &maybe_pgm_source,
+    ip_addr_t pliney_destination) {
+
+  switch (instruction.fk.field) {
+    default: {
+      Logger::ActiveLogger()->log(
+          Logger::WARN,
+          std::format(
+              "Socket Builder Runner does not handle setting the field {}",
+              pisa_field_name(instruction.fk.field)));
+      break;
+    }
+    case IPV4_TARGET_PORT:
+    case IPV6_TARGET_PORT:
+    case IPV4_TARGET:
+    case IPV6_TARGET: {
+      break;
+    }
+    case IPV4_SOURCE: {
+      PISA_COWARDLY_VERSION_CHECK(
+          PLINEY_IPVERSION4, pliney_destination.family,
+          "Will not set the IPv4 source on a non-IPv4 packet");
+
+      auto addr = instruction.value.value.ipaddr.addr;
+      auto family = instruction.value.value.ipaddr.family;
+
+      maybe_pgm_source =
+          maybe_pgm_source
+              .or_else([]() { return std::optional<ip_addr_t>{ip_addr_t{}}; })
+              .transform([&addr, &family](auto existing) {
+                existing.addr = addr;
+                existing.family = family;
+                return existing;
+              });
+      break;
+    }
+    case IPV4_SOURCE_PORT: {
+      PISA_COWARDLY_VERSION_CHECK(
+          PLINEY_IPVERSION4, pliney_destination.family,
+          "Will not set the IPv4 source port on a non-IPv4 packet");
+      auto port = instruction.value.value.ipaddr.port;
+
+      maybe_pgm_source =
+          maybe_pgm_source
+              .or_else([]() { return std::optional<ip_addr_t>{ip_addr_t{}}; })
+              .transform([&port](auto existing) {
+                existing.port = port;
+                return existing;
+              });
+      break;
+    }
+    case IPV6_SOURCE: {
+      PISA_COWARDLY_VERSION_CHECK(
+          PLINEY_IPVERSION6, pliney_destination.family,
+          "Will not set the IPv6 source on a non-IPv6 packet");
+
+      auto addr = instruction.value.value.ipaddr.addr;
+      auto family = instruction.value.value.ipaddr.family;
+
+      maybe_pgm_source =
+          maybe_pgm_source
+              .or_else([]() { return std::optional<ip_addr_t>{ip_addr_t{}}; })
+              .transform([&addr, &family](auto existing) {
+                existing.addr = addr;
+                existing.family = family;
+                return existing;
+              });
+      break;
+    }
+    case IPV6_SOURCE_PORT: {
+      PISA_COWARDLY_VERSION_CHECK(
+          PLINEY_IPVERSION6, pliney_destination.family,
+          "Will not set the IPv6 source port on a non-IPv6 packet");
+      auto port = instruction.value.value.ipaddr.port;
+
+      maybe_pgm_source =
+          maybe_pgm_source
+              .or_else([]() { return std::optional<ip_addr_t>{ip_addr_t{}}; })
+              .transform([&port](auto existing) {
+                existing.port = port;
+                return existing;
+              });
+      break;
+    }
+    case APPLICATION_BODY: {
+      if (instruction.value.tpe != PTR) {
+        std::string error = "Will not set a body from a non-pointer value.";
+        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        compilation.error = error;
+        return false;
+      };
+      pisa_pgm_body = instruction.value;
+      break;
+    }
+    case IPV6_ECN:
+    case IPV4_ECN: {
+      int ecn = instruction.value.value.byte;
+
+      uint8_t set_type = instruction.fk.field == IPV6_ECN ? PLINEY_IPVERSION6
+                                                          : PLINEY_IPVERSION4;
+      if (pliney_destination.family != set_type) {
+        // Better error message.
+        Logger::ActiveLogger()->log(
+            Logger::WARN, std::format("Will not set ECN value on socket "
+                                      "with mismatched IP version"));
+        break;
+      }
+      if (m_toss) {
+        (*m_toss).again(ecn, 0x3);
+      } else {
+        if (pliney_destination.family == PLINEY_IPVERSION6) {
+          m_toss.emplace(m_socket, IPPROTO_IPV6, IPV6_TCLASS, ecn, 0x3);
+        } else {
+          m_toss.emplace(m_socket, IPPROTO_IP, IP_TOS, ecn, 0x3);
+        }
+      }
+      if (!m_toss->ok()) {
+        std::string error{std::format(
+            "There was an error setting the ECN on the socket: {}\n",
+            std::strerror(errno))};
+        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        compilation.error = error;
+        return false;
+      }
+      break;
+    }
+    case IPV6_DSCP:
+    case IPV4_DSCP: {
+      int dscp = instruction.value.value.byte;
+
+      uint8_t set_type = instruction.fk.field == IPV6_DSCP ? PLINEY_IPVERSION6
+                                                           : PLINEY_IPVERSION4;
+      if (pliney_destination.family != set_type) {
+        // Better error message.
+        Logger::ActiveLogger()->log(
+            Logger::WARN, std::format("Will not set DSCP value on socket "
+                                      "with mismatched IP version"));
+        break;
+      }
+      if (m_toss) {
+        (*m_toss).again(dscp, 0xfc);
+      } else {
+        if (pliney_destination.family == PLINEY_IPVERSION6) {
+          m_toss.emplace(m_socket, IPPROTO_IPV6, IPV6_TCLASS, dscp, 0xfc);
+        } else {
+          m_toss.emplace(m_socket, IPPROTO_IP, IP_TOS, dscp, 0xfc);
+        }
+      }
+      if (!m_toss->ok()) {
+        std::string error{std::format(
+            "There was an error setting the DSCP on the socket: {}\n",
+            std::strerror(errno))};
+        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        compilation.error = error;
+        return false;
+      }
+      break;
+    }
+
+    case IPV6_HL: {
+      int hoplimit = instruction.value.value.byte;
+      PISA_COWARDLY_VERSION_CHECK(
+          PLINEY_IPVERSION6, pliney_destination.family,
+          "Will not set the IPv6 hoplimit on a non-IPv6 packet");
+
+      m_ttlhl.emplace(m_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, hoplimit);
+      if (!m_ttlhl->ok()) {
+        std::cerr << std::format("There was an error setting the "
+                                 "hoplimit on the socket: {}\n",
+                                 std::strerror(errno));
+        return false;
+      }
+      break;
+    }
+    case IPV4_TTL: {
+      int ttl = instruction.value.value.byte;
+      PISA_COWARDLY_VERSION_CHECK(
+          PLINEY_IPVERSION4, pliney_destination.family,
+          "Will not set the IPv4 TTL on a non-IPv4 packet");
+
+      m_ttlhl.emplace(m_socket, IPPROTO_IP, IP_TTL, ttl);
+      if (!m_ttlhl->ok()) {
+        std::string error{std::format(
+            "There was an error setting the TTL on the socket: {}\n",
+            std::strerror(errno))};
+        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        compilation.error = error;
+        return false;
+      }
+      break;
+    }
+  }
+
+  return true;
+}
+
 bool SocketBuilderRunner::execute(Compilation &compilation) {
   if (!compilation) {
     return false;
@@ -517,23 +849,26 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
   }
 
   pisa_value_t pgm_body{};
-  pisa_value_t pgm_dest;
-  std::optional<pisa_value_t> maybe_pgm_source;
-  pisa_value_t pisa_transport_value = {.tpe = BYTE};
 
-  // First, find the destination. The program must set one.
-  if (!pisa_program_find_target_value(program.get(), &pgm_dest)) {
-    Logger::ActiveLogger()->log(Logger::ERROR,
-                                "Could not find the target value!");
-    compilation.success = false;
+  ip_addr_t pisa_target_address{};
+  std::optional<ip_addr_t> maybe_pgm_source;
+  Pliney::Transport pisa_pgm_transport_type{};
+
+  if (!find_program_target_transport(program, pisa_target_address,
+                                     pisa_pgm_transport_type)) {
+    compilation.error =
+        "Could not find the target and/or transport in the PISA program";
     return false;
   }
-  auto pliney_destination = pgm_dest.value.ipaddr;
+
   struct sockaddr *destination = nullptr;
-  int destination_len = ip_to_sockaddr(pgm_dest.value.ipaddr, &destination);
+  int destination_len = ip_to_sockaddr(pisa_target_address, &destination);
   if (destination_len < 0) {
-    std::cerr << "Error occurred converting generated destination into "
-                 "system-compatible destination.\n";
+    std::string error{
+        "Error occurred converting the target address generated by "
+        "the PISA program into a system-compatible address."};
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
     compilation.success = false;
     return false;
   }
@@ -541,22 +876,11 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
       unique_sockaddr((struct sockaddr *)destination, destination_len);
   m_destination_len = destination_len;
 
-  // Now, find out the transport type. The program must set one.
-  if (!pisa_program_find_meta_value(program.get(), "TRANSPORT",
-                                    &pisa_transport_value)) {
-    Logger::ActiveLogger()->log(Logger::ERROR,
-                                "Could not find the transport value!");
-    compilation.success = false;
-    return false;
-  }
-  auto pisa_pgm_transport_type{
-      Pliney::from_pisa_transport(pisa_transport_value.value.byte)};
-
   // Only the TCP and UDP transports are valid for this runner.
   if (pisa_pgm_transport_type != Pliney::Transport::TCP &&
       pisa_pgm_transport_type != Pliney::Transport::UDP) {
     auto error{std::format("Invalid transport type ({}); only TCP and UDP are "
-                           "allowed for this runner.",
+                           "allowed for the Socket Builder Runner.",
                            to_string(pisa_pgm_transport_type))};
     Logger::ActiveLogger()->log(Logger::ERROR, error);
     compilation.error = error;
@@ -566,7 +890,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
 
   // Now, open a socket!
   auto socket_success =
-      ip_to_socket(pliney_destination,
+      ip_to_socket(pisa_target_address,
                    to_pisa_transport(pisa_pgm_transport_type), &m_socket);
   if (!socket_success || m_socket < 0) {
     std::string reason{"Ill-formatted target"};
@@ -578,14 +902,15 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
         std::format("Could not open a {} socket to the target address ({}): "
                     "{}.",
                     to_string(pisa_pgm_transport_type),
-                    stringify_ip(pgm_dest.value.ipaddr), reason));
+                    stringify_ip(pisa_target_address), reason));
     return false;
   }
 
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
     switch (program->insts[insn_idx].op) {
+      case EXEC:
       case SET_META: {
-        // During execution, SET_META operations are noops.
+        // During execution, EXEC, and SET_META operations are noops.
         break;
       }
       case ADD_IP_OPT_EXT: {
@@ -599,209 +924,24 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
         break;
       } // ADD_IP_OPT_EXT
       case SET_FIELD: {
-        switch (program->insts[insn_idx].fk.field) {
-          case IPV4_TARGET: {
-            // A noop.
-            break;
-          }
-          case IPV6_TARGET: {
-            // A noop.
-            break;
-          }
-          case IPV4_SOURCE: {
-            PISA_COWARDLY_VERSION_CHECK(
-                PLINEY_IPVERSION4, pliney_destination.family,
-                "Will not set the IPv4 source on a non-IPv4 packet");
-
-            auto addr = program->insts[insn_idx].value.value.ipaddr.addr;
-            auto family = program->insts[insn_idx].value.value.ipaddr.family;
-
-            maybe_pgm_source =
-                maybe_pgm_source
-                    .or_else([]() {
-                      return std::optional<pisa_value_t>{pisa_value_t{}};
-                    })
-                    .transform([&addr, &family](auto existing) {
-                      existing.value.ipaddr.addr = addr;
-                      existing.value.ipaddr.family = family;
-                      return existing;
-                    });
-            break;
-          }
-          case IPV4_SOURCE_PORT: {
-            PISA_COWARDLY_VERSION_CHECK(
-                PLINEY_IPVERSION4, pliney_destination.family,
-                "Will not set the IPv4 source port on a non-IPv4 packet");
-            auto port = program->insts[insn_idx].value.value.ipaddr.port;
-
-            maybe_pgm_source =
-                maybe_pgm_source
-                    .or_else([]() {
-                      return std::optional<pisa_value_t>{pisa_value_t{}};
-                    })
-                    .transform([&port](auto existing) {
-                      existing.value.ipaddr.port = port;
-                      return existing;
-                    });
-            break;
-          }
-          case IPV6_SOURCE: {
-            PISA_COWARDLY_VERSION_CHECK(
-                PLINEY_IPVERSION6, pliney_destination.family,
-                "Will not set the IPv6 source on a non-IPv6 packet");
-
-            auto addr = program->insts[insn_idx].value.value.ipaddr.addr;
-            auto family = program->insts[insn_idx].value.value.ipaddr.family;
-
-            maybe_pgm_source =
-                maybe_pgm_source
-                    .or_else([]() {
-                      return std::optional<pisa_value_t>{pisa_value_t{}};
-                    })
-                    .transform([&addr, &family](auto existing) {
-                      existing.value.ipaddr.addr = addr;
-                      existing.value.ipaddr.family = family;
-                      return existing;
-                    });
-            break;
-          }
-          case IPV6_SOURCE_PORT: {
-            PISA_COWARDLY_VERSION_CHECK(
-                PLINEY_IPVERSION6, pliney_destination.family,
-                "Will not set the IPv6 source port on a non-IPv6 packet");
-            auto port = program->insts[insn_idx].value.value.ipaddr.port;
-
-            maybe_pgm_source =
-                maybe_pgm_source
-                    .or_else([]() {
-                      return std::optional<pisa_value_t>{pisa_value_t{}};
-                    })
-                    .transform([&port](auto existing) {
-                      existing.value.ipaddr.port = port;
-                      return existing;
-                    });
-            break;
-          }
-          case APPLICATION_BODY: {
-            if (program->insts[insn_idx].value.tpe != PTR) {
-              Logger::ActiveLogger()->log(
-                  Logger::WARN,
-                  std::format("Will not set a body from a non-pointer value."));
-              return false;
-            };
-            pgm_body = program->insts[insn_idx].value;
-            break;
-          }
-          case IPV6_ECN:
-          case IPV4_ECN: {
-            int ecn = program->insts[insn_idx].value.value.byte;
-
-            uint8_t set_type = program->insts[insn_idx].fk.field == IPV6_ECN
-                                   ? PLINEY_IPVERSION6
-                                   : PLINEY_IPVERSION4;
-            if (pliney_destination.family != set_type) {
-              // Better error message.
-              Logger::ActiveLogger()->log(
-                  Logger::WARN, std::format("Will not set ECN value on socket "
-                                            "with mismatched IP version"));
-              break;
-            }
-            if (m_toss) {
-              (*m_toss).again(ecn, 0x3);
-            } else {
-              if (pliney_destination.family == PLINEY_IPVERSION6) {
-                m_toss.emplace(m_socket, IPPROTO_IPV6, IPV6_TCLASS, ecn, 0x3);
-              } else {
-                m_toss.emplace(m_socket, IPPROTO_IP, IP_TOS, ecn, 0x3);
-              }
-            }
-            if (!m_toss->ok()) {
-              std::cerr << std::format(
-                  "There was an error setting the ECN on the socket: {}\n",
-                  std::strerror(errno));
-              return false;
-            }
-            break;
-          }
-          case IPV6_DSCP:
-          case IPV4_DSCP: {
-            int dscp = program->insts[insn_idx].value.value.byte;
-
-            uint8_t set_type = program->insts[insn_idx].fk.field == IPV6_DSCP
-                                   ? PLINEY_IPVERSION6
-                                   : PLINEY_IPVERSION4;
-            if (pliney_destination.family != set_type) {
-              // Better error message.
-              Logger::ActiveLogger()->log(
-                  Logger::WARN, std::format("Will not set DSCP value on socket "
-                                            "with mismatched IP version"));
-              break;
-            }
-            if (m_toss) {
-              (*m_toss).again(dscp, 0xfc);
-            } else {
-              if (pliney_destination.family == PLINEY_IPVERSION6) {
-                m_toss.emplace(m_socket, IPPROTO_IPV6, IPV6_TCLASS, dscp, 0xfc);
-              } else {
-                m_toss.emplace(m_socket, IPPROTO_IP, IP_TOS, dscp, 0xfc);
-              }
-            }
-            if (!m_toss->ok()) {
-              std::cerr << std::format(
-                  "There was an error setting the DSCP on the socket: {}\n",
-                  std::strerror(errno));
-              return false;
-            }
-            break;
-          }
-
-          case IPV6_HL: {
-            int hoplimit = program->insts[insn_idx].value.value.byte;
-            PISA_COWARDLY_VERSION_CHECK(
-                PLINEY_IPVERSION6, pliney_destination.family,
-                "Will not set the IPv6 hoplimit on a non-IPv6 packet");
-
-            m_ttlhl.emplace(m_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS,
-                            hoplimit);
-            if (!m_ttlhl->ok()) {
-              std::cerr << std::format("There was an error setting the "
-                                       "hoplimit on the socket: {}\n",
-                                       std::strerror(errno));
-              return false;
-            }
-            break;
-          }
-          case IPV4_TTL: {
-            int ttl = program->insts[insn_idx].value.value.byte;
-            PISA_COWARDLY_VERSION_CHECK(
-                PLINEY_IPVERSION4, pliney_destination.family,
-                "Will not set the IPv4 TTL on a non-IPv4 packet");
-
-            m_ttlhl.emplace(m_socket, IPPROTO_IP, IP_TTL, ttl);
-            if (!m_ttlhl->ok()) {
-              std::cerr << std::format(
-                  "There was an error setting the TTL on the socket: {}\n",
-                  std::strerror(errno));
-              return false;
-            }
-            break;
-          }
+        if (!execute_set_field(compilation, program->insts[insn_idx], pgm_body,
+                               maybe_pgm_source, pisa_target_address)) {
+          return false;
         }
         break;
       }
       default: {
         Logger::ActiveLogger()->log(
             Logger::ERROR,
-            std::format("Cli Runner does not yet handle operations of kind {}",
-                        (int)program->insts[insn_idx].op));
+            std::format("Socket Builder Runner does not handle {} operations",
+                        pisa_opcode_name(program->insts[insn_idx].op)));
       }
     }
   }
 
   if (maybe_pgm_source) {
     struct sockaddr *source_saddr{nullptr};
-    auto saddr_size{
-        ip_to_sockaddr(maybe_pgm_source->value.ipaddr, &source_saddr)};
+    auto saddr_size{ip_to_sockaddr(*maybe_pgm_source, &source_saddr)};
     if (bind(m_socket, source_saddr, saddr_size) < 0) {
       Logger::ActiveLogger()->log(
           Logger::WARN, std::format("Failed to bind to the source address: {}",
@@ -810,40 +950,34 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     };
   }
 
-  memset(&m_msg, 0, sizeof(struct msghdr));
-  m_iov.iov_base = nullptr;
-  m_iov.iov_len = 0;
-
-  m_msg.msg_control = nullptr;
-  m_msg.msg_controllen = 0;
-
   if (m_ip_opts_exts_hdr.opts_exts_count > 0) {
-    pisa_ip_opt_ext_t coalesced_ext{};
     auto copied_ext_hdrs{copy_ip_opts_exts(m_ip_opts_exts_hdr)};
+
+    pisa_ip_opt_ext_t coalesced_ext{};
     if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_HOPOPTS)) {
       Logger::ActiveLogger()->log(
           Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
       return false;
     }
 
+    if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_DSTOPTS)) {
+      Logger::ActiveLogger()->log(
+          Logger::ERROR, "Error occurred coalescing destination options.");
+      return false;
+    }
+
     if (copied_ext_hdrs.opts_exts_count > 0) {
       for (auto extension_i{0}; extension_i < copied_ext_hdrs.opts_exts_count;
            extension_i++) {
+        size_t full_extension_header_len{};
+        uint8_t *full_extension_header{};
 
-        auto full_extension_header_len =
-            ((2 /* for extension header T/L */ +
-              copied_ext_hdrs.opt_ext_values[extension_i].len + (8 - 1)) /
-             8) *
-            8;
+        if (!to_raw_ip_opts_exts(copied_ext_hdrs.opt_ext_values[extension_i],
+                                 &full_extension_header_len,
+                                 &full_extension_header)) {
+          // TODO
+        }
 
-        auto full_extension_header{
-            (uint8_t *)calloc(full_extension_header_len, sizeof(uint8_t))};
-
-        full_extension_header[0] = 0; // Next header.
-        full_extension_header[1] = (full_extension_header_len / 8) - 1;
-        memcpy(full_extension_header + 2,
-               copied_ext_hdrs.opt_ext_values[extension_i].data,
-               copied_ext_hdrs.opt_ext_values[extension_i].len);
         switch (copied_ext_hdrs.opt_ext_values[extension_i].oe.ext_type) {
           case IPV6_HOPOPTS: {
             auto result =
@@ -878,18 +1012,8 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     }
     free_ip_opts_exts(copied_ext_hdrs);
   }
-
-  m_msg.msg_iov = &m_iov;
-  m_msg.msg_iovlen = 0;
-
   free_ip_opts_exts(m_ip_opts_exts_hdr);
   return true;
-}
-
-SocketBuilderRunner::~SocketBuilderRunner() {
-  if (m_msg.msg_control) {
-    free(m_msg.msg_control);
-  }
 }
 
 bool CliRunner::execute(Compilation &compilation) {
@@ -907,18 +1031,9 @@ bool CliRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  if (compilation.packet.body.len) {
-    m_iov.iov_base = compilation.packet.body.data;
-    m_iov.iov_len = compilation.packet.body.len;
-  }
-
-  m_msg.msg_iov = &m_iov;
-  m_msg.msg_iovlen = 1;
-
-  m_msg.msg_name = m_destination->get();
-  m_msg.msg_namelen = m_destination_len;
-
-  int write_result = sendmsg(m_socket, &m_msg, 0);
+  int write_result = sendto(m_socket, compilation.packet.body.data,
+                            compilation.packet.body.len, 0,
+                            m_destination->get(), m_destination_len);
 
   if (write_result < 0) {
     auto error_msg = std::format("Error occurred sending data: could not "

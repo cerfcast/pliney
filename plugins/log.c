@@ -191,12 +191,12 @@ void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
 #endif
 
     struct pcap_pkthdr hdr;
-    hdr.caplen = packet->ip.len + packet->transport.len + packet->body.len;
+    hdr.caplen = packet->all.len;
     hdr.len = hdr.caplen;
     hdr.ts.tv_sec = 0;
     hdr.ts.tv_usec = 0;
 
-    pcap_dump((u_char *)lcookie->dumper, &hdr, (const u_char *)packet->ip.data);
+    pcap_dump((u_char *)lcookie->dumper, &hdr, (const u_char *)packet->all.data);
     pcap_dump_flush(lcookie->dumper);
 
 #if 0
