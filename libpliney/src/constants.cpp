@@ -1,5 +1,6 @@
 #include "packetline/constants.hpp"
 #include "pisa/pisa.h"
+#include <netinet/in.h>
 #include <utility>
 
 namespace Pliney {
@@ -45,6 +46,22 @@ uint8_t to_pisa_transport(const Transport &transport) {
     }
     case Pliney::Transport::ICMP: {
       return PLINEY_ICMP;
+    }
+    default:
+      std::unreachable();
+  }
+}
+
+uint8_t to_native_transport(const Transport &transport) {
+  switch (transport) {
+    case Pliney::Transport::TCP: {
+      return IPPROTO_TCP;
+    }
+    case Pliney::Transport::UDP: {
+      return IPPROTO_UDP;
+    }
+    case Pliney::Transport::ICMP: {
+      return IPPROTO_ICMP;
     }
     default:
       std::unreachable();

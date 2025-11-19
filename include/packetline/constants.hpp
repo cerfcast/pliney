@@ -28,6 +28,7 @@ namespace Pliney {
     std::string to_string(const Transport &transport);
     Transport from_pisa_transport(uint8_t transport);
     uint8_t to_pisa_transport(const Transport &transport);
+    uint8_t to_native_transport(const Transport &transport);
 
     enum class IpVersion {
         FOUR,

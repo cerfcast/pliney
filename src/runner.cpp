@@ -403,80 +403,57 @@ bool PacketRunner::execute(Compilation &compilation) {
   }
 
   if (ip_opts_exts_hdr.opts_exts_count > 0) {
+
+    size_t next_header_offsets[256] = {};
+    uint8_t next_header_values[256] = {};
     uint8_t first_next_header{0};
+    size_t total_extension_headers{0};
 
-    auto copied_ext_hdrs{copy_ip_opts_exts(ip_opts_exts_hdr)};
+    size_t supported_ipv6_exts_count{};
+    auto supported_ipv6_exts{
+        supported_exts_ip_opts_exts(&supported_ipv6_exts_count)};
+    for (size_t i{0}; i < supported_ipv6_exts_count; i++) {
+      auto ext_type = supported_ipv6_exts[i];
+      pisa_ip_opt_ext_t coalesced_ext{
+          coalesce_ip_opts_exts(ip_opts_exts_hdr, ext_type)};
 
-    pisa_ip_opt_ext_t coalesced_ext{};
-    if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_HOPOPTS)) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
-      return false;
-    }
-
-    if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_DSTOPTS)) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, "Error occurred coalescing destination options.");
-      return false;
-    }
-
-    if (copied_ext_hdrs.opts_exts_count > 0) {
-      for (auto extension_i{0}; extension_i < copied_ext_hdrs.opts_exts_count;
-           extension_i++) {
-        size_t full_extension_header_len{};
-        uint8_t *full_extension_header{};
-
-        // Do we need to set the first header?
-
-        if (first_next_header) {
-          switch (copied_ext_hdrs.opt_ext_values[extension_i].oe.ext_type) {
-            case IPV6_DSTOPTS: {
-              first_next_header = IPPROTO_DSTOPTS;
-              break;
-            }
-            case IPV6_HOPOPTS: {
-              first_next_header = IPPROTO_HOPOPTS;
-              break;
-            }
-          }
-        }
-
-        // Assume that this is the last extension header.
-        uint8_t next_header{17};
-        if (extension_i < copied_ext_hdrs.opts_exts_count - 1) {
-          switch (copied_ext_hdrs.opt_ext_values[extension_i + 1].oe.ext_type) {
-            case IPV6_DSTOPTS: {
-              next_header = IPPROTO_DSTOPTS;
-              break;
-            }
-            case IPV6_HOPOPTS: {
-              next_header = IPPROTO_HOPOPTS;
-              break;
-            }
-          };
-        }
-
-        if (!to_raw_ip_opts_exts(copied_ext_hdrs.opt_ext_values[extension_i],
-                                 &full_extension_header_len,
-                                 &full_extension_header)) {
-          // TODO
-        }
-
-        full_extension_header[0] = next_header;
-
-        ip_opts_exts_hdr_raw = (uint8_t *)realloc(
-            ip_opts_exts_hdr_raw,
-            (ip_opt_ext_hdr_raw_len + full_extension_header_len) *
-                sizeof(uint8_t));
-        memcpy(ip_opts_exts_hdr_raw + ip_opt_ext_hdr_raw_len,
-               full_extension_header, full_extension_header_len);
-
-        ip_opt_ext_hdr_raw_len += full_extension_header_len;
-
-        free(full_extension_header);
+      if (!coalesced_ext.len) {
+        continue;
       }
+
+      size_t full_extension_header_len{};
+      uint8_t *full_extension_header{};
+      if (!to_raw_ip_opts_exts(coalesced_ext, &full_extension_header_len,
+                               &full_extension_header)) {
+        // TODO
+      }
+
+      // By default, set to transport type (we fixup later!)
+      next_header_offsets[total_extension_headers] = ip_opt_ext_hdr_raw_len;
+      next_header_values[total_extension_headers] = to_native_transport(pisa_pgm_transport_type);
+      if (total_extension_headers == 0) {
+        first_next_header = to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
+      } else {
+        next_header_values[total_extension_headers-1] = to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
+      }
+
+      ip_opts_exts_hdr_raw =
+          (uint8_t *)realloc(ip_opts_exts_hdr_raw, (ip_opt_ext_hdr_raw_len +
+                                                    full_extension_header_len) *
+                                                       sizeof(uint8_t));
+      memcpy(ip_opts_exts_hdr_raw + ip_opt_ext_hdr_raw_len,
+             full_extension_header, full_extension_header_len);
+
+      ip_opt_ext_hdr_raw_len += full_extension_header_len;
+
+      free_ip_opt_ext(coalesced_ext);
+      free(full_extension_header);
+      total_extension_headers++;
     }
-    free_ip_opts_exts(copied_ext_hdrs);
+
+    for (size_t i{0}; i < total_extension_headers; i++) {
+      ip_opts_exts_hdr_raw[next_header_offsets[i]] = next_header_values[i];
+    }
 
     if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
       struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
@@ -593,7 +570,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -897,12 +874,13 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     if (socket_success) {
       reason = strerror(errno);
     }
-    Logger::ActiveLogger()->log(
-        Logger::ERROR,
+    auto error =
         std::format("Could not open a {} socket to the target address ({}): "
                     "{}.",
                     to_string(pisa_pgm_transport_type),
-                    stringify_ip(pisa_target_address), reason));
+                    stringify_ip(pisa_target_address), reason);
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
     return false;
   }
 
@@ -912,7 +890,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
       case SET_META: {
         // During execution, EXEC, and SET_META operations are noops.
         break;
-      }
+      } // EXEC, SET_META
       case ADD_IP_OPT_EXT: {
         if (program->insts[insn_idx].value.tpe == IP_EXT) {
           auto ip_ext{program->insts[insn_idx].value.value.ext};
@@ -929,13 +907,13 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           return false;
         }
         break;
-      }
+      } // SET_FIELD
       default: {
         Logger::ActiveLogger()->log(
             Logger::ERROR,
             std::format("Socket Builder Runner does not handle {} operations",
                         pisa_opcode_name(program->insts[insn_idx].op)));
-      }
+      } // default
     }
   }
 
@@ -943,74 +921,53 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     struct sockaddr *source_saddr{nullptr};
     auto saddr_size{ip_to_sockaddr(*maybe_pgm_source, &source_saddr)};
     if (bind(m_socket, source_saddr, saddr_size) < 0) {
-      Logger::ActiveLogger()->log(
-          Logger::WARN, std::format("Failed to bind to the source address: {}",
-                                    strerror(errno)));
+      auto error = std::format("Failed to bind to the source address: {}",
+                               strerror(errno));
+      Logger::ActiveLogger()->log(Logger::ERROR, error);
+      compilation.error = error;
       return false;
     };
   }
 
   if (m_ip_opts_exts_hdr.opts_exts_count > 0) {
-    auto copied_ext_hdrs{copy_ip_opts_exts(m_ip_opts_exts_hdr)};
+    size_t supported_ipv6_exts_count{};
+    auto supported_ipv6_exts{
+        supported_exts_ip_opts_exts(&supported_ipv6_exts_count)};
+    for (size_t i{0}; i < supported_ipv6_exts_count; i++) {
+      auto ext_type = supported_ipv6_exts[i];
+      pisa_ip_opt_ext_t coalesced_ext{
+          coalesce_ip_opts_exts(m_ip_opts_exts_hdr, ext_type)};
 
-    pisa_ip_opt_ext_t coalesced_ext{};
-    if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_HOPOPTS)) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, "Error occurred coalescing hop-by-hop options.");
-      return false;
-    }
-
-    if (!coalesce_ip_opts_exts(&copied_ext_hdrs, IPV6_DSTOPTS)) {
-      Logger::ActiveLogger()->log(
-          Logger::ERROR, "Error occurred coalescing destination options.");
-      return false;
-    }
-
-    if (copied_ext_hdrs.opts_exts_count > 0) {
-      for (auto extension_i{0}; extension_i < copied_ext_hdrs.opts_exts_count;
-           extension_i++) {
-        size_t full_extension_header_len{};
-        uint8_t *full_extension_header{};
-
-        if (!to_raw_ip_opts_exts(copied_ext_hdrs.opt_ext_values[extension_i],
-                                 &full_extension_header_len,
-                                 &full_extension_header)) {
-          // TODO
-        }
-
-        switch (copied_ext_hdrs.opt_ext_values[extension_i].oe.ext_type) {
-          case IPV6_HOPOPTS: {
-            auto result =
-                setsockopt(m_socket, IPPROTO_IPV6, IPV6_HOPOPTS,
-                           full_extension_header, full_extension_header_len);
-            if (result < 0) {
-              Logger::ActiveLogger()->log(
-                  Logger::ERROR,
-                  std::format("Error occurred setting hop-by-hop options: {}",
-                              strerror(errno)));
-            }
-            break;
-          }
-          case IPV6_DSTOPTS: {
-            auto result =
-                setsockopt(m_socket, IPPROTO_IPV6, IPV6_DSTOPTS,
-                           full_extension_header, full_extension_header_len);
-            if (result < 0) {
-              Logger::ActiveLogger()->log(
-                  Logger::ERROR,
-                  std::format("Error occurred setting destination options: {}",
-                              strerror(errno)));
-            }
-            break;
-          }
-          default:
-            assert(false);
-        }
-
-        free(full_extension_header);
+      if (!coalesced_ext.len) {
+        continue;
       }
+
+      size_t full_extension_header_len{};
+      uint8_t *full_extension_header{};
+
+      if (!to_raw_ip_opts_exts(coalesced_ext, &full_extension_header_len,
+                               &full_extension_header)) {
+        auto error =
+            std::format("Could not convert the PISA program-generated IP "
+                        "options into their wire format.");
+        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        compilation.error = error;
+        return false;
+      }
+
+      auto result =
+          setsockopt(m_socket, IPPROTO_IPV6, ext_type, full_extension_header,
+                     full_extension_header_len);
+      if (result < 0) {
+        Logger::ActiveLogger()->log(
+            Logger::ERROR,
+            std::format("Error occurred setting an extension option: {}",
+                        strerror(errno)));
+        return false;
+      }
+      free_ip_opt_ext(coalesced_ext);
+      free(full_extension_header);
     }
-    free_ip_opts_exts(copied_ext_hdrs);
   }
   free_ip_opts_exts(m_ip_opts_exts_hdr);
   return true;

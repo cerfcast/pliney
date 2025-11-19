@@ -1,5 +1,6 @@
 #include "pisa/pisa.h"
 #include "pisa/utils.h"
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -90,47 +91,39 @@ pisa_ip_opts_exts_t copy_ip_opts_exts(pisa_ip_opts_exts_t extensions) {
   return result;
 }
 
+void free_ip_opt_ext(pisa_ip_opt_ext_t opt_ext) { free(opt_ext.data); }
+
 void free_ip_opts_exts(pisa_ip_opts_exts_t extensions) {
   for (size_t i = 0; i < extensions.opts_exts_count; i++) {
-    free(extensions.opt_ext_values[i].data);
+    free_ip_opt_ext(extensions.opt_ext_values[i]);
   }
   free(extensions.opt_ext_values);
 }
 
-bool coalesce_ip_opts_exts(pisa_ip_opts_exts_t *extensions,
-                           pisa_ip_opt_or_ext_type_t op_ext) {
-  size_t first_index = 0;
-  if (!find_next_ip_ext(*extensions, &first_index, op_ext)) {
-    return true;
-  }
+pisa_ip_opt_ext_t coalesce_ip_opts_exts(pisa_ip_opts_exts_t extensions,
+                                        pisa_ip_opt_or_ext_type_t op_ext) {
+  pisa_ip_opt_ext_t coalesced_ip_opt = {.oe = op_ext, .len = 0, .data = NULL};
+  size_t next_index = 0;
 
-  debug("Coalescing IP extensions with type %d", op_ext.ext_type);
-  debug("Found first IP extension with type %d at %d!", op_ext.ext_type,
-        first_index);
+  while (find_next_ip_ext(extensions, &next_index, op_ext)) {
+    debug("Found (one) to coalesce at %d!", next_index);
 
-  size_t next_index = first_index + 1;
+    // First, update the coalesced size.
+    uint8_t new_size =
+        coalesced_ip_opt.len + extensions.opt_ext_values[next_index].len;
 
-  while (find_next_ip_ext(*extensions, &next_index, op_ext)) {
-    debug("Found another to coalesce at %d!", next_index);
-
-    uint8_t new_size = extensions->opt_ext_values[first_index].len +
-                       extensions->opt_ext_values[next_index].len;
-    uint8_t *new_data = (uint8_t *)calloc(new_size, sizeof(uint8_t));
-    memcpy(new_data, extensions->opt_ext_values[first_index].data,
-           extensions->opt_ext_values[first_index].len);
-    memcpy(new_data + extensions->opt_ext_values[first_index].len,
-           extensions->opt_ext_values[next_index].data,
-           extensions->opt_ext_values[next_index].len);
-
-    free(extensions->opt_ext_values[first_index].data);
-    extensions->opt_ext_values[first_index].data = new_data;
-    extensions->opt_ext_values[first_index].len = new_size;
-
-    remove_ip_opt_ext(extensions, next_index);
+    // Second, add some new data!
+    coalesced_ip_opt.data =
+        (uint8_t *)realloc(coalesced_ip_opt.data, sizeof(uint8_t) * new_size);
+    memcpy(coalesced_ip_opt.data + coalesced_ip_opt.len,
+           extensions.opt_ext_values[next_index].data,
+           extensions.opt_ext_values[next_index].len);
+    coalesced_ip_opt.len = new_size;
+    next_index += 1;
   }
 
   debug("Done coalescing IP extensions.");
-  return true;
+  return coalesced_ip_opt;
 }
 
 bool to_raw_ip_opts_exts(pisa_ip_opt_ext_t extension, size_t *len,
@@ -144,4 +137,23 @@ bool to_raw_ip_opts_exts(pisa_ip_opt_ext_t extension, size_t *len,
   memcpy(*raw + 2, extension.data, extension.len);
 
   return true;
+}
+
+static uint8_t SUPPORTED_EXTS[] = {IPV6_HOPOPTS, IPV6_DSTOPTS};
+static uint8_t SUPPORTED_EXTS_COUNT = 2;
+
+uint8_t *supported_exts_ip_opts_exts(size_t *count) {
+  *count = SUPPORTED_EXTS_COUNT;
+  return SUPPORTED_EXTS;
+}
+
+uint8_t to_native_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type) {
+  switch (op_ext_type.ext_type) {
+    case IPV6_DSTOPTS: {
+      return IPPROTO_DSTOPTS;
+    }
+    case IPV6_HOPOPTS: {
+      return IPPROTO_HOPOPTS;
+    }
+  }
 }

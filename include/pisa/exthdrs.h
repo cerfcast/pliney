@@ -2,6 +2,7 @@
 #define _API_EXTHDRS_H
 
 #include "pisa/pisa.h"
+#include <cstdint>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,13 +12,18 @@ bool remove_ip_opt_ext(pisa_ip_opts_exts_t *extensions, size_t index);
 
 bool find_first_ip_ext(pisa_ip_opts_exts_t extensions, size_t *index, uint8_t type);
 bool find_next_ip_ext(pisa_ip_opts_exts_t extensions, size_t *start_found, uint8_t type);
-bool coalesce_ip_opts_exts(pisa_ip_opts_exts_t *extensions, uint8_t type);
+pisa_ip_opt_ext_t coalesce_ip_opts_exts(pisa_ip_opts_exts_t extensions, uint8_t type);
 bool to_raw_ip_opts_exts(pisa_ip_opt_ext_t extension, size_t *len,
                          uint8_t **raw);
 pisa_ip_opts_exts_t copy_ip_opts_exts(pisa_ip_opts_exts_t extensions);
+
+void free_ip_opt_ext(pisa_ip_opt_ext_t opt_ext);
 void free_ip_opts_exts(pisa_ip_opts_exts_t extensions);
 pisa_ip_opt_ext_t *copy_ipextension(pisa_ip_opt_ext_t *extension);
 
+uint8_t *supported_exts_ip_opts_exts(size_t *count);
+
+uint8_t to_native_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type);
 #ifdef __cplusplus
 }
 #endif

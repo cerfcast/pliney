@@ -1,1 +1,1 @@
-raw_tests.sh local_help_tests.sh log/log_tests.sh log/log_tests2.sh lua/sanity_test.sh lua/http_tests.sh lua/exthdr_test.sh output_check/check.sh
+raw_tests.sh local_help_tests.sh log/log_tests.sh log/log_tests2.sh log/log_tests3.sh log/log_tests4.sh lua/sanity_test.sh lua/http_tests.sh lua/exthdr_test.sh output_check/check.sh
