@@ -403,63 +403,89 @@ bool PacketRunner::execute(Compilation &compilation) {
   }
 
   if (ip_opts_exts_hdr.opts_exts_count > 0) {
+    if (pisa_pgm_ip_version != Pliney::IpVersion::SIX) {
+      Logger::ActiveLogger()->log(
+          Logger::WARN, std::format("The PISA program added extension headers "
+                                    "for an IPv4 packet. Skipping."));
+    } else {
+      // Keep a map so that setting _next extension_ field values is "easy":
+      // An entry in
+      // next_extension_header_offset
+      // at i indicates the offset into the ip_opt_ext_hdr_raw memory
+      // buffer where the ith extension header's _next extension_
+      // field exists and an entry in
+      // next_extension_header_value
+      // at i indicates the value of the ith extension header's _next extension_
+      // field.
+      // TODO: Remove the assume that there are always fewer than 256 extension
+      // headers.
+      size_t next_extension_header_offset[256] = {};
+      uint8_t next_extension_header_value[256] = {};
+      uint8_t ip_packet_next_header_value{0};
+      size_t total_extension_headers{0};
 
-    size_t next_header_offsets[256] = {};
-    uint8_t next_header_values[256] = {};
-    uint8_t first_next_header{0};
-    size_t total_extension_headers{0};
+      // Find out how many extension headers that are supported and get an
+      // array that indicates their type and an order in which to process them.
+      size_t supported_ipv6_exts_count{};
+      auto supported_ipv6_exts{
+          supported_exts_ip_opts_exts(&supported_ipv6_exts_count)};
 
-    size_t supported_ipv6_exts_count{};
-    auto supported_ipv6_exts{
-        supported_exts_ip_opts_exts(&supported_ipv6_exts_count)};
-    for (size_t i{0}; i < supported_ipv6_exts_count; i++) {
-      auto ext_type = supported_ipv6_exts[i];
-      pisa_ip_opt_ext_t coalesced_ext{
-          coalesce_ip_opts_exts(ip_opts_exts_hdr, ext_type)};
+      // Process each supported extension header. Their value in the array
+      // from supported_exts_ip_opts_exts satisfies the requirements set forth
+      // in RFC8200.
+      for (size_t i{0}; i < supported_ipv6_exts_count; i++) {
+        auto ext_type = supported_ipv6_exts[i];
+        pisa_ip_opt_ext_t coalesced_ext{
+            coalesce_ip_opts_exts(ip_opts_exts_hdr, ext_type)};
 
-      if (!coalesced_ext.len) {
-        continue;
+        if (!coalesced_ext.len) {
+          continue;
+        }
+
+        size_t full_extension_header_len{};
+        uint8_t *full_extension_header{};
+        if (!to_raw_ip_opts_exts(coalesced_ext, &full_extension_header_len,
+                                 &full_extension_header)) {
+          // TODO
+        }
+
+        next_extension_header_offset[total_extension_headers] =
+            ip_opt_ext_hdr_raw_len;
+        next_extension_header_value[total_extension_headers] =
+            to_native_transport(pisa_pgm_transport_type);
+        if (total_extension_headers == 0) {
+          ip_packet_next_header_value =
+              to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
+        } else {
+          next_extension_header_value[total_extension_headers - 1] =
+              to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
+        }
+
+        ip_opts_exts_hdr_raw = (uint8_t *)realloc(
+            ip_opts_exts_hdr_raw,
+            (ip_opt_ext_hdr_raw_len + full_extension_header_len) *
+                sizeof(uint8_t));
+        memcpy(ip_opts_exts_hdr_raw + ip_opt_ext_hdr_raw_len,
+               full_extension_header, full_extension_header_len);
+
+        ip_opt_ext_hdr_raw_len += full_extension_header_len;
+
+        free_ip_opt_ext(coalesced_ext);
+        free(full_extension_header);
+        total_extension_headers++;
       }
 
-      size_t full_extension_header_len{};
-      uint8_t *full_extension_header{};
-      if (!to_raw_ip_opts_exts(coalesced_ext, &full_extension_header_len,
-                               &full_extension_header)) {
-        // TODO
+      // Use the map to update all the extension headers' _next extension_
+      // field.
+      for (size_t i{0}; i < total_extension_headers; i++) {
+        ip_opts_exts_hdr_raw[next_extension_header_offset[i]] =
+            next_extension_header_value[i];
       }
 
-      // By default, set to transport type (we fixup later!)
-      next_header_offsets[total_extension_headers] = ip_opt_ext_hdr_raw_len;
-      next_header_values[total_extension_headers] =
-          to_native_transport(pisa_pgm_transport_type);
-      if (total_extension_headers == 0) {
-        first_next_header = to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
-      } else {
-        next_header_values[total_extension_headers - 1] =
-            to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
+      if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
+        struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
+        typed_hdr->ip6_nxt = ip_packet_next_header_value;
       }
-
-      ip_opts_exts_hdr_raw =
-          (uint8_t *)realloc(ip_opts_exts_hdr_raw, (ip_opt_ext_hdr_raw_len +
-                                                    full_extension_header_len) *
-                                                       sizeof(uint8_t));
-      memcpy(ip_opts_exts_hdr_raw + ip_opt_ext_hdr_raw_len,
-             full_extension_header, full_extension_header_len);
-
-      ip_opt_ext_hdr_raw_len += full_extension_header_len;
-
-      free_ip_opt_ext(coalesced_ext);
-      free(full_extension_header);
-      total_extension_headers++;
-    }
-
-    for (size_t i{0}; i < total_extension_headers; i++) {
-      ip_opts_exts_hdr_raw[next_header_offsets[i]] = next_header_values[i];
-    }
-
-    if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
-      struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
-      typed_hdr->ip6_nxt = first_next_header;
     }
   }
   free_ip_opts_exts(ip_opts_exts_hdr);
@@ -840,6 +866,9 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     return false;
   }
 
+  auto pisa_pgm_ip_version{
+      Pliney::from_pisa_version(pisa_target_address.family)};
+
   struct sockaddr *destination = nullptr;
   int destination_len = ip_to_sockaddr(pisa_target_address, &destination);
   if (destination_len < 0) {
@@ -932,46 +961,52 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
   }
 
   if (m_ip_opts_exts_hdr.opts_exts_count > 0) {
-    size_t supported_ipv6_exts_count{};
-    auto supported_ipv6_exts{
-        supported_exts_ip_opts_exts(&supported_ipv6_exts_count)};
-    for (size_t i{0}; i < supported_ipv6_exts_count; i++) {
-      auto ext_type = supported_ipv6_exts[i];
-      pisa_ip_opt_ext_t coalesced_ext{
-          coalesce_ip_opts_exts(m_ip_opts_exts_hdr, ext_type)};
+    if (pisa_pgm_ip_version != Pliney::IpVersion::SIX) {
+      Logger::ActiveLogger()->log(
+          Logger::WARN, std::format("The PISA program added extension headers "
+                                    "for an IPv4 connection. Skipping."));
+    } else {
+      size_t supported_ipv6_exts_count{};
+      auto supported_ipv6_exts{
+          supported_exts_ip_opts_exts(&supported_ipv6_exts_count)};
+      for (size_t i{0}; i < supported_ipv6_exts_count; i++) {
+        auto ext_type = supported_ipv6_exts[i];
+        pisa_ip_opt_ext_t coalesced_ext{
+            coalesce_ip_opts_exts(m_ip_opts_exts_hdr, ext_type)};
 
-      if (!coalesced_ext.len) {
-        continue;
+        if (!coalesced_ext.len) {
+          continue;
+        }
+
+        size_t full_extension_header_len{};
+        uint8_t *full_extension_header{};
+
+        if (!to_raw_ip_opts_exts(coalesced_ext, &full_extension_header_len,
+                                 &full_extension_header)) {
+          auto error =
+              std::format("Could not convert the PISA program-generated IP "
+                          "options into their wire format.");
+          Logger::ActiveLogger()->log(Logger::ERROR, error);
+          compilation.error = error;
+          return false;
+        }
+
+        auto result =
+            setsockopt(m_socket, IPPROTO_IPV6, ext_type, full_extension_header,
+                       full_extension_header_len);
+        if (result < 0) {
+          Logger::ActiveLogger()->log(
+              Logger::ERROR,
+              std::format("Error occurred setting an extension option: {}",
+                          strerror(errno)));
+          return false;
+        }
+        free_ip_opt_ext(coalesced_ext);
+        free(full_extension_header);
       }
-
-      size_t full_extension_header_len{};
-      uint8_t *full_extension_header{};
-
-      if (!to_raw_ip_opts_exts(coalesced_ext, &full_extension_header_len,
-                               &full_extension_header)) {
-        auto error =
-            std::format("Could not convert the PISA program-generated IP "
-                        "options into their wire format.");
-        Logger::ActiveLogger()->log(Logger::ERROR, error);
-        compilation.error = error;
-        return false;
-      }
-
-      auto result =
-          setsockopt(m_socket, IPPROTO_IPV6, ext_type, full_extension_header,
-                     full_extension_header_len);
-      if (result < 0) {
-        Logger::ActiveLogger()->log(
-            Logger::ERROR,
-            std::format("Error occurred setting an extension option: {}",
-                        strerror(errno)));
-        return false;
-      }
-      free_ip_opt_ext(coalesced_ext);
-      free(full_extension_header);
     }
+    free_ip_opts_exts(m_ip_opts_exts_hdr);
   }
-  free_ip_opts_exts(m_ip_opts_exts_hdr);
   return true;
 }
 
