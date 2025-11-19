@@ -430,11 +430,13 @@ bool PacketRunner::execute(Compilation &compilation) {
 
       // By default, set to transport type (we fixup later!)
       next_header_offsets[total_extension_headers] = ip_opt_ext_hdr_raw_len;
-      next_header_values[total_extension_headers] = to_native_transport(pisa_pgm_transport_type);
+      next_header_values[total_extension_headers] =
+          to_native_transport(pisa_pgm_transport_type);
       if (total_extension_headers == 0) {
         first_next_header = to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
       } else {
-        next_header_values[total_extension_headers-1] = to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
+        next_header_values[total_extension_headers - 1] =
+            to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
       }
 
       ip_opts_exts_hdr_raw =
@@ -570,7 +572,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
