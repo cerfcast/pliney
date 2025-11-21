@@ -1055,24 +1055,30 @@ bool XdpRunner::execute(Compilation &compilation) {
   // Now, find out the transport type. The program must set one.
   if (!pisa_program_find_meta_value(program.get(), "XDP_OUTPUT_FILE",
                                     &pisa_xdp_output_file)) {
-    auto error_msg{"Could not find the name of the XDP output file!"};
-    Logger::ActiveLogger()->log(Logger::ERROR, error_msg);
-    compilation.error = error_msg;
+    auto error{"Could not find the name of the XDP output file!"};
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
     return false;
   }
 
-  auto xdp_path = std::filesystem::path("./skel/xdp.c");
+  auto xdp_path = std::filesystem::path("./xdp/xdp.c");
   auto xdp_output_path =
       std::filesystem::path((char *)pisa_xdp_output_file.value.ptr.data);
 
   std::ifstream xdp_skel{xdp_path};
 
   if (!xdp_skel) {
+    std::string error{"Could not open the XDP skeleton file."};
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
     return false;
   }
 
   std::ofstream xdp_output_skel{xdp_output_path, std::ios::trunc};
   if (!xdp_output_skel) {
+    std::string error{"Could not open the XDP output file."};
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
     return false;
   }
 
@@ -1108,16 +1114,28 @@ bool XdpRunner::execute(Compilation &compilation) {
             break;
           }
           case IPV4_ECN: {
-            int ecn = program->insts[insn_idx].value.value.byte;
+            uint8_t ecn = program->insts[insn_idx].value.value.byte;
             // First, remove the previous ECN value.
-            xdp_ipv4_code += std::format("ip->tos &= 0xfc;\n");
-            xdp_ipv4_code += std::format("ip->tos |= {};\n", ecn);
+            xdp_ipv4_code += std::format("set_ecn_v4(ip, {});\n", ecn);
+            break;
+          }
+          case IPV4_DSCP: {
+            uint8_t dscp = program->insts[insn_idx].value.value.byte;
+            xdp_ipv4_code += std::format("set_dscp_v4(ip, {});\n", dscp);
+            break;
+          }
+          case IPV6_ECN: {
+            uint8_t ecn = program->insts[insn_idx].value.value.byte;
+            // First, remove the previous ECN value.
+            xdp_ipv6_code += std::format("set_ecn_v6(ipv6, {});\n", ecn);
+            break;
+          }
+          case IPV6_DSCP: {
+            uint8_t dscp = program->insts[insn_idx].value.value.byte;
+            xdp_ipv6_code += std::format("set_dscp_v6(ipv6, {});\n", dscp);
             break;
           }
           case APPLICATION_BODY:
-          case IPV6_ECN:
-          case IPV6_DSCP:
-          case IPV4_DSCP:
           case IPV6_TARGET:
           case IPV4_TARGET:
           default: {
