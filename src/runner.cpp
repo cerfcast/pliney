@@ -482,10 +482,8 @@ bool PacketRunner::execute(Compilation &compilation) {
             next_extension_header_value[i];
       }
 
-      if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
-        struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
-        typed_hdr->ip6_nxt = ip_packet_next_header_value;
-      }
+      struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
+      typed_hdr->ip6_nxt = ip_packet_next_header_value;
     }
   }
   free_ip_opts_exts(ip_opts_exts_hdr);
@@ -524,6 +522,7 @@ bool PacketRunner::execute(Compilation &compilation) {
               transport_len + transportoptionhdr_len);
   }
 
+  // Create a buffer that holds the generated packet.
   size_t total_len{iphdr_len + ip_opt_ext_hdr_raw_len + transport_len +
                    transportoptionhdr_len + pgm_body.value.ptr.len};
   uint8_t *packet{(uint8_t *)calloc(total_len, sizeof(uint8_t))};
@@ -570,7 +569,6 @@ bool PacketRunner::execute(Compilation &compilation) {
 
   // Free what we allocated locally.
   free(iphdr);
-  // TODO
   free(ip_opts_exts_hdr_raw);
   free(transport);
   free(transportoptionhdr);
@@ -598,7 +596,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -650,6 +648,7 @@ bool SocketBuilderRunner::execute_set_field(
               pisa_field_name(instruction.fk.field)));
       break;
     }
+    // The NO-OPs for the Socket Builder.
     case IPV4_TARGET_PORT:
     case IPV6_TARGET_PORT:
     case IPV4_TARGET:
