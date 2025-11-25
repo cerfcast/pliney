@@ -1060,14 +1060,35 @@ bool XdpRunner::execute(Compilation &compilation) {
     return false;
   }
 
+  auto process_c_path = std::filesystem::path("./xdp/process.c");
   auto xdp_path = std::filesystem::path("./xdp/xdp.c");
-  auto xdp_output_path =
-      std::filesystem::path((char *)pisa_xdp_output_file.value.ptr.data);
+  auto tc_path = std::filesystem::path("./xdp/tc.c");
 
+  auto xdp_output_path = std::filesystem::path(
+      std::string{(char *)pisa_xdp_output_file.value.ptr.data} + ".xdp.c");
+  auto tc_output_path = std::filesystem::path(
+      std::string{(char *)pisa_xdp_output_file.value.ptr.data} + ".tc.c");
+
+  std::ifstream process_c_skel{process_c_path};
   std::ifstream xdp_skel{xdp_path};
+  std::ifstream tc_skel{tc_path};
 
   if (!xdp_skel) {
     std::string error{"Could not open the XDP skeleton file."};
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
+    return false;
+  }
+
+  if (!tc_skel) {
+    std::string error{"Could not open the TC skeleton file."};
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
+    return false;
+  }
+
+  if (!process_c_skel) {
+    std::string error{"Could not open the process.c skeleton file."};
     Logger::ActiveLogger()->log(Logger::ERROR, error);
     compilation.error = error;
     return false;
@@ -1081,12 +1102,33 @@ bool XdpRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  // Read the entire skeleton file.
+  std::ofstream tc_output_skel{tc_output_path, std::ios::trunc};
+  if (!tc_output_skel) {
+    std::string error{"Could not open the tc output file."};
+    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    compilation.error = error;
+    return false;
+  }
+
   std::string xdp_skel_contents{};
   char xdp_skel_just_read{};
   xdp_skel >> std::noskipws;
   while (xdp_skel >> xdp_skel_just_read) {
     xdp_skel_contents += xdp_skel_just_read;
+  }
+
+  std::string tc_skel_contents{};
+  char tc_skel_just_read{};
+  tc_skel >> std::noskipws;
+  while (tc_skel >> tc_skel_just_read) {
+    tc_skel_contents += tc_skel_just_read;
+  }
+
+  std::string process_c_skel_contents{};
+  char process_c_skel_skel_just_read{};
+  process_c_skel >> std::noskipws;
+  while (process_c_skel >> process_c_skel_skel_just_read) {
+    process_c_skel_contents += process_c_skel_skel_just_read;
   }
 
   std::string xdp_ipv4_code{};
@@ -1141,19 +1183,17 @@ bool XdpRunner::execute(Compilation &compilation) {
             Logger::ActiveLogger()->log(
                 Logger::WARN,
                 std::format(
-                    "Packet Runner does not yet handle operations of kind {}",
-                    pisa_opcode_name(program->insts[insn_idx].op)));
+                    "Xdp Runner does not yet handle fields of kind {}",
+                    pisa_field_name(program->insts[insn_idx].fk.field)));
           }
-
-        }; // SET_FIELD
-        break;
-        default: {
-          Logger::ActiveLogger()->log(
-              Logger::WARN,
-              std::format(
-                  "Packet Runner does not yet handle operations of kind {}",
-                  pisa_opcode_name(program->insts[insn_idx].op)));
         }
+        break;
+      } // SET_FIELD
+      default: {
+        Logger::ActiveLogger()->log(
+            Logger::WARN,
+            std::format("Xdp Runner does not yet handle operations of kind {}",
+                        pisa_opcode_name(program->insts[insn_idx].op)));
       }
     }
   }
@@ -1161,11 +1201,24 @@ bool XdpRunner::execute(Compilation &compilation) {
   // Emit the xdp source code.
   std::regex skel_ip_regex{"//__IPV4_PLINEY"};
   std::regex skel_ipv6_regex{"//__IPV6_PLINEY"};
-  xdp_skel_contents =
-      std::regex_replace(xdp_skel_contents, skel_ip_regex, xdp_ipv4_code);
-  xdp_skel_contents =
-      std::regex_replace(xdp_skel_contents, skel_ipv6_regex, xdp_ipv6_code);
+  Logger::ActiveLogger()->log(Logger::WARN,
+                              std::format("xdp_ipv4_code: {}", xdp_ipv4_code));
+
+  Logger::ActiveLogger()->log(Logger::WARN,
+                              std::format("xdp_ipv6_code: {}", xdp_ipv6_code));
+  process_c_skel_contents =
+      std::regex_replace(process_c_skel_contents, skel_ip_regex, xdp_ipv4_code);
+  process_c_skel_contents = std::regex_replace(process_c_skel_contents,
+                                               skel_ipv6_regex, xdp_ipv6_code);
+
+  std::regex skel_process_c_regex{"//__PROCESS_PLINEY"};
+  xdp_skel_contents = std::regex_replace(
+      xdp_skel_contents, skel_process_c_regex, process_c_skel_contents);
+  tc_skel_contents = std::regex_replace(tc_skel_contents, skel_process_c_regex,
+                                        process_c_skel_contents);
+
   xdp_output_skel << xdp_skel_contents;
+  tc_output_skel << tc_skel_contents;
 
   return true;
 }

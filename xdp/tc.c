@@ -17,14 +17,14 @@
 
 //__PROCESS_PLINEY
 
-SEC("xdp")
-int pliney_xdp_prog(struct xdp_md *ctx) {
-  void *data_end = (void *)(long)ctx->data_end;
-  void *data = (void *)(long)ctx->data;
+SEC("egress")
+int pliney_egress(struct __sk_buff *skb) {
+  void *data_end = (void *)(long)skb->data_end;
+  void *data = (void *)(long)skb->data;
 
   /* These keep track of the next header type and iterator pointer */
   struct ethhdr *ethp = data;
-  CHECK_BREADTH(ethp, data_end) { return XDP_PASS; }
+  CHECK_BREADTH(ethp, data_end) { return TC_ACT_OK; }
 
   // Whichever is non-null is the mode we are in!
   struct iphdr *ip = NULL;
@@ -34,14 +34,14 @@ int pliney_xdp_prog(struct xdp_md *ctx) {
 
   //__ETHERNET_MODE_PLINEY
 #ifdef TESTING
-  ethernet_mode = 1;
+  ethernet_mode = 0;
 #endif
 
   if (ethernet_mode) {
     // We only handle IPv4 and IPv6 now.
     if (ethp->h_proto != htons(ETH_P_IP) &&
         ethp->h_proto != htons(ETH_P_IPV6)) {
-      return XDP_PASS;
+      return TC_ACT_OK;
     }
 
     // Now that we know it is an IP packet, find out which version.
@@ -53,7 +53,7 @@ int pliney_xdp_prog(struct xdp_md *ctx) {
   } else {
     // Assume that we are are in raw IP mode.
     struct iphdr *maybe_ip = (struct iphdr *)(data);
-    CHECK_BREADTH(maybe_ip, data_end) { return XDP_PASS; }
+    CHECK_BREADTH(maybe_ip, data_end) { return TC_ACT_OK; }
 
     // Now that we found _an_ IP packet, find out which version.
     if (maybe_ip->version == 0x4) {
@@ -64,15 +64,15 @@ int pliney_xdp_prog(struct xdp_md *ctx) {
   }
 
   if (ip) {
-    CHECK_BREADTH(ip, data_end) { return XDP_PASS; }
-    return pliney_process_v4(ip, XDP_PASS, XDP_DROP);
+    CHECK_BREADTH(ip, data_end) { return TC_ACT_OK; }
+    return pliney_process_v4(ip, TC_ACT_OK, TC_ACT_DROP);
   }
 
   if (ipv6) {
-    CHECK_BREADTH(ipv6, data_end) { return XDP_PASS; }
-    return pliney_process_v6(ipv6, XDP_PASS, XDP_DROP);
+    CHECK_BREADTH(ipv6, data_end) { return TC_ACT_OK; }
+    return pliney_process_v6(ipv6, TC_ACT_OK, TC_ACT_DROP);
   }
-  return XDP_PASS;
+  return TC_ACT_OK;
 }
 
 char _license[] SEC("license") = "GPL";
