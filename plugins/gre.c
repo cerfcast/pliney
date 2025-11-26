@@ -1,6 +1,5 @@
-#include "api/native.h"
-#include "api/plugin.h"
-#include "api/utils.h"
+#include "pisa/plugin.h"
+#include "pisa/utils.h"
 #include <assert.h>
 #include <errno.h>
 #include <netdb.h>
@@ -98,26 +97,22 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(packet_t *packet, void *cookie) {
-  generate_result_t result;
-  result.success = true;
+void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
 
   if (!cookie) {
-    return result;
+    return;
   }
+
+  // We will need to find the transport!
+
   grep_cookie_t *gcookie = (grep_cookie_t *)cookie;
 
-  char buf[1500] = {
-      0,
-  };
+#define GRE_HEADER_LEN (sizeof(struct iphdr) + sizeof(struct grehdr))
+  // TODO: Determine whether a variable MTU makes sense here.
+  char buf[1500] = {0};
 
   struct iphdr *iph = (struct iphdr *)buf;
   struct grehdr *grh = (struct grehdr *)(buf + sizeof(struct iphdr));
-  char *body = (char *)(buf + sizeof(struct iphdr) + sizeof(struct grehdr));
-
-  size_t encapsulating_header_len =
-      sizeof(struct iphdr) + sizeof(struct grehdr);
-
   iph->version = 0x4;
   iph->ihl = 0x5;
   iph->ttl = 64;
@@ -129,30 +124,46 @@ generate_result_t generate(packet_t *packet, void *cookie) {
     assert(false);
   }
 
-  iph->protocol = 47;
+  iph->protocol = IPPROTO_GRE;
 
   grh->protocol_type = htons(0x800);
   grh->b1.version = 0x0;
 
-  void *native_packet_p = body;
-  size_t native_packet_len = 1500 - encapsulating_header_len;
-
-  if (!to_native_packet(packet->transport, *packet, (void **)&native_packet_p,
-                        &native_packet_len)) {
-    error("Could not convert to a native packet.");
-    result.success = false;
-    return result;
+  void *encapsulated_packet = buf;
+  size_t length_of_packet_to_encapsulate = packet->all.len;
+  if (length_of_packet_to_encapsulate + GRE_HEADER_LEN > 1500) {
+    size_t overflow = length_of_packet_to_encapsulate;
+    length_of_packet_to_encapsulate = 1500 - GRE_HEADER_LEN;
+    warn("Slicing packet from %d to %d when mirroring into GRE tunnel.");
   }
+  memcpy(encapsulated_packet + GRE_HEADER_LEN, packet->all.data,
+         length_of_packet_to_encapsulate);
+  size_t encapsulated_packet_len =
+      GRE_HEADER_LEN + length_of_packet_to_encapsulate;
 
-  size_t total_len =
-      native_packet_len + sizeof(struct grehdr) + sizeof(struct iphdr);
-
-  int send_result = send(gcookie->socket, buf, total_len, 0);
+  int send_result = send(gcookie->socket, buf, encapsulated_packet_len, 0);
 
   if (send_result < 0) {
     error("There was an error sending the encapsulated packet: %s (errno: %d).",
           strerror(errno), errno);
   }
+}
+
+generate_result_t generate(pisa_program_t *program, void *cookie) {
+  generate_result_t result = {.success = true};
+  if (cookie) {
+    grep_cookie_t *gcookie = (grep_cookie_t *)cookie;
+
+    pisa_value_t pisa_transport_value = {.tpe = BYTE};
+    if (!pisa_program_find_meta_value(program, "TRANSPORT",
+                                      &pisa_transport_value)) {
+      result.success = false;
+    }
+
+
+
+  }
+
   return result;
 }
 
@@ -185,6 +196,7 @@ bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
   info->generator = generate;
+  info->observer = observe;
   info->cleanup = cleanup;
   info->usage = usage;
   return true;

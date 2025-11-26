@@ -50,6 +50,11 @@ Plugin Usage:
 		BYTEs in the padding. User is responsible for
 		guaranteeing that the sizes of all extension headers
 		meet alignment and other requirements.
+	gre
+		<IP or HOSTNAME>
+		Usage:
+		Encapsulate the packet in a GRE tunnel to the specified IP
+		or HOSTNAME.
 	hoplimit
 		<HL>
 		Usage:
