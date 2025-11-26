@@ -159,9 +159,6 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
                                       &pisa_transport_value)) {
       result.success = false;
     }
-
-
-
   }
 
   return result;
