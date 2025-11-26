@@ -5,11 +5,11 @@
 #include <string>
 
 namespace Pliney {
-    const uint8_t IPV4_VERSION{0x4};
+    const uint8_t IP4_VERSION{0x4};
     const uint8_t IPV4_DEFAULT_HEADER_LENGTH_OCTETS{0x5};
     const uint8_t IPV4_DEFAULT_HEADER_LENGTH{20};
 
-    const uint8_t IPV6_VERSION{0x6};
+    const uint8_t IP6_VERSION{0x6};
     const uint8_t IPV6_DEFAULT_HEADER_LENGTH{40};
 
     const uint8_t UDP_DEFAULT_HEADER_LENGTH{0x8};

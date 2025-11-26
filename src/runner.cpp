@@ -117,7 +117,7 @@ bool PacketRunner::execute(Compilation &compilation) {
   // Put some initial values into the packet.
   if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
     struct iphdr *typed_hdr = (struct iphdr *)iphdr;
-    typed_hdr->version = Pliney::IPV4_VERSION;
+    typed_hdr->version = Pliney::IP4_VERSION;
     typed_hdr->ihl = Pliney::IPV4_DEFAULT_HEADER_LENGTH_OCTETS;
     typed_hdr->tot_len = htons(Pliney::IPV4_DEFAULT_HEADER_LENGTH_OCTETS * 4);
     if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
@@ -129,7 +129,7 @@ bool PacketRunner::execute(Compilation &compilation) {
     }
   } else {
     struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
-    typed_hdr->ip6_vfc |= Pliney::IPV6_VERSION << 4;
+    typed_hdr->ip6_vfc |= Pliney::IP6_VERSION << 4;
     if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
       typed_hdr->ip6_nxt = IPPROTO_TCP;
     } else if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
