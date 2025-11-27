@@ -120,9 +120,11 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
     pisa_inst_t set_after_packet_built_cb_inst;
     set_after_packet_built_cb_inst.op = EXEC_AFTER_PACKET_BUILT;
     set_after_packet_built_cb_inst.value.tpe = CALLBACK;
-    set_after_packet_built_cb_inst.value.value.callback.callback = (void *)observe;
+    set_after_packet_built_cb_inst.value.value.callback.callback =
+        (void *)observe;
     set_after_packet_built_cb_inst.value.value.callback.cookie = cookie;
-    result.success = pisa_program_add_inst(program, &set_after_packet_built_cb_inst);
+    result.success =
+        pisa_program_add_inst(program, &set_after_packet_built_cb_inst);
   }
 
   return result;

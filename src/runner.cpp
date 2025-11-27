@@ -159,7 +159,8 @@ bool PacketRunner::execute(Compilation &compilation) {
       case EXEC_AFTER_PACKET_BUILT: {
         Logger::ActiveLogger()->log(
             Logger::DEBUG,
-            std::format("EXEC_PACKET_BUILDER is handled by downstream runners; it is a no-op for Packet Runner."));
+            std::format("EXEC_PACKET_BUILDER is handled by downstream runners; "
+                        "it is a no-op for Packet Runner."));
       }
       case SET_META: {
         Logger::ActiveLogger()->log(
@@ -589,14 +590,16 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // For the packet sender, because we built a packet, it's time to let
   // the after-packet-built callbacks have their time to shine!
-  for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count; insn_idx++) {
+  for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count;
+       insn_idx++) {
     if (compilation.program->insts[insn_idx].op == EXEC_AFTER_PACKET_BUILT) {
-      pisa_callback_t cb_info{compilation.program->insts[insn_idx].value.value.callback};
+      pisa_callback_t cb_info{
+          compilation.program->insts[insn_idx].value.value.callback};
 
-      exec_packet_builder_cb cb{reinterpret_cast<exec_packet_builder_cb>(cb_info.callback)};
+      exec_packet_builder_cb cb{
+          reinterpret_cast<exec_packet_builder_cb>(cb_info.callback)};
 
       cb(compilation.packet, cb_info.cookie);
-
     }
   }
 
@@ -1023,14 +1026,16 @@ bool CliRunner::execute(Compilation &compilation) {
 
   // For the Cli runner , because we built a packet, it's time to let
   // the after-packet-built callbacks have their time to shine!
-  for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count; insn_idx++) {
+  for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count;
+       insn_idx++) {
     if (compilation.program->insts[insn_idx].op == EXEC_AFTER_PACKET_BUILT) {
-      pisa_callback_t cb_info{compilation.program->insts[insn_idx].value.value.callback};
+      pisa_callback_t cb_info{
+          compilation.program->insts[insn_idx].value.value.callback};
 
-      exec_packet_builder_cb cb{reinterpret_cast<exec_packet_builder_cb>(cb_info.callback)};
+      exec_packet_builder_cb cb{
+          reinterpret_cast<exec_packet_builder_cb>(cb_info.callback)};
 
       cb(compilation.packet, cb_info.cookie);
-
     }
   }
 
@@ -1256,7 +1261,8 @@ bool ForkRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  // A packet was not built so no EXEC_AFTER_PACKET_BUILT callbacks should be run.
+  // A packet was not built so no EXEC_AFTER_PACKET_BUILT callbacks should be
+  // run.
 
   if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
     compilation.error = "Could not connect the socket.";
