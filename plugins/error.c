@@ -1,6 +1,6 @@
-#include "api/plugin.h"
-#include "api/utils.h"
-#include <bits/types/struct_timeval.h>
+#include "pisa/pisa.h"
+#include "pisa/plugin.h"
+#include "pisa/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -75,10 +75,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-generate_result_t generate(packet_t *packet, void *cookie) {
-  generate_result_t result;
-  result.success = true;
-
+void error_packet_cb(packet_t packet, void *cookie) {
   if (cookie != NULL) {
     errorp_cookie_t *configuration_c = (errorp_cookie_t *)cookie;
 
@@ -86,8 +83,6 @@ generate_result_t generate(packet_t *packet, void *cookie) {
     if (gettimeofday(&t, NULL) < 0) {
       error("There was an error getting the time of day to seed the random "
             "number generator in the error plugin.");
-      result.success = false;
-      return result;
     }
 
     debug(
@@ -96,7 +91,7 @@ generate_result_t generate(packet_t *packet, void *cookie) {
     srandom(t.tv_usec);
 
     size_t flip_count = 0;
-    for (size_t i = 0; i < packet->body.len; i++) {
+    for (size_t i = 0; i < packet.body.len; i++) {
       double r = random();
       double rr = r / (((unsigned long long)2 << 30) - 1);
 
@@ -104,16 +99,37 @@ generate_result_t generate(packet_t *packet, void *cookie) {
 
       if (rr > (1 - configuration_c->error_rate)) {
         flip_count++;
-        packet->body.data[i] = configuration_c->error_byte;
+        packet.body.data[i] = configuration_c->error_byte;
       }
     }
 
     debug("error plugin flipped %d out of %d bytes.", flip_count,
-          packet->body.len);
+          packet.body.len);
+  }
+}
+
+generate_result_t generate(pisa_program_t *program, void *cookie) {
+  generate_result_t result;
+
+  if (cookie != NULL) {
+    data_p *body = (data_p *)cookie;
+
+    pisa_inst_t set_body_inst;
+    set_body_inst.op = EXEC_AFTER_PACKET_BUILT;
+    set_body_inst.value.tpe = CALLBACK;
+    set_body_inst.value.value.callback.callback = (void *)error_packet_cb;
+    set_body_inst.value.value.callback.cookie = cookie;
+    result.success = pisa_program_add_inst(program, &set_body_inst);
+
+    result.success = 1;
+
+  } else {
+    result.success = 0;
   }
 
   return result;
 }
+
 
 cleanup_result_t cleanup(void *cookie) {
   cleanup_result_t result = {.success = true, .errstr = NULL};
@@ -131,7 +147,8 @@ usage_result_t usage() {
   result.params = "<ERROR_RATE> [BYTE]";
   result.usage = 
   "With ERROR_RATE probability, change each byte in the packet\n"
-  "body to BYTE. If BYTE is not specified, 0x67 is used.";
+  "body to BYTE. If BYTE is not specified, 0x67 is used. Applicable\n"
+  "to the packet and cli runners only.\n";
   // clang-format on
 
   return result;

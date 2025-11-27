@@ -41,6 +41,11 @@ Plugin Usage:
 		Usage:
 		Set the differentiated services value of the DSCP field to
 		the specified value.
+	error
+		<ERROR_RATE> [BYTE]
+		Usage:
+		With ERROR_RATE probability, change each byte in the packet
+		body to BYTE. If BYTE is not specified, 0x67 is used.
 	exthdr-padn
 		<dst, hbh> <SIZE> [BYTE]
 		Usage:

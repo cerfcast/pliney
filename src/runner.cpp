@@ -156,6 +156,11 @@ bool PacketRunner::execute(Compilation &compilation) {
   // And, now let's follow instructions.
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
     switch (program->insts[insn_idx].op) {
+      case EXEC_AFTER_PACKET_BUILT: {
+        Logger::ActiveLogger()->log(
+            Logger::DEBUG,
+            std::format("EXEC_PACKET_BUILDER is handled by downstream runners; it is a no-op for Packet Runner."));
+      }
       case SET_META: {
         Logger::ActiveLogger()->log(
             Logger::DEBUG,
@@ -577,22 +582,27 @@ bool PacketRunner::execute(Compilation &compilation) {
   return true;
 }
 
-bool PacketObserverRunner::execute(Compilation &compilation) {
+bool PacketSenderRunner::execute(Compilation &compilation) {
   if (!PacketRunner::execute(compilation)) {
     return false;
+  }
+
+  // For the packet sender, there are callbacks that may need to be invoked!
+  // They could alter the packet, so we do those before we let the observers run.
+  for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count; insn_idx++) {
+    if (compilation.program->insts[insn_idx].op == EXEC_AFTER_PACKET_BUILT) {
+      pisa_callback_t cb_info{compilation.program->insts[insn_idx].value.value.callback};
+
+      exec_packet_builder_cb cb{reinterpret_cast<exec_packet_builder_cb>(cb_info.callback)};
+
+      cb(compilation.packet, cb_info.cookie);
+
+    }
   }
 
   for (auto invocation : *compilation.pipeline) {
     invocation.plugin.observe(compilation.program.get(), &compilation.packet,
                               invocation.cookie);
-  }
-
-  return true;
-}
-
-bool PacketSenderRunner::execute(Compilation &compilation) {
-  if (!PacketObserverRunner::execute(compilation)) {
-    return false;
   }
 
   // Find out the target and transport.
@@ -841,18 +851,6 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
 
   auto &program = compilation.program;
 
-  // As part of our work, we also run another runner that lets
-  // each of the plugins in the pipeline see the packet that was
-  // built.
-  auto packet_observer_runner = PacketObserverRunner();
-  auto packet_observer_runner_result =
-      packet_observer_runner.execute(compilation);
-  if (!packet_observer_runner_result) {
-    Logger::ActiveLogger()->log(
-        Logger::DEBUG,
-        "Error occurred running the packet observer on the PISA program.\n");
-  }
-
   pisa_value_t pgm_body{};
 
   ip_addr_t pisa_target_address{};
@@ -917,7 +915,8 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
 
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
     switch (program->insts[insn_idx].op) {
-      case EXEC:
+      case EXEC_AFTER_SOCKET_BUILT:
+      case EXEC_AFTER_PACKET_BUILT:
       case SET_META: {
         // During execution, EXEC, and SET_META operations are noops.
         break;
@@ -1014,6 +1013,38 @@ bool CliRunner::execute(Compilation &compilation) {
   if (!compilation) {
     return false;
   }
+
+  // As part of our work, we also run another runner that lets
+  // each of the plugins in the pipeline see the packet that was
+  // built.
+  auto packet_observer_runner = PacketRunner();
+  auto packet_observer_runner_result =
+      packet_observer_runner.execute(compilation);
+  if (!packet_observer_runner_result) {
+    Logger::ActiveLogger()->log(
+        Logger::DEBUG,
+        "Error occurred running the packet observer on the PISA program.\n");
+  }
+
+  // For the Cli runner, because we are generating the entire packet, it makes sense
+  // to let an EXEC_PACKET_BUILDER callbacks run because, well, we built a packet
+  // that is going out on the network!
+  for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count; insn_idx++) {
+    if (compilation.program->insts[insn_idx].op == EXEC_AFTER_PACKET_BUILT) {
+      pisa_callback_t cb_info{compilation.program->insts[insn_idx].value.value.callback};
+
+      exec_packet_builder_cb cb{reinterpret_cast<exec_packet_builder_cb>(cb_info.callback)};
+
+      cb(compilation.packet, cb_info.cookie);
+
+    }
+  }
+
+  for (auto invocation : *compilation.pipeline) {
+    invocation.plugin.observe(compilation.program.get(), &compilation.packet,
+                              invocation.cookie);
+  }
+
   SocketBuilderRunner::execute(compilation);
   if (!compilation) {
     return false;
@@ -1236,6 +1267,8 @@ bool ForkRunner::execute(Compilation &compilation) {
     return false;
   }
 
+  // A packet was not built so no EXEC_AFTER_PACKET_BUILT callbacks should be run.
+
   if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
     compilation.error = "Could not connect the socket.";
     Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
@@ -1247,7 +1280,7 @@ bool ForkRunner::execute(Compilation &compilation) {
   pisa_inst_t *pisa_exec_inst{nullptr};
   size_t last_pisa_exec_inst{0};
   while (pisa_program_find_inst(program.get(), &last_pisa_exec_inst,
-                                &pisa_exec_inst, EXEC)) {
+                                &pisa_exec_inst, EXEC_AFTER_SOCKET_BUILT)) {
     pisa_callback_t exec_func{
         (pisa_callback_t)(pisa_exec_inst->value.value.callback.callback)};
     exec_func(m_socket, pisa_exec_inst->value.value.callback.cookie);

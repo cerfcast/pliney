@@ -24,12 +24,7 @@ public:
   bool execute(Compilation &compilation) override;
 };
 
-class PacketObserverRunner : public PacketRunner {
-public:
-  bool execute(Compilation &compilation) override;
-};
-
-class PacketSenderRunner : public PacketObserverRunner {
+class PacketSenderRunner : public PacketRunner {
 public:
   bool execute(Compilation &) override;
 };

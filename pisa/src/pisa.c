@@ -135,7 +135,8 @@ const char *__pisa_opcode_names[] = {
     "ADD_TRANSPORT_EXTENSION",
     "SET_OFFSET",
     "ADD_OBSERVER",
-    "EXEC",
+    "EXEC_SOCKET_BUILDER",
+    "EXEC_PACKET_BUILDER",
 };
 
 const char *pisa_opcode_name(pisa_opcode_t opcode) {

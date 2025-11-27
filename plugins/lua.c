@@ -208,7 +208,7 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
     data_p *body = (data_p *)cookie;
 
     pisa_inst_t set_body_inst;
-    set_body_inst.op = EXEC;
+    set_body_inst.op = EXEC_AFTER_SOCKET_BUILT;
     set_body_inst.value.tpe = CALLBACK;
     set_body_inst.value.value.callback.callback = (void *)do_lua_exec;
     set_body_inst.value.value.callback.cookie = cookie;

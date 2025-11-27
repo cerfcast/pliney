@@ -68,7 +68,8 @@ typedef enum {
   ADD_TRANSPORT_EXTENSION,
   SET_OFFSET,
   ADD_OBSERVER,
-  EXEC,
+  EXEC_AFTER_SOCKET_BUILT,
+  EXEC_AFTER_PACKET_BUILT,
   PISA_OPCODE_MAX,
 } pisa_opcode_t;
 
@@ -156,6 +157,8 @@ typedef struct {
   size_t inst_count;
   pisa_inst_t *insts;
 } pisa_program_t;
+
+typedef void (*exec_packet_builder_cb)(packet_t packet, void *cookie);
 
 pisa_program_t *pisa_program_new();
 void pisa_program_release(pisa_program_t *program);
