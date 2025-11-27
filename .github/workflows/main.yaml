@@ -31,5 +31,5 @@ jobs:
         with:
             submodules: recursive
       - run: |
-          docker build -t packetline:latest .
+          docker build -t packetline:latest -f docker/Dockerfile .
           docker run packetline:latest
