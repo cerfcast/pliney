@@ -99,17 +99,33 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
+void observe(packet_t packet, void *cookie) {
   generate_result_t result = {.success = true};
 
   if (cookie != NULL) {
     int fd = *(int *)cookie;
-    if (write(fd, packet->body.data, packet->body.len) < 0) {
+    if (write(fd, packet.body.data, packet.body.len) < 0) {
       error("There was an error writing the packet to a file: %s",
             strerror(errno));
       result.success = false;
     }
   }
+}
+
+generate_result_t generate(pisa_program_t *program, void *cookie) {
+  generate_result_t result;
+  result.success = 0;
+
+  if (cookie) {
+    pisa_inst_t set_after_packet_built_cb_inst;
+    set_after_packet_built_cb_inst.op = EXEC_AFTER_PACKET_BUILT;
+    set_after_packet_built_cb_inst.value.tpe = CALLBACK;
+    set_after_packet_built_cb_inst.value.value.callback.callback = (void *)observe;
+    set_after_packet_built_cb_inst.value.value.callback.cookie = cookie;
+    result.success = pisa_program_add_inst(program, &set_after_packet_built_cb_inst);
+  }
+
+  return result;
 }
 
 cleanup_result_t cleanup(void *cookie) {
@@ -133,7 +149,8 @@ usage_result_t usage() {
   result.usage = 
   "Write the contents of the body of the packet to <file path>.\n"
   "Optionally specify a mode to determine how existing contents\n"
-  "of <file path> are handled.";
+  "of <file path> are handled. Only applies to the Cli and Packet\n"
+  "runners.";
   // clang-format on
 
   return result;
@@ -142,8 +159,7 @@ usage_result_t usage() {
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
-  info->generator = NULL;
-  info->observer = observe;
+  info->generator = generate;
   info->cleanup = cleanup;
   info->usage = usage;
   return true;

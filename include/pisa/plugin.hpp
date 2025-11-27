@@ -27,7 +27,6 @@ public:
   std::string params() const;
 
   result_generate_result_tt generate(pisa_program_t *program, void *cookie) const;
-  void observe(pisa_program_t *program, packet_t *packet, void *cookie) const;
 
 private:
   std::filesystem::path m_path;

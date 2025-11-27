@@ -114,12 +114,12 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
   if (cookie != NULL) {
     data_p *body = (data_p *)cookie;
 
-    pisa_inst_t set_body_inst;
-    set_body_inst.op = EXEC_AFTER_PACKET_BUILT;
-    set_body_inst.value.tpe = CALLBACK;
-    set_body_inst.value.value.callback.callback = (void *)error_packet_cb;
-    set_body_inst.value.value.callback.cookie = cookie;
-    result.success = pisa_program_add_inst(program, &set_body_inst);
+    pisa_inst_t set_exec_after_packet_built_cb_inst;
+    set_exec_after_packet_built_cb_inst.op = EXEC_AFTER_PACKET_BUILT;
+    set_exec_after_packet_built_cb_inst.value.tpe = CALLBACK;
+    set_exec_after_packet_built_cb_inst.value.value.callback.callback = (void *)error_packet_cb;
+    set_exec_after_packet_built_cb_inst.value.value.callback.cookie = cookie;
+    result.success = pisa_program_add_inst(program, &set_exec_after_packet_built_cb_inst);
 
     result.success = 1;
 
@@ -147,8 +147,8 @@ usage_result_t usage() {
   result.params = "<ERROR_RATE> [BYTE]";
   result.usage = 
   "With ERROR_RATE probability, change each byte in the packet\n"
-  "body to BYTE. If BYTE is not specified, 0x67 is used. Applicable\n"
-  "to the packet and cli runners only.\n";
+  "body to BYTE. If BYTE is not specified, 0x67 is used. Only\n"
+  "applies to the Cli and Packet runners.";
   // clang-format on
 
   return result;

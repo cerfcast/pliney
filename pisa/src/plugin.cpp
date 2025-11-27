@@ -77,12 +77,6 @@ result_generate_result_tt Plugin::generate(pisa_program_t *program,
   return generate_result_t{};
 }
 
-void Plugin::observe(pisa_program_t *program, packet_t *packet, void *cookie) const {
-  if (info.observer) {
-    info.observer(program, packet, cookie);
-  }
-}
-
 size_t Plugins::count() const { return m_plugins.size(); }
 
 std::optional<Plugin>

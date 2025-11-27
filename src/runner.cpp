@@ -587,8 +587,8 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  // For the packet sender, there are callbacks that may need to be invoked!
-  // They could alter the packet, so we do those before we let the observers run.
+  // For the packet sender, because we built a packet, it's time to let
+  // the after-packet-built callbacks have their time to shine!
   for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count; insn_idx++) {
     if (compilation.program->insts[insn_idx].op == EXEC_AFTER_PACKET_BUILT) {
       pisa_callback_t cb_info{compilation.program->insts[insn_idx].value.value.callback};
@@ -598,11 +598,6 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
       cb(compilation.packet, cb_info.cookie);
 
     }
-  }
-
-  for (auto invocation : *compilation.pipeline) {
-    invocation.plugin.observe(compilation.program.get(), &compilation.packet,
-                              invocation.cookie);
   }
 
   // Find out the target and transport.
@@ -1026,9 +1021,8 @@ bool CliRunner::execute(Compilation &compilation) {
         "Error occurred running the packet observer on the PISA program.\n");
   }
 
-  // For the Cli runner, because we are generating the entire packet, it makes sense
-  // to let an EXEC_PACKET_BUILDER callbacks run because, well, we built a packet
-  // that is going out on the network!
+  // For the Cli runner , because we built a packet, it's time to let
+  // the after-packet-built callbacks have their time to shine!
   for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count; insn_idx++) {
     if (compilation.program->insts[insn_idx].op == EXEC_AFTER_PACKET_BUILT) {
       pisa_callback_t cb_info{compilation.program->insts[insn_idx].value.value.callback};
@@ -1038,11 +1032,6 @@ bool CliRunner::execute(Compilation &compilation) {
       cb(compilation.packet, cb_info.cookie);
 
     }
-  }
-
-  for (auto invocation : *compilation.pipeline) {
-    invocation.plugin.observe(compilation.program.get(), &compilation.packet,
-                              invocation.cookie);
   }
 
   SocketBuilderRunner::execute(compilation);

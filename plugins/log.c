@@ -153,7 +153,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
+void observe(packet_t packet, void *cookie) {
   generate_result_t result = {.success = true};
 
   if (cookie != NULL) {
@@ -191,12 +191,12 @@ void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
 #endif
 
     struct pcap_pkthdr hdr;
-    hdr.caplen = packet->all.len;
+    hdr.caplen = packet.all.len;
     hdr.len = hdr.caplen;
     hdr.ts.tv_sec = 0;
     hdr.ts.tv_usec = 0;
 
-    pcap_dump((u_char *)lcookie->dumper, &hdr, (const u_char *)packet->all.data);
+    pcap_dump((u_char *)lcookie->dumper, &hdr, (const u_char *)packet.all.data);
     pcap_dump_flush(lcookie->dumper);
 
 #if 0
@@ -208,6 +208,22 @@ void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
     }
 #endif
   }
+}
+
+generate_result_t generate(pisa_program_t *program, void *cookie) {
+  generate_result_t result;
+  result.success = 0;
+
+  if (cookie) {
+    pisa_inst_t set_after_packet_built_cb_inst;
+    set_after_packet_built_cb_inst.op = EXEC_AFTER_PACKET_BUILT;
+    set_after_packet_built_cb_inst.value.tpe = CALLBACK;
+    set_after_packet_built_cb_inst.value.value.callback.callback = (void *)observe;
+    set_after_packet_built_cb_inst.value.value.callback.cookie = cookie;
+    result.success = pisa_program_add_inst(program, &set_after_packet_built_cb_inst);
+  }
+
+  return result;
 }
 
 cleanup_result_t cleanup(void *cookie) {
@@ -237,7 +253,7 @@ usage_result_t usage() {
   "of FILE_PATH are handled. Optionally specify a default-ip to\n"
   "specify a target IP if the packet does not have one. Optionally\n"
   "specify a default-transport protocol if the packet does not have\n"
-  "one.";
+  "one. Only applies to the Cli and Packet runners.";
   // clang-format on
 
   return result;
@@ -246,8 +262,7 @@ usage_result_t usage() {
 bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
-  info->generator = NULL;
-  info->observer = observe;
+  info->generator = generate;
   info->cleanup = cleanup;
   info->usage = usage;
   return true;

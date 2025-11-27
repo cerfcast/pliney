@@ -29,7 +29,6 @@ typedef struct {
 } usage_result_t;
 
 typedef generate_result_t (*generate_t)(pisa_program_t *program, void*);
-typedef void (*observe_t)(pisa_program_t *program, packet_t *, void*);
 typedef configuration_result_t (*generate_configuration_t)(int argc, const char **);
 typedef cleanup_result_t (*cleanup_t)(void *);
 typedef usage_result_t (*usage_t)();
@@ -38,7 +37,6 @@ typedef struct {
   char *name;
   generate_t generator;
   generate_configuration_t configurator;
-  observe_t observer;
   cleanup_t cleanup;
   usage_t usage;
 } plugin_t;

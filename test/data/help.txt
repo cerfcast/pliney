@@ -45,7 +45,8 @@ Plugin Usage:
 		<ERROR_RATE> [BYTE]
 		Usage:
 		With ERROR_RATE probability, change each byte in the packet
-		body to BYTE. If BYTE is not specified, 0x67 is used.
+		body to BYTE. If BYTE is not specified, 0x67 is used. Only
+		applies to the Cli and Packet runners.
 	exthdr-padn
 		<dst, hbh> <SIZE> [BYTE]
 		Usage:
@@ -59,7 +60,7 @@ Plugin Usage:
 		<IP or HOSTNAME>
 		Usage:
 		Encapsulate the packet in a GRE tunnel to the specified IP
-		or HOSTNAME.
+		or HOSTNAME. Only applies to the Cli and Packet runners.
 	hoplimit
 		<HL>
 		Usage:
@@ -93,7 +94,7 @@ Plugin Usage:
 		of FILE_PATH are handled. Optionally specify a default-ip to
 		specify a target IP if the packet does not have one. Optionally
 		specify a default-transport protocol if the packet does not have
-		one.
+		one. Only applies to the Cli and Packet runners.
 	lua
 		<FILE_PATH>
 		Usage:
@@ -109,7 +110,8 @@ Plugin Usage:
 		Usage:
 		Write the contents of the body of the packet to <file path>.
 		Optionally specify a mode to determine how existing contents
-		of <file path> are handled.
+		of <file path> are handled. Only applies to the Cli and Packet
+		runners.
 	source
 		<IP or HOSTNAME> [PORT]
 		Usage:

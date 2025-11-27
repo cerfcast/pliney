@@ -97,7 +97,7 @@ configuration_result_t generate_configuration(int argc, const char **args) {
   return configuration_result;
 }
 
-void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
+void observe(packet_t packet, void *cookie) {
 
   if (!cookie) {
     return;
@@ -130,13 +130,13 @@ void observe(pisa_program_t *program, packet_t *packet, void *cookie) {
   grh->b1.version = 0x0;
 
   void *encapsulated_packet = buf;
-  size_t length_of_packet_to_encapsulate = packet->all.len;
+  size_t length_of_packet_to_encapsulate = packet.all.len;
   if (length_of_packet_to_encapsulate + GRE_HEADER_LEN > 1500) {
     size_t overflow = length_of_packet_to_encapsulate;
     length_of_packet_to_encapsulate = 1500 - GRE_HEADER_LEN;
     warn("Slicing packet from %d to %d when mirroring into GRE tunnel.");
   }
-  memcpy(encapsulated_packet + GRE_HEADER_LEN, packet->all.data,
+  memcpy(encapsulated_packet + GRE_HEADER_LEN, packet.all.data,
          length_of_packet_to_encapsulate);
   size_t encapsulated_packet_len =
       GRE_HEADER_LEN + length_of_packet_to_encapsulate;
@@ -154,11 +154,12 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
   if (cookie) {
     grep_cookie_t *gcookie = (grep_cookie_t *)cookie;
 
-    pisa_value_t pisa_transport_value = {.tpe = BYTE};
-    if (!pisa_program_find_meta_value(program, "TRANSPORT",
-                                      &pisa_transport_value)) {
-      result.success = false;
-    }
+    pisa_inst_t set_after_packet_built_cb_inst;
+    set_after_packet_built_cb_inst.op = EXEC_AFTER_PACKET_BUILT;
+    set_after_packet_built_cb_inst.value.tpe = CALLBACK;
+    set_after_packet_built_cb_inst.value.value.callback.callback = (void *)observe;
+    set_after_packet_built_cb_inst.value.value.callback.cookie = cookie;
+    result.success = pisa_program_add_inst(program, &set_after_packet_built_cb_inst);
   }
 
   return result;
@@ -183,7 +184,7 @@ usage_result_t usage() {
   result.params = "<IP or HOSTNAME>";
   result.usage = 
   "Encapsulate the packet in a GRE tunnel to the specified IP\n"
-  "or HOSTNAME.";
+  "or HOSTNAME. Only applies to the Cli and Packet runners.";
   // clang-format on
 
   return result;
@@ -193,7 +194,6 @@ bool load(plugin_t *info) {
   info->name = plugin_name;
   info->configurator = generate_configuration;
   info->generator = generate;
-  info->observer = observe;
   info->cleanup = cleanup;
   info->usage = usage;
   return true;
