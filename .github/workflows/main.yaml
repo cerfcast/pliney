@@ -24,18 +24,7 @@ jobs:
           cmake -B build -S . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
           cmake --build build
   test-check:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-            submodules: recursive
-      - run: |
-          cmake -B build -S . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-          cmake --build build
-          ./test/tests.sh
-  docker-test-check:
-    name: Run Docker Tests
+    name: Run Tests (in Docker)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

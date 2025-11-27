@@ -1,6 +1,8 @@
 #/bin/env bash
 
-tests=`test/test_names`
+export RUNNER_TEMP=/tmp/
+
+tests=`cat test/test_names`
 
 for i in ${tests}; do
 		echo "Running tests in ${i} ..."
