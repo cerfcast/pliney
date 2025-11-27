@@ -163,8 +163,6 @@ else()
     message(WARNING "Could not find libpcap -- disabling log plugin support")
 endif()
 
-add_subdirectory(test)
-
 set(FORMATTABLE_FILES "${PLINEY_SRCS}")
 list(APPEND FORMATTABLE_FILES "${PLINEY_MAIN}")
 list(APPEND FORMATTABLE_FILES "${PLUGIN_PLUGIN_SRCS}")
