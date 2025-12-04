@@ -118,6 +118,30 @@ $ make -f Makefile.xdp unload
 1. PadN TLV length must be less than 7 bytes in length.[^padn-length]
 2. PadN TLV bodies can only contain 0s.[^padn-zeros]
 
+### XDP Idea Notes
+
+1. `refl.sh` and `refl-down.sh` can be `source`'d to configure development environment.
+2. Run the rewriter in the namespace.
+3. The rewriter creates a TAP interface -- that must be `up`'d:
+```console
+$ ip link set tapst0 up
+```
+4. Then, the tap interface needs to have the same ll address as the IP interface. (Use `ip link set address` to do that.)
+5. The "kernel side" makes sure that all Ethernet packets pass untouched. Only IP packets are passed to userspace. Note: That means that the "program must be loaded" (c.f. a ["default libbpf program"](https://doc.dpdk.org/guides/howto/af_xdp_dp.html)).
+
+Questions left to answer: 
+1. How to make the setup/use "easy" for a user?
+2. Can it be done on egress?
+
+TODOs:
+1. Use netlink to `up` the TAP interface.
+
+#### References
+
+- [Original Idea for Putting Component Into Namespace](https://www.josehu.com/technical/2023/10/28/emulating-network-env.html)
+- [TUN/TAP Resource](https://backreference.org/2010/03/26/tuntap-interface-tutorial/)
+- [TUN/TAP Resource -- A Good Reminder That Interfaces Need to be `up`'d](https://john-millikin.com/creating-tun-tap-interfaces-in-linux)
+
 [^padn-length]: "Linux source code (v6.16.9) - Bootlin Elixir Cross Referencer" Available: https://elixir.bootlin.com/linux/v6.16.9/source/net/ipv6/exthdrs.c#L150. [Accessed: Sep. 26, 2025]
  
 [^padn-zeros]: "Linux source code (v6.16.9) - Bootlin Elixir Cross Referencer" Available: https://elixir.bootlin.com/linux/v6.16.9/source/net/ipv6/exthdrs.c#L159. [Accessed: Sep. 26, 2025]
