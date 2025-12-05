@@ -122,19 +122,19 @@ $ make -f Makefile.xdp unload
 
 1. `refl.sh` and `refl-down.sh` can be `source`'d to configure development environment.
 2. Run the rewriter in the namespace.
-3. The rewriter creates a TAP interface -- that must be `up`'d:
+3. The rewriter creates a TAP interface -- that must be `up`'d (**note**: This remains for record -- the program handles this automatically now):
 ```console
 $ ip link set tapst0 up
 ```
-4. Then, the tap interface needs to have the same ll address as the IP interface. (Use `ip link set address` to do that.)
-5. The "kernel side" makes sure that all Ethernet packets pass untouched. Only IP packets are passed to userspace. Note: That means that the "program must be loaded" (c.f. a ["default libbpf program"](https://doc.dpdk.org/guides/howto/af_xdp_dp.html)).
+4. Then, the tap interface needs to have the same ll address as the IP interface. (**note**: This remains for record -- the program handles this automatically now)
+5. The "kernel side" makes sure that non IP ethernet packets pass untouched to the kernel for normal processing. Ethernet-holding IP packets are passed to userspace for pliney processing. Note: That means that the "program must be loaded" (c.f. a ["default libbpf program"](https://doc.dpdk.org/guides/howto/af_xdp_dp.html)).
+6. Packets "back" from the TAP do not need to be redistributed (thanks to (4)).
+7. Because XDP gets the packets early, to monitor what the pliney program is doing to the IP packets, `tshark` must be used instead of `wireshark`. But,
+8. `wireshark` should still be used to monitor the egress packets.
 
 Questions left to answer: 
 1. How to make the setup/use "easy" for a user?
 2. Can it be done on egress?
-
-TODOs:
-1. Use netlink to `up` the TAP interface.
 
 #### References
 
