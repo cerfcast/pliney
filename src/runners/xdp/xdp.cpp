@@ -8,7 +8,6 @@
 #include <cstring>
 #include <signal.h>
 
-
 static int num_socks;
 struct xsk_socket_info *xsks[MAX_SOCKS];
 int sock;
@@ -19,14 +18,14 @@ static void int_exit(int sig) { keep_running = false; }
 
 void packet_processor(void *pkt) {
   char *cpkt{static_cast<char *>(pkt)};
-  struct ether_header *eth{reinterpret_cast<struct ether_header*>(cpkt)};
+  struct ether_header *eth{reinterpret_cast<struct ether_header *>(cpkt)};
 
-  struct iphdr *iph{reinterpret_cast<struct iphdr*>(cpkt + sizeof(struct ether_header))};
+  struct iphdr *iph{
+      reinterpret_cast<struct iphdr *>(cpkt + sizeof(struct ether_header))};
 
   iph->ttl = 22;
   iph->check = 0;
   iph->check = ip_fast_csum(iph, iph->ihl);
-
 }
 
 void l2fwd_all(int tunfd) {
@@ -63,7 +62,8 @@ bool XdpRunner::execute(Compilation &compilation) {
   if (!opt_ifindex) {
     Logger::ActiveLogger()->log(
         Logger::ERROR,
-        std::format("Cannot use interface {} for XDP runner: it does not exist", m_interface_name));
+        std::format("Cannot use interface {} for XDP runner: it does not exist",
+                    m_interface_name));
     return false;
   }
 
@@ -110,7 +110,8 @@ out:
   return true;
 }
 
-Runner::RunnerConfigureResult XdpRunner::configure(const std::vector<std::string> &args) {
+Runner::RunnerConfigureResult
+XdpRunner::configure(const std::vector<std::string> &args) {
 
   std::string usage{"xdp requires -iface [NAME]"};
   if (args.size() < 2) {
@@ -124,5 +125,4 @@ Runner::RunnerConfigureResult XdpRunner::configure(const std::vector<std::string
   m_interface_name = args[1];
 
   return size_t(2);
-
 }

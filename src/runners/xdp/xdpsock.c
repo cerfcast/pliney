@@ -409,7 +409,8 @@ struct xsk_socket_info *xsk_configure_socket(struct xsk_umem_info *umem,
   return xsk;
 }
 
-void l2fwd(struct xsk_socket_info *xsk, int tunfd, process_packet_cb_t packet_processor) {
+void l2fwd(struct xsk_socket_info *xsk, int tunfd,
+           process_packet_cb_t packet_processor) {
 
   u32 idx_rx = 0, idx_tx = 0, frags_done = 0;
   unsigned int rcvd, i, eop_cnt = 0;
@@ -491,7 +492,7 @@ int tun_alloc_aper(const char *dev, const char *dev_to_ape) {
     close(fd);
     return err;
   }
-  
+
   // Note: It is possible that the ioctl changed the name from underneath us ...
   // we are not going to handle that right now.
 
@@ -537,27 +538,26 @@ int tun_alloc_aper(const char *dev, const char *dev_to_ape) {
   return fd;
 }
 
+void load_xdp_program(int ifi) {
+  char errmsg[STRERR_BUFSIZE];
+  int err;
 
-void load_xdp_program(int ifi)
-{
-	char errmsg[STRERR_BUFSIZE];
-	int err;
+  xdp_prog = xdp_program__open_file(
+      "/home/hawkinsw/code/packetline/build/xdpsock_kern.o", NULL, NULL);
 
-	xdp_prog = xdp_program__open_file("/home/hawkinsw/code/packetline/build/xdpsock_kern.o", NULL, NULL);
+  err = libxdp_get_error(xdp_prog);
+  if (err) {
+    libxdp_strerror(err, errmsg, sizeof(errmsg));
+    fprintf(stderr, "ERROR: program loading failed: %s\n", errmsg);
+    exit(EXIT_FAILURE);
+  }
 
-	err = libxdp_get_error(xdp_prog);
-	if (err) {
-		libxdp_strerror(err, errmsg, sizeof(errmsg));
-		fprintf(stderr, "ERROR: program loading failed: %s\n", errmsg);
-		exit(EXIT_FAILURE);
-	}
-
-	err = xdp_program__attach(xdp_prog, ifi, XDP_MODE_SKB, 0);
-	if (err) {
-		libxdp_strerror(err, errmsg, sizeof(errmsg));
-		fprintf(stderr, "ERROR: attaching program failed: %s\n", errmsg);
-		exit(EXIT_FAILURE);
-	}
+  err = xdp_program__attach(xdp_prog, ifi, XDP_MODE_SKB, 0);
+  if (err) {
+    libxdp_strerror(err, errmsg, sizeof(errmsg));
+    fprintf(stderr, "ERROR: attaching program failed: %s\n", errmsg);
+    exit(EXIT_FAILURE);
+  }
 }
 
 static int lookup_bpf_map(int prog_fd) {
@@ -613,37 +613,37 @@ static int lookup_bpf_map(int prog_fd) {
 }
 
 void enter_xsks_into_map(struct xsk_socket_info **xsks, int num_socks) {
-	struct bpf_map *data_map;
-	int i, xsks_map;
-	int key = 0;
+  struct bpf_map *data_map;
+  int i, xsks_map;
+  int key = 0;
 
-	data_map = bpf_object__find_map_by_name(xdp_program__bpf_obj(xdp_prog), ".bss");
-	if (!data_map || !bpf_map__is_internal(data_map)) {
-		fprintf(stderr, "ERROR: bss map found!\n");
-		exit(EXIT_FAILURE);
-	}
-	if (bpf_map_update_elem(bpf_map__fd(data_map), &key, &num_socks, BPF_ANY)) {
-		fprintf(stderr, "ERROR: bpf_map_update_elem num_socks %d!\n", num_socks);
-		exit(EXIT_FAILURE);
-	}
-	xsks_map = lookup_bpf_map(xdp_program__fd(xdp_prog));
-	if (xsks_map < 0) {
-		fprintf(stderr, "ERROR: no xsks map found: %s\n",
-			strerror(xsks_map));
-			exit(EXIT_FAILURE);
-	}
+  data_map =
+      bpf_object__find_map_by_name(xdp_program__bpf_obj(xdp_prog), ".bss");
+  if (!data_map || !bpf_map__is_internal(data_map)) {
+    fprintf(stderr, "ERROR: bss map found!\n");
+    exit(EXIT_FAILURE);
+  }
+  if (bpf_map_update_elem(bpf_map__fd(data_map), &key, &num_socks, BPF_ANY)) {
+    fprintf(stderr, "ERROR: bpf_map_update_elem num_socks %d!\n", num_socks);
+    exit(EXIT_FAILURE);
+  }
+  xsks_map = lookup_bpf_map(xdp_program__fd(xdp_prog));
+  if (xsks_map < 0) {
+    fprintf(stderr, "ERROR: no xsks map found: %s\n", strerror(xsks_map));
+    exit(EXIT_FAILURE);
+  }
 
-	for (i = 0; i < num_socks; i++) {
-		int fd = xsk_socket__fd(xsks[i]->xsk);
-		int ret;
+  for (i = 0; i < num_socks; i++) {
+    int fd = xsk_socket__fd(xsks[i]->xsk);
+    int ret;
 
-		key = i;
-		ret = bpf_map_update_elem(xsks_map, &key, &fd, 0);
-		if (ret) {
-			fprintf(stderr, "ERROR: bpf_map_update_elem %d\n", i);
-			exit(EXIT_FAILURE);
-		}
-	}
+    key = i;
+    ret = bpf_map_update_elem(xsks_map, &key, &fd, 0);
+    if (ret) {
+      fprintf(stderr, "ERROR: bpf_map_update_elem %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+  }
 }
 
 void apply_setsockopt(struct xsk_socket_info *xsk) {

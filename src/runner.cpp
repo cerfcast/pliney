@@ -1065,8 +1065,6 @@ bool CliRunner::execute(Compilation &compilation) {
   return true;
 }
 
-
-
 bool ForkRunner::execute(Compilation &compilation) {
   if (!compilation) {
     return false;
