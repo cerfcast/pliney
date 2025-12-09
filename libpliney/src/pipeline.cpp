@@ -3,6 +3,7 @@
 #include "pisa/plugin.h"
 
 #include <algorithm>
+#include <cstring>
 #include <ranges>
 #include <string_view>
 
@@ -45,10 +46,26 @@ Pipeline::Pipeline(const char *source, Plugins &&plugins)
   parse(argv);
 }
 
+Commandline::Commandline(const char **source) {
+  for (size_t i = 0; source[i] != nullptr; i++) {
+    m_commandline.push_back(source[i]);
+  }
+}
+
+std::vector<std::string> Commandline::get() { return m_commandline; };
+
 Pipeline::Pipeline(const char **source, Plugins &&plugins)
     : m_plugins(std::move(plugins)) {
+
+
   std::vector<std::string_view> args{};
-  for (size_t i = 0; source[i] != nullptr; i++) {
+  if (source[0] != nullptr && strcmp(source[0], "!>")) {
+    // The first part of the pipeline does not indicate a pipeline start -- fail!
+    return;
+  }
+
+  // Start from 1 because 0 should be the !>
+  for (size_t i = 1; source[i] != nullptr; i++) {
     args.push_back(source[i]);
   }
 

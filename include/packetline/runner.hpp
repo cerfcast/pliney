@@ -2,6 +2,7 @@
 #define _RESULT_EXECUTORS_HPP
 
 #include <cstring>
+#include <string_view>
 #include <sys/socket.h>
 
 #include "packetline/utilities.hpp"
@@ -10,7 +11,12 @@
 
 class Runner {
 public:
+  using RunnerConfigureResult = std::variant<size_t, std::string>;
+
   virtual bool execute(Compilation &compilation) = 0;
+  virtual RunnerConfigureResult configure(const std::vector<std::string> &args) {
+    return size_t{0};
+  };
   virtual ~Runner() = default;
 
 protected:
@@ -65,6 +71,14 @@ public:
 class XdpRunner : public Runner {
 public:
   bool execute(Compilation &compilation) override;
+};
+
+class TestSenderRunner : public Runner {
+public:
+  bool execute(Compilation &compilation) override {
+    return true;
+  };
+  RunnerConfigureResult configure(const std::vector<std::string> &args) override;
 };
 
 #endif

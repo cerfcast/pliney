@@ -5,6 +5,14 @@
 #include "pisa/plugin.hpp"
 #include "packetline/invocation.hpp"
 
+class Commandline {
+public:
+  Commandline(const char **source);
+  std::vector<std::string> get();
+private:
+  std::vector<std::string> m_commandline;
+};
+
 class Pipeline {
 public:
 

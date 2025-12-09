@@ -23,7 +23,6 @@
 #include "packetline/usage.hpp"
 #include "pisa/compilation.hpp"
 #include "pisa/compiler.hpp"
-#include "pisa/exthdrs.h"
 #include "pisa/pisa.h"
 #include "pisa/plugin.hpp"
 
@@ -54,7 +53,10 @@ int main(int argc, const char **argv) {
                           std::make_unique<PacketSenderRunner>());
   });
 
-  std::string runner_builder_name{"cli"};
+  std::optional<std::pair<std::unique_ptr<Compiler>, std::unique_ptr<Runner>>>
+      maybe_pipeline_compiler_runner{};
+
+  std::string runner_name{"cli"};
 
   Logger::Level cli_logger_level{Logger::ERROR};
   std::string cli_plugin_path{"./build"};
@@ -97,6 +99,14 @@ int main(int argc, const char **argv) {
         }
         continue;
       }
+      // In test mode, add a test runner!
+      if (arg == "test") {
+        pipeline_compiler_builder.with_name("test", []() {
+          return std::make_pair(std::make_unique<CliCompiler>(),
+                                std::make_unique<TestSenderRunner>());
+        });
+        continue;
+      }
       if (arg == "plugin-path") {
         HAS_ANOTHER_ARG;
         cli_plugin_path = argv[pliney_arg_idx];
@@ -108,13 +118,44 @@ int main(int argc, const char **argv) {
       }
       if (arg == "runner-name") {
         HAS_ANOTHER_ARG;
-        runner_builder_name = argv[pliney_arg_idx];
+        runner_name = argv[pliney_arg_idx];
+
+        auto pcr_find_lookup_result =
+            pipeline_compiler_builder.by_name(runner_name);
+        if (std::holds_alternative<std::string>(pcr_find_lookup_result)) {
+          std::cerr << std::format(
+              "No pipeline executor named {} is registered.",
+              std::get<std::string>(pcr_find_lookup_result));
+          return 1;
+        }
+
+        auto [pipeline_compiler, pipeline_runner] = std::move(
+            std::get<
+                std::pair<std::unique_ptr<Compiler>, std::unique_ptr<Runner>>>(
+                pcr_find_lookup_result));
+
+        // Now, let's try to configure it!
+        auto runner_command_line{Commandline{argv + pliney_arg_idx + 1}};
+        auto configure_result = pipeline_runner->configure(runner_command_line.get());
+        if (std::holds_alternative<std::string>(configure_result)) {
+          std::cerr << std::format(
+              "Pipeline runner configuration failed: {}\n", std::get<std::string>(configure_result));
+          return 1;
+        }
+
+        auto args_consumed{std::get<size_t>(configure_result)};
+
+        pliney_arg_idx += args_consumed;
+
+        maybe_pipeline_compiler_runner = std::move(std::make_pair(std::move(pipeline_compiler), std::move(pipeline_runner)));
+
         continue;
       }
     }
     std::cerr << std::format("Unrecognized argument: {}\n",
                              argv[pliney_arg_idx]);
     should_show_help = true;
+    break;
   }
 
   auto logger = Logger::ActiveLogger();
@@ -122,17 +163,14 @@ int main(int argc, const char **argv) {
   // let's set it and use it.
   logger->set_level(cli_logger_level);
 
-  auto maybe_pipeline_compiler_runner =
-      pipeline_compiler_builder.by_name(runner_builder_name);
-  if (std::holds_alternative<std::string>(maybe_pipeline_compiler_runner)) {
-    std::cerr << std::format(
-        "No pipeline executor named {} is registered.",
-        std::get<std::string>(maybe_pipeline_compiler_runner));
-    return 1;
+  // If there is no maybe_pipeline_compiler_runner, then we go with the default.
+  if (!maybe_pipeline_compiler_runner) {
+    Logger::ActiveLogger()->log(Logger::DEBUG, "Using the default runner.");
+    maybe_pipeline_compiler_runner = std::make_pair(
+        std::make_unique<CliCompiler>(), std::make_unique<CliRunner>());
   }
-  auto pipeline_compiler_runner = std::move(
-      std::get<std::pair<std::unique_ptr<Compiler>, std::unique_ptr<Runner>>>(
-          maybe_pipeline_compiler_runner));
+
+  auto pipeline_compiler_runner = std::move(*maybe_pipeline_compiler_runner);
 
   auto plugin_fs_path = std::filesystem::path(cli_plugin_path);
   auto plugins = PluginDir{plugin_fs_path};
@@ -151,7 +189,7 @@ int main(int argc, const char **argv) {
     return 1;
   }*/
 
-  Pipeline pipeline{argv + pipeline_start + 1, std::move(loaded_plugins)};
+  Pipeline pipeline{argv + pipeline_start, std::move(loaded_plugins)};
 
   if (should_show_help) {
     Usage us{};

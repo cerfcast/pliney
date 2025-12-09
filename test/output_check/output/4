@@ -1,0 +1,16 @@
+runner arg: !>
+runner arg: transport
+runner arg: udp
+runner arg: =>
+runner arg: body
+runner arg: ./test/data/dns_cnn
+runner arg: =>
+runner arg: target
+runner arg: 8.8.8.8
+runner arg: 53
+runner arg: =>
+runner arg: raw
+runner arg: -mode
+runner arg: overwrite
+runner arg: /tmp/testing.raw
+Pipeline runner configuration failed: Could not parse the runner-specific command line arguments.

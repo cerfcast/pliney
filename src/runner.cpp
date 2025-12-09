@@ -1283,3 +1283,11 @@ bool ForkRunner::execute(Compilation &compilation) {
   }
   return true;
 }
+
+Runner::RunnerConfigureResult TestSenderRunner::configure(const std::vector<std::string> &args) {
+    std::for_each(args.begin(), args.end(), [](std::string_view arg) {
+      std::cout << std::format("runner arg: {}\n", arg);
+    });
+
+    return std::string{"Could not parse the runner-specific command line arguments."};
+  }
