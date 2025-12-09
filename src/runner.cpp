@@ -15,7 +15,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <format>
-#include <fstream>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
@@ -23,7 +22,6 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <optional>
-#include <regex>
 #include <sys/socket.h>
 #include <sys/types.h>
 
@@ -1067,187 +1065,7 @@ bool CliRunner::execute(Compilation &compilation) {
   return true;
 }
 
-bool XdpRunner::execute(Compilation &compilation) {
 
-  if (!compilation) {
-    return false;
-  }
-
-  auto &program = compilation.program;
-
-  pisa_value_t pisa_xdp_output_file{.tpe = PTR};
-
-  // Now, find out the transport type. The program must set one.
-  if (!pisa_program_find_meta_value(program.get(), "XDP_OUTPUT_FILE",
-                                    &pisa_xdp_output_file)) {
-    auto error{"Could not find the name of the XDP output file!"};
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
-    compilation.error = error;
-    return false;
-  }
-
-  auto process_c_path = std::filesystem::path("./xdp/process.c");
-  auto xdp_path = std::filesystem::path("./xdp/xdp.c");
-  auto tc_path = std::filesystem::path("./xdp/tc.c");
-
-  auto xdp_output_path = std::filesystem::path(
-      std::string{(char *)pisa_xdp_output_file.value.ptr.data} + ".xdp.c");
-  auto tc_output_path = std::filesystem::path(
-      std::string{(char *)pisa_xdp_output_file.value.ptr.data} + ".tc.c");
-
-  std::ifstream process_c_skel{process_c_path};
-  std::ifstream xdp_skel{xdp_path};
-  std::ifstream tc_skel{tc_path};
-
-  if (!xdp_skel) {
-    std::string error{"Could not open the XDP skeleton file."};
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
-    compilation.error = error;
-    return false;
-  }
-
-  if (!tc_skel) {
-    std::string error{"Could not open the TC skeleton file."};
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
-    compilation.error = error;
-    return false;
-  }
-
-  if (!process_c_skel) {
-    std::string error{"Could not open the process.c skeleton file."};
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
-    compilation.error = error;
-    return false;
-  }
-
-  std::ofstream xdp_output_skel{xdp_output_path, std::ios::trunc};
-  if (!xdp_output_skel) {
-    std::string error{"Could not open the XDP output file."};
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
-    compilation.error = error;
-    return false;
-  }
-
-  std::ofstream tc_output_skel{tc_output_path, std::ios::trunc};
-  if (!tc_output_skel) {
-    std::string error{"Could not open the tc output file."};
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
-    compilation.error = error;
-    return false;
-  }
-
-  std::string xdp_skel_contents{};
-  char xdp_skel_just_read{};
-  xdp_skel >> std::noskipws;
-  while (xdp_skel >> xdp_skel_just_read) {
-    xdp_skel_contents += xdp_skel_just_read;
-  }
-
-  std::string tc_skel_contents{};
-  char tc_skel_just_read{};
-  tc_skel >> std::noskipws;
-  while (tc_skel >> tc_skel_just_read) {
-    tc_skel_contents += tc_skel_just_read;
-  }
-
-  std::string process_c_skel_contents{};
-  char process_c_skel_skel_just_read{};
-  process_c_skel >> std::noskipws;
-  while (process_c_skel >> process_c_skel_skel_just_read) {
-    process_c_skel_contents += process_c_skel_skel_just_read;
-  }
-
-  std::string xdp_ipv4_code{};
-  std::string xdp_ipv6_code{};
-
-  for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
-    switch (program->insts[insn_idx].op) {
-      case SET_META: {
-        Logger::ActiveLogger()->log(
-            Logger::DEBUG,
-            std::format("SET_META is a no-op for Packet Runner."));
-        break;
-      } // SET_META
-      case SET_FIELD: {
-        switch (program->insts[insn_idx].fk.field) {
-          case IPV6_HL: {
-            int hl = program->insts[insn_idx].value.value.byte;
-            xdp_ipv6_code += std::format("ipv6->ip6_hlim = {};\n", hl);
-            break;
-          }
-          case IPV4_TTL: {
-            int ttl = program->insts[insn_idx].value.value.byte;
-            xdp_ipv4_code += std::format("ip->ttl = {};\n", ttl);
-            break;
-          }
-          case IPV4_ECN: {
-            uint8_t ecn = program->insts[insn_idx].value.value.byte;
-            // First, remove the previous ECN value.
-            xdp_ipv4_code += std::format("set_ecn_v4(ip, {});\n", ecn);
-            break;
-          }
-          case IPV4_DSCP: {
-            uint8_t dscp = program->insts[insn_idx].value.value.byte;
-            xdp_ipv4_code += std::format("set_dscp_v4(ip, {});\n", dscp);
-            break;
-          }
-          case IPV6_ECN: {
-            uint8_t ecn = program->insts[insn_idx].value.value.byte;
-            // First, remove the previous ECN value.
-            xdp_ipv6_code += std::format("set_ecn_v6(ipv6, {});\n", ecn);
-            break;
-          }
-          case IPV6_DSCP: {
-            uint8_t dscp = program->insts[insn_idx].value.value.byte;
-            xdp_ipv6_code += std::format("set_dscp_v6(ipv6, {});\n", dscp);
-            break;
-          }
-          case APPLICATION_BODY:
-          case IPV6_TARGET:
-          case IPV4_TARGET:
-          default: {
-            Logger::ActiveLogger()->log(
-                Logger::WARN,
-                std::format(
-                    "Xdp Runner does not yet handle fields of kind {}",
-                    pisa_field_name(program->insts[insn_idx].fk.field)));
-          }
-        }
-        break;
-      } // SET_FIELD
-      default: {
-        Logger::ActiveLogger()->log(
-            Logger::WARN,
-            std::format("Xdp Runner does not yet handle operations of kind {}",
-                        pisa_opcode_name(program->insts[insn_idx].op)));
-      }
-    }
-  }
-
-  // Emit the xdp source code.
-  std::regex skel_ip_regex{"//__IPV4_PLINEY"};
-  std::regex skel_ipv6_regex{"//__IPV6_PLINEY"};
-  Logger::ActiveLogger()->log(Logger::WARN,
-                              std::format("xdp_ipv4_code: {}", xdp_ipv4_code));
-
-  Logger::ActiveLogger()->log(Logger::WARN,
-                              std::format("xdp_ipv6_code: {}", xdp_ipv6_code));
-  process_c_skel_contents =
-      std::regex_replace(process_c_skel_contents, skel_ip_regex, xdp_ipv4_code);
-  process_c_skel_contents = std::regex_replace(process_c_skel_contents,
-                                               skel_ipv6_regex, xdp_ipv6_code);
-
-  std::regex skel_process_c_regex{"//__PROCESS_PLINEY"};
-  xdp_skel_contents = std::regex_replace(
-      xdp_skel_contents, skel_process_c_regex, process_c_skel_contents);
-  tc_skel_contents = std::regex_replace(tc_skel_contents, skel_process_c_regex,
-                                        process_c_skel_contents);
-
-  xdp_output_skel << xdp_skel_contents;
-  tc_output_skel << tc_skel_contents;
-
-  return true;
-}
 
 bool ForkRunner::execute(Compilation &compilation) {
   if (!compilation) {

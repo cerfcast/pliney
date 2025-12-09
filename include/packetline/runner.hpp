@@ -71,6 +71,9 @@ public:
 class XdpRunner : public Runner {
 public:
   bool execute(Compilation &compilation) override;
+  RunnerConfigureResult configure(const std::vector<std::string> &args) override;
+private:
+  std::string m_interface_name;
 };
 
 class TestSenderRunner : public Runner {
