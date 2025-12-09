@@ -136,10 +136,11 @@ int main(int argc, const char **argv) {
 
         // Now, let's try to configure it!
         auto runner_command_line{Commandline{argv + pliney_arg_idx + 1}};
-        auto configure_result = pipeline_runner->configure(runner_command_line.get());
+        auto configure_result =
+            pipeline_runner->configure(runner_command_line.get());
         if (std::holds_alternative<std::string>(configure_result)) {
-          std::cerr << std::format(
-              "Pipeline runner configuration failed: {}\n", std::get<std::string>(configure_result));
+          std::cerr << std::format("Pipeline runner configuration failed: {}\n",
+                                   std::get<std::string>(configure_result));
           return 1;
         }
 
@@ -147,7 +148,8 @@ int main(int argc, const char **argv) {
 
         pliney_arg_idx += args_consumed;
 
-        maybe_pipeline_compiler_runner = std::move(std::make_pair(std::move(pipeline_compiler), std::move(pipeline_runner)));
+        maybe_pipeline_compiler_runner = std::move(std::make_pair(
+            std::move(pipeline_compiler), std::move(pipeline_runner)));
 
         continue;
       }

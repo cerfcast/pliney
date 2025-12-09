@@ -57,10 +57,10 @@ std::vector<std::string> Commandline::get() { return m_commandline; };
 Pipeline::Pipeline(const char **source, Plugins &&plugins)
     : m_plugins(std::move(plugins)) {
 
-
   std::vector<std::string_view> args{};
   if (source[0] != nullptr && strcmp(source[0], "!>")) {
-    // The first part of the pipeline does not indicate a pipeline start -- fail!
+    // The first part of the pipeline does not indicate a pipeline start --
+    // fail!
     return;
   }
 
