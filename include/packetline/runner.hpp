@@ -73,7 +73,8 @@ public:
   bool execute(Compilation &compilation) override;
   RunnerConfigureResult configure(const std::vector<std::string> &args) override;
 private:
-  std::string m_interface_name;
+  std::string m_aped_iface_name;
+  std::string m_ip_iface_name;
 };
 
 class TestSenderRunner : public Runner {

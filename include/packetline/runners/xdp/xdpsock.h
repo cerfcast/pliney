@@ -45,10 +45,6 @@
 #include <sys/ioctl.h>
 #include <linux/if_packet.h>
 
-#if __cplusplus
-extern "C" {
-#endif 
-
 #define MAX_SOCKS 4
 #define CLOSE_CONN 1
 
@@ -203,28 +199,36 @@ static const struct sched_map {
 	{ NULL }
 };
 
-void hex_dump(void *pkt, size_t length, u64 addr);
-struct xsk_umem_info *xsk_configure_umem(void *buffer, u64 size);
+void xdp_hex_dump(void *pkt, size_t length, u64 addr);
+struct xsk_umem_info *xdp_xsk_configure_umem(void *buffer, u64 size);
 void xsk_populate_fill_ring(struct xsk_umem_info *umem);
-struct xsk_socket_info *xsk_configure_socket(struct xsk_umem_info *umem, const char *ifname,
+struct xsk_socket_info *xdp_xsk_configure_socket(struct xsk_umem_info *umem, const char *ifname,
 						    bool rx, bool tx);
-void apply_setsockopt(struct xsk_socket_info *xsk);
-void load_xdp_program(int ifi);
-void remove_xdp_program(int optifi);
+void xdp_apply_setsockopt(struct xsk_socket_info *xsk);
+
+uint16_t ip_fast_csum(const unsigned char *iph, unsigned int ihl);
 
 void enter_xsks_into_map(struct xsk_socket_info **xsks, int num_socks);
-void xdpsock_cleanup(struct xsk_socket_info **xsks, int num_socks);
-void l2fwd_all(int tunfd);
+void xdp_cleanup(struct xsk_socket_info **xsks, int num_socks);
 int tun_alloc_aper(const char *dev, const char *dev_to_ape);
 
 typedef void (*process_packet_cb_t)(void *pkt);
 
-void l2fwd(struct xsk_socket_info *xsk, int tunfd, process_packet_cb_t packet_processor);
+void xdp_process_ingress(struct xsk_socket_info *xsk, int tapfd,
+           process_packet_cb_t packet_processor);
 
-uint16_t ip_fast_csum(const void *iph, unsigned int ihl);
 
-#if __cplusplus
-}
-#endif 
+int raw_alloc_aper(const char *dev_name);
+
+typedef struct {
+	int tunfd;
+	int rawfd;
+	int rawi;
+	volatile bool *keep_going;
+	process_packet_cb_t packet_processor;
+} tap_process_egress_config_t;
+void *tap_forward_handler(void *config);
+
+void *tap_process_egress(void *);
 
 #endif
