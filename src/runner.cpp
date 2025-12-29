@@ -260,8 +260,10 @@ bool PacketRunner::execute(Compilation &compilation,
 
   auto pisa_pgm_ip_version{
       Pliney::from_native_version(runner_packet.ip_packet.hdr.ip->version)};
-  auto pisa_pgm_transport_type{
-      Pliney::from_native_transport(runner_packet.ip_packet.hdr.ip->protocol)};
+  auto pisa_pgm_transport_type{Pliney::from_native_transport(
+      pisa_pgm_ip_version == Pliney::IpVersion::FOUR
+          ? runner_packet.ip_packet.hdr.ip->protocol
+          : runner_packet.ip_packet.hdr.ip6->ip6_nxt)};
 
   // And, now let's follow instructions.
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
@@ -760,7 +762,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -1018,7 +1020,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
   }
 
   auto pisa_pgm_ip_version{
-      Pliney::from_native_version(pisa_target_address.family)};
+      Pliney::from_pisa_version(pisa_target_address.family)};
 
   struct sockaddr *destination = nullptr;
   int destination_len = ip_to_sockaddr(pisa_target_address, &destination);
