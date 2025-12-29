@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <format>
+#include <net/ethernet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
@@ -26,6 +27,7 @@
 #include <sys/types.h>
 
 #include <iostream>
+#include <variant>
 
 #define PISA_COWARDLY_VERSION_CHECK(expected, actual, message)                 \
   if (actual != expected) {                                                    \
@@ -71,32 +73,112 @@ bool Runner::find_program_target_transport(const unique_pisa_program_t &program,
         Logger::ERROR, "Could not find the transport type in the PISA program");
     return false;
   }
-  transport = Pliney::from_pisa_transport(pisa_transport_value.value.byte);
+  transport = Pliney::from_native_transport(pisa_transport_value.value.byte);
 
   return true;
 }
 
-bool PacketRunner::execute(Compilation &compilation) {
+std::variant<RunnerPacket, std::string>
+RunnerPacket::from(const pisa_ptr_value_t data) {
+  RunnerPacket res{};
 
-  if (!compilation) {
-    return false;
+  // DO simple first: no handling special "things"
+
+  // Check that what we have is an ethernet packet containing an IP packet.
+
+  const struct ether_header *eth{
+      reinterpret_cast<const struct ether_header *>(data.data)};
+
+  if (eth->ether_type != htons(ETH_P_IP)) {
+    return "Cannot create a RunnerPacket from a non-IP enclosing ethernet "
+           "packet.";
   }
 
-  auto &program = compilation.program;
+  const struct iphdr *iph{reinterpret_cast<const struct iphdr *>(eth + 1)};
+  auto transport_type{Pliney::Transport::UDP};
 
-  pisa_value_t pgm_body{};
+  if (iph->version == Pliney::IP4_VERSION) {
+    Logger::ActiveLogger()->log(
+        Logger::DEBUG, std::format("(From ethernet) found an IP v4 packet."));
+    const struct iphdr *iph{reinterpret_cast<const struct iphdr *>(eth + 1)};
+    // TODO: Check.
+    res.ip_packet.len = Pliney::IPV4_DEFAULT_HEADER_LENGTH;
+    res.ip_packet.hdr.ip =
+        (struct iphdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
+
+    // Now, copy over the contents.
+    // Do the copy here because it helps to know the IP version for final processing (see below).
+    memcpy(res.ip_packet.hdr.ip, eth + 1, res.ip_packet.len);
+
+    // Adjust the IP packet's total length to just the header size -- the
+    // execution process will readjust (see above).
+    res.ip_packet.hdr.ip->tot_len = htons(Pliney::IPV4_DEFAULT_HEADER_LENGTH);
+
+    transport_type = Pliney::from_native_transport(iph->protocol);
+  } else {
+    const struct ip6_hdr *iph{
+        reinterpret_cast<const struct ip6_hdr *>(eth + 1)};
+    // TODO: Check.
+    res.ip_packet.len = Pliney::IPV6_DEFAULT_HEADER_LENGTH;
+    res.ip_packet.hdr.ip6 =
+        (struct ip6_hdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
+
+    // Now, copy over the contents.
+    // Do the copy here because it helps to know the IP version for final processing (see below).
+    memcpy(res.ip_packet.hdr.ip6, eth + 1, res.ip_packet.len);
+
+    // Adjust the IP packet's total length to just the header size -- the
+    // execution process will readjust (see above).
+    res.ip_packet.hdr.ip6->ip6_plen = htons(Pliney::IPV6_DEFAULT_HEADER_LENGTH);
+
+    transport_type = Pliney::from_native_transport(iph->ip6_nxt);
+  }
+
+  // We assume that there are no options.
+
+  // Next, let's check out the transport!
+  void *transport_start =
+      (uint8_t *)data.data + sizeof(struct ether_header) + res.ip_packet.len;
+  res.transport_packet.transport_len = transport_header_size(transport_type);
+  res.transport_packet.transport = reinterpret_cast<void *>(
+      calloc(res.transport_packet.transport_len, sizeof(uint8_t)));
+  memcpy(res.transport_packet.transport, (uint8_t *)transport_start,
+         res.transport_packet.transport_len);
+
+  res.body.len = (data.len - sizeof(struct ether_header) - res.ip_packet.len -
+                  res.transport_packet.transport_len);
+  res.body.body =
+      reinterpret_cast<void *>(calloc(res.body.len, sizeof(uint8_t)));
+  memcpy(res.body.body,
+         (uint8_t *)transport_start + res.transport_packet.transport_len,
+         res.body.len);
+  Logger::ActiveLogger()->log(Logger::DEBUG,
+                              std::format("(From ethernet) Transport len: {}",
+                                          res.transport_packet.transport_len));
+  Logger::ActiveLogger()->log(
+      Logger::DEBUG, std::format("(From ethernet) Body len: {}", res.body.len));
+  Logger::ActiveLogger()->log(Logger::DEBUG,
+                              std::format("(From ethernet) IP version: {}",
+                                          to_string(res.ip_packet.version)));
+  Logger::ActiveLogger()->log(Logger::DEBUG,
+                              std::format("(From ethernet) transport type: {}",
+                                          to_string(transport_type)));
+  return res;
+}
+
+std::variant<RunnerPacket, std::string>
+RunnerPacket::from(const unique_pisa_program_t &pisa_program) {
+  RunnerPacket res{};
   ip_addr_t pisa_target_address{};
   Pliney::Transport pisa_pgm_transport_type{};
 
-  if (!find_program_target_transport(program, pisa_target_address,
-                                     pisa_pgm_transport_type)) {
-    compilation.error =
-        "Could not find the target and/or transport in the PISA program";
-    return false;
+  if (!Runner::find_program_target_transport(pisa_program, pisa_target_address,
+                                             pisa_pgm_transport_type)) {
+    return "Could not find the target and/or transport in the PISA program";
   }
 
   auto pisa_pgm_ip_version{
-      Pliney::from_pisa_version(pisa_target_address.family)};
+      Pliney::from_native_version(pisa_target_address.family)};
 
   Logger::ActiveLogger()->log(Logger::DEBUG,
                               std::format("PISA program IP version: {}",
@@ -107,14 +189,15 @@ bool PacketRunner::execute(Compilation &compilation) {
 
   // Let's say that there is an IP header -- make one as big as legal
   // (appropriate to the type).
-  size_t iphdr_len{pisa_pgm_ip_version == Pliney::IpVersion::FOUR
-                       ? Pliney::IPV4_DEFAULT_HEADER_LENGTH
-                       : Pliney::IPV6_DEFAULT_HEADER_LENGTH};
-  void *iphdr{(void *)calloc(iphdr_len, sizeof(uint8_t))};
+  res.ip_packet.len = pisa_pgm_ip_version == Pliney::IpVersion::FOUR
+                          ? Pliney::IPV4_DEFAULT_HEADER_LENGTH
+                          : Pliney::IPV6_DEFAULT_HEADER_LENGTH;
+  res.ip_packet.hdr.ip =
+      (struct iphdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
 
   // Put some initial values into the packet.
   if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
-    struct iphdr *typed_hdr = (struct iphdr *)iphdr;
+    struct iphdr *typed_hdr = res.ip_packet.hdr.ip;
     typed_hdr->version = Pliney::IP4_VERSION;
     typed_hdr->ihl = Pliney::IPV4_DEFAULT_HEADER_LENGTH_OCTETS;
     typed_hdr->tot_len = htons(Pliney::IPV4_DEFAULT_HEADER_LENGTH_OCTETS * 4);
@@ -126,7 +209,7 @@ bool PacketRunner::execute(Compilation &compilation) {
       typed_hdr->protocol = IPPROTO_ICMP;
     }
   } else {
-    struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
+    struct ip6_hdr *typed_hdr = res.ip_packet.hdr.ip6;
     typed_hdr->ip6_vfc |= Pliney::IP6_VERSION << 4;
     if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
       typed_hdr->ip6_nxt = IPPROTO_TCP;
@@ -137,20 +220,50 @@ bool PacketRunner::execute(Compilation &compilation) {
     }
   }
 
-  // There could be some options that exist between the header and the
-  // transport!
-  size_t ip_opt_ext_hdr_raw_len{0};
-  uint8_t *ip_opts_exts_hdr_raw{};
-  pisa_ip_opts_exts_t ip_opts_exts_hdr{};
-
   // Let's say that there is a transport header -- make one of the appropriate
   // size.
-  size_t transport_len{transport_header_size(pisa_pgm_transport_type)};
-  void *transport{(void *)calloc(transport_len, sizeof(uint8_t))};
+  res.transport_packet.transport_len =
+      transport_header_size(pisa_pgm_transport_type);
+  res.transport_packet.transport =
+      (void *)calloc(res.transport_packet.transport_len, sizeof(uint8_t));
 
-  size_t transportoptionhdr_len{0};
-  uint8_t *transportoptionhdr{nullptr};
+  return res;
+}
 
+bool PacketRunner::execute(Compilation &compilation) {
+
+  if (!compilation) {
+    return false;
+  }
+
+  auto &program = compilation.program;
+
+  auto maybe_runner_packet{RunnerPacket::from(program)};
+
+  if (std::holds_alternative<std::string>(maybe_runner_packet)) {
+    compilation.error = std::get<std::string>(maybe_runner_packet);
+    return false;
+  }
+
+  auto runner_packet = std::get<RunnerPacket>(maybe_runner_packet);
+
+  return PacketRunner::execute(compilation, runner_packet);
+}
+
+bool PacketRunner::execute(Compilation &compilation,
+                           RunnerPacket runner_packet) {
+
+  auto &program = compilation.program;
+  ip_addr_t pisa_target_address{};
+
+  auto pisa_pgm_ip_version{
+      Pliney::from_native_version(runner_packet.ip_packet.hdr.ip->version)};
+  auto pisa_pgm_transport_type{
+      Pliney::from_native_transport(runner_packet.ip_packet.hdr.ip->protocol)};
+
+  Logger::ActiveLogger()->log(Logger::DEBUG,
+                              std::format("(From ethernet) transport type: {}",
+                                          to_string(pisa_pgm_transport_type)));
   // And, now let's follow instructions.
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
     switch (program->insts[insn_idx].op) {
@@ -169,21 +282,23 @@ bool PacketRunner::execute(Compilation &compilation) {
       case SET_TRANSPORT_EXTENSION: {
         // Because this replaces what was there before, release anything that
         // earlier!
-        if (transportoptionhdr) {
-          free(transportoptionhdr);
-          transportoptionhdr_len = 0;
+        if (runner_packet.transport_packet.transportoptionhdr) {
+          free(runner_packet.transport_packet.transportoptionhdr);
+          runner_packet.transport_packet.transportoptionhdr_len = 0;
         }
-        transportoptionhdr_len = program->insts[insn_idx].value.value.ptr.len;
-        transportoptionhdr =
-            (uint8_t *)calloc(transportoptionhdr_len, sizeof(uint8_t));
-        memcpy(transportoptionhdr,
+        runner_packet.transport_packet.transportoptionhdr_len =
+            program->insts[insn_idx].value.value.ptr.len;
+        runner_packet.transport_packet.transportoptionhdr = (uint8_t *)calloc(
+            runner_packet.transport_packet.transportoptionhdr_len,
+            sizeof(uint8_t));
+        memcpy(runner_packet.transport_packet.transportoptionhdr,
                program->insts[insn_idx].value.value.ptr.data,
-               transportoptionhdr_len);
+               runner_packet.transport_packet.transportoptionhdr_len);
       } // SET_TRANSPORT_EXTENSION
       case ADD_IP_OPT_EXT: {
         if (program->insts[insn_idx].value.tpe == IP_EXT) {
           auto ip_ext{program->insts[insn_idx].value.value.ext};
-          add_ip_opt_ext(&ip_opts_exts_hdr, ip_ext);
+          add_ip_opt_ext(&runner_packet.opts.ip_opts_exts_hdr, ip_ext);
         } else {
           Logger::ActiveLogger()->log(
               Logger::ERROR, std::format("IP Options are not yet supported"));
@@ -196,7 +311,8 @@ bool PacketRunner::execute(Compilation &compilation) {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
                 "Will not set an ICMP field on a non-ICMP PISA program");
-            struct icmphdr *typed_hdr = (struct icmphdr *)transport;
+            struct icmphdr *typed_hdr =
+                (struct icmphdr *)runner_packet.transport_packet.transport;
             typed_hdr->code = program->insts[insn_idx].value.value.byte;
             break;
           }
@@ -204,7 +320,8 @@ bool PacketRunner::execute(Compilation &compilation) {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
                 "Will not set an ICMP field on a non-ICMP PISA program");
-            struct icmphdr *typed_hdr = (struct icmphdr *)transport;
+            struct icmphdr *typed_hdr =
+                (struct icmphdr *)runner_packet.transport_packet.transport;
             typed_hdr->type = program->insts[insn_idx].value.value.byte;
             break;
           }
@@ -212,7 +329,8 @@ bool PacketRunner::execute(Compilation &compilation) {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
                 "Will not set an ICMP field on a non-ICMP PISA program");
-            struct icmphdr *typed_hdr = (struct icmphdr *)transport;
+            struct icmphdr *typed_hdr =
+                (struct icmphdr *)runner_packet.transport_packet.transport;
             typed_hdr->un.echo.id =
                 program->insts[insn_idx].value.value.four_bytes;
             typed_hdr->un.echo.sequence =
@@ -226,11 +344,13 @@ bool PacketRunner::execute(Compilation &compilation) {
                              to_string(pisa_pgm_transport_type));
             }
             if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
-              struct tcphdr *typed_hdr = (struct tcphdr *)transport;
+              struct tcphdr *typed_hdr =
+                  (struct tcphdr *)runner_packet.transport_packet.transport;
               typed_hdr->dest =
                   program->insts[insn_idx].value.value.ipaddr.port;
             } else {
-              struct udphdr *typed_hdr = (struct udphdr *)transport;
+              struct udphdr *typed_hdr =
+                  (struct udphdr *)runner_packet.transport_packet.transport;
               typed_hdr->dest =
                   program->insts[insn_idx].value.value.ipaddr.port;
             }
@@ -244,11 +364,13 @@ bool PacketRunner::execute(Compilation &compilation) {
             }
             if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
               if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
-                struct tcphdr *typed_hdr = (struct tcphdr *)transport;
+                struct tcphdr *typed_hdr =
+                    (struct tcphdr *)runner_packet.transport_packet.transport;
                 typed_hdr->source =
                     program->insts[insn_idx].value.value.ipaddr.port;
               } else {
-                struct udphdr *typed_hdr = (struct udphdr *)transport;
+                struct udphdr *typed_hdr =
+                    (struct udphdr *)runner_packet.transport_packet.transport;
                 typed_hdr->source =
                     program->insts[insn_idx].value.value.ipaddr.port;
               }
@@ -260,7 +382,8 @@ bool PacketRunner::execute(Compilation &compilation) {
                 Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
                 "Will not set an IPv4 target on a non-IPv4 PISA program.");
 
-            struct iphdr *typed_hdr = (struct iphdr *)iphdr;
+            struct iphdr *typed_hdr =
+                (struct iphdr *)runner_packet.ip_packet.hdr.ip;
             typed_hdr->daddr =
                 program->insts[insn_idx].value.value.ipaddr.addr.ipv4.s_addr;
 
@@ -270,7 +393,7 @@ bool PacketRunner::execute(Compilation &compilation) {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                 "Will not set an IPv6 target on a non-IPv6 PISA program.");
-            struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
+            struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_dst =
                 program->insts[insn_idx].value.value.ipaddr.addr.ipv6;
             break;
@@ -280,7 +403,7 @@ bool PacketRunner::execute(Compilation &compilation) {
                 Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
                 "Will not set an IPv4 target on a non-IPv4 PISA program.");
 
-            struct iphdr *typed_hdr = (struct iphdr *)iphdr;
+            struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
             typed_hdr->saddr =
                 program->insts[insn_idx].value.value.ipaddr.addr.ipv4.s_addr;
             break;
@@ -289,7 +412,7 @@ bool PacketRunner::execute(Compilation &compilation) {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                 "Will not set an IPv6 target on a non-IPv6 PISA program.");
-            struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
+            struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_src =
                 program->insts[insn_idx].value.value.ipaddr.addr.ipv6;
             break;
@@ -300,22 +423,34 @@ bool PacketRunner::execute(Compilation &compilation) {
                 PTR, program->insts[insn_idx].value.tpe,
                 ("Will not set a body from a non-pointer value in a "
                  "PISA program."));
-            pgm_body = program->insts[insn_idx].value;
+
+            // If there was a body in the packet already, release it first!
+            if (runner_packet.body.body != nullptr) {
+              free(runner_packet.body.body);
+              runner_packet.body.len = 0;
+            }
+
+            runner_packet.body.body =
+                program->insts[insn_idx].value.value.ptr.data;
+            runner_packet.body.len =
+                program->insts[insn_idx].value.value.ptr.len;
 
             // Update the total length field of the IP header.
             if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
-              struct iphdr *typed_hdr = (struct iphdr *)iphdr;
+              struct iphdr *typed_hdr =
+                  (struct iphdr *)runner_packet.ip_packet.hdr.ip;
               typed_hdr->tot_len =
-                  htons(ntohs(typed_hdr->tot_len) + pgm_body.value.ptr.len);
+                  htons(ntohs(typed_hdr->tot_len) + runner_packet.body.len);
             } else {
-              struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
-              typed_hdr->ip6_plen = htons(pgm_body.value.ptr.len);
+              struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
+              typed_hdr->ip6_plen = htons(runner_packet.body.len);
             }
 
             // Update the length of the transport (if udp)!
             if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
-              struct udphdr *typed_hdr = (struct udphdr *)transport;
-              typed_hdr->len = htons(pgm_body.value.ptr.len +
+              struct udphdr *typed_hdr =
+                  (struct udphdr *)runner_packet.transport_packet.transport;
+              typed_hdr->len = htons(runner_packet.body.len +
                                      Pliney::UDP_DEFAULT_HEADER_LENGTH);
             }
 
@@ -327,7 +462,7 @@ bool PacketRunner::execute(Compilation &compilation) {
                                         "Will not set an IPv6 ECN value on a "
                                         "non-IPv6 PISA program.");
             int ecn = program->insts[insn_idx].value.value.byte;
-            struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
+            struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_flow &= ~(htonl(0x3 << 20));
             typed_hdr->ip6_flow |= htonl(ecn << 20);
 
@@ -339,7 +474,7 @@ bool PacketRunner::execute(Compilation &compilation) {
                                         "Will not set an IPv4 ECN value on a "
                                         "non-IPv4 PISA program.");
             int ecn = program->insts[insn_idx].value.value.byte;
-            struct iphdr *typed_hdr = (struct iphdr *)iphdr;
+            struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
             // First, remove the previous ECN value.
             typed_hdr->tos &= 0xfc;
             // Now, set the ECN.
@@ -352,7 +487,7 @@ bool PacketRunner::execute(Compilation &compilation) {
                                         "Will not set an IPv6 DSCP value on a "
                                         "non-IPv6 PISA program.");
             int dscp = program->insts[insn_idx].value.value.byte;
-            struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
+            struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_flow &= ~(htonl(0xfc << 20));
             typed_hdr->ip6_flow |= htonl(dscp << 20);
 
@@ -364,7 +499,7 @@ bool PacketRunner::execute(Compilation &compilation) {
                                         "Will not set an IPv4 DSCP value on a "
                                         "non-IPv4 PISA program.");
             int dscp = program->insts[insn_idx].value.value.byte;
-            struct iphdr *typed_hdr = (struct iphdr *)iphdr;
+            struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
             typed_hdr->tos &= 0x3;
             typed_hdr->tos |= dscp;
             break;
@@ -374,7 +509,7 @@ bool PacketRunner::execute(Compilation &compilation) {
                 Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                 "Will not set a hoplimit a non-IPv6 PISA program.");
             int hl = program->insts[insn_idx].value.value.byte;
-            struct ip6_hdr *typed_hdr = (struct ip6_hdr *)iphdr;
+            struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_hlim = hl;
             break;
           }
@@ -383,7 +518,7 @@ bool PacketRunner::execute(Compilation &compilation) {
                 Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
                 "Will not set a ttl a non-IPv4 PISA program.");
             int ttl = program->insts[insn_idx].value.value.byte;
-            struct iphdr *typed_hdr = (struct iphdr *)iphdr;
+            struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
             typed_hdr->ttl = ttl;
             break;
           }
@@ -407,7 +542,9 @@ bool PacketRunner::execute(Compilation &compilation) {
     }
   }
 
-  if (ip_opts_exts_hdr.opts_exts_count > 0) {
+  if (runner_packet.opts.ip_opts_exts_hdr.opts_exts_count > 0) {
+    Logger::ActiveLogger()->log(Logger::WARN,
+                                std::format("There are extension headers."));
     if (pisa_pgm_ip_version != Pliney::IpVersion::SIX) {
       Logger::ActiveLogger()->log(
           Logger::WARN, std::format("The PISA program added extension headers "
@@ -440,8 +577,8 @@ bool PacketRunner::execute(Compilation &compilation) {
       // in RFC8200.
       for (size_t i{0}; i < supported_ipv6_exts_count; i++) {
         auto ext_type = supported_ipv6_exts[i];
-        pisa_ip_opt_ext_t coalesced_ext{
-            coalesce_ip_opts_exts(ip_opts_exts_hdr, ext_type)};
+        pisa_ip_opt_ext_t coalesced_ext{coalesce_ip_opts_exts(
+            runner_packet.opts.ip_opts_exts_hdr, ext_type)};
 
         if (!coalesced_ext.len) {
           continue;
@@ -455,7 +592,7 @@ bool PacketRunner::execute(Compilation &compilation) {
         }
 
         next_extension_header_offset[total_extension_headers] =
-            ip_opt_ext_hdr_raw_len;
+            runner_packet.opts.ip_opt_ext_hdr_raw_len;
         next_extension_header_value[total_extension_headers] =
             to_native_transport(pisa_pgm_transport_type);
         if (total_extension_headers == 0) {
@@ -466,14 +603,16 @@ bool PacketRunner::execute(Compilation &compilation) {
               to_native_ext_type_ip_opts_exts(coalesced_ext.oe);
         }
 
-        ip_opts_exts_hdr_raw = (uint8_t *)realloc(
-            ip_opts_exts_hdr_raw,
-            (ip_opt_ext_hdr_raw_len + full_extension_header_len) *
-                sizeof(uint8_t));
-        memcpy(ip_opts_exts_hdr_raw + ip_opt_ext_hdr_raw_len,
+        runner_packet.opts.ip_opts_exts_hdr_raw =
+            (uint8_t *)realloc(runner_packet.opts.ip_opts_exts_hdr_raw,
+                               (runner_packet.opts.ip_opt_ext_hdr_raw_len +
+                                full_extension_header_len) *
+                                   sizeof(uint8_t));
+        memcpy(runner_packet.opts.ip_opts_exts_hdr_raw +
+                   runner_packet.opts.ip_opt_ext_hdr_raw_len,
                full_extension_header, full_extension_header_len);
 
-        ip_opt_ext_hdr_raw_len += full_extension_header_len;
+        runner_packet.opts.ip_opt_ext_hdr_raw_len += full_extension_header_len;
 
         free_ip_opt_ext(coalesced_ext);
         free(full_extension_header);
@@ -483,68 +622,87 @@ bool PacketRunner::execute(Compilation &compilation) {
       // Use the map to update all the extension headers' _next extension_
       // field.
       for (size_t i{0}; i < total_extension_headers; i++) {
-        ip_opts_exts_hdr_raw[next_extension_header_offset[i]] =
+        runner_packet.opts
+            .ip_opts_exts_hdr_raw[next_extension_header_offset[i]] =
             next_extension_header_value[i];
       }
 
-      struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
+      struct ip6_hdr *typed_hdr{runner_packet.ip_packet.hdr.ip6};
       typed_hdr->ip6_nxt = ip_packet_next_header_value;
     }
   }
-  free_ip_opts_exts(ip_opts_exts_hdr);
+  free_ip_opts_exts(runner_packet.opts.ip_opts_exts_hdr);
 
   // If we have a UDP packet (for v6), we _must_ calculate the checksum.
   if (pisa_pgm_transport_type == Pliney::Transport::UDP &&
       pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
-    struct udphdr *typed_hdr = (struct udphdr *)transport;
+    struct udphdr *typed_hdr =
+        (struct udphdr *)runner_packet.transport_packet.transport;
 
     data_p body{
-        .len = pgm_body.value.ptr.len,
-        .data = pgm_body.value.ptr.data,
+        .len = runner_packet.body.len,
+        .data = (uint8_t *)runner_packet.body.body,
     };
-    typed_hdr->check =
-        compute_udp_cksum(pisa_pgm_ip_version, iphdr, typed_hdr, body);
+    typed_hdr->check = compute_udp_cksum(pisa_pgm_ip_version,
+                                         (void *)runner_packet.ip_packet.hdr.ip,
+                                         typed_hdr, body);
   } else if (pisa_pgm_transport_type == Pliney::Transport::ICMP) {
-    struct icmphdr *typed_hdr = (struct icmphdr *)transport;
+    struct icmphdr *typed_hdr =
+        (struct icmphdr *)runner_packet.transport_packet.transport;
     data_p body{
-        .len = pgm_body.value.ptr.len,
-        .data = pgm_body.value.ptr.data,
+        .len = runner_packet.body.len,
+        .data = (uint8_t *)runner_packet.body.body,
     };
+    // Calculate the checksum with the checksum value set to 0.
+    typed_hdr->checksum = 0;
     typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
   }
 
   // Now that we are sure what the contents of the packet hold, we _may_
   // need to update the len!
   if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
-    struct ip6_hdr *typed_hdr{reinterpret_cast<struct ip6_hdr *>(iphdr)};
-    typed_hdr->ip6_plen =
-        htons(ntohs(typed_hdr->ip6_plen) + ip_opt_ext_hdr_raw_len +
-              transport_len + transportoptionhdr_len);
+    struct ip6_hdr *typed_hdr{runner_packet.ip_packet.hdr.ip6};
+    typed_hdr->ip6_plen = htons(
+        ntohs(typed_hdr->ip6_plen) + runner_packet.opts.ip_opt_ext_hdr_raw_len +
+        runner_packet.transport_packet.transport_len +
+        runner_packet.transport_packet.transportoptionhdr_len + runner_packet.body.len);
   } else {
-    struct iphdr *typed_hdr{reinterpret_cast<struct iphdr *>(iphdr)};
-    typed_hdr->tot_len =
-        htons(ntohs(typed_hdr->tot_len) + ip_opt_ext_hdr_raw_len +
-              transport_len + transportoptionhdr_len);
+    struct iphdr *typed_hdr{runner_packet.ip_packet.hdr.ip};
+    typed_hdr->tot_len = htons(
+        ntohs(typed_hdr->tot_len) + runner_packet.opts.ip_opt_ext_hdr_raw_len +
+        runner_packet.transport_packet.transport_len +
+        runner_packet.transport_packet.transportoptionhdr_len + runner_packet.body.len);
   }
 
   // Create a buffer that holds the generated packet.
-  size_t total_len{iphdr_len + ip_opt_ext_hdr_raw_len + transport_len +
-                   transportoptionhdr_len + pgm_body.value.ptr.len};
+  size_t total_len{runner_packet.ip_packet.len +
+                   runner_packet.opts.ip_opt_ext_hdr_raw_len +
+                   runner_packet.transport_packet.transport_len +
+                   runner_packet.transport_packet.transportoptionhdr_len +
+                   runner_packet.body.len};
   uint8_t *packet{(uint8_t *)calloc(total_len, sizeof(uint8_t))};
 
+  auto iphdr{static_cast<void *>(runner_packet.ip_packet.hdr.ip)};
+  auto iphdr_len = runner_packet.ip_packet.len;
   // Copy the IP header into the consolidated packet.
   memcpy(packet, iphdr, iphdr_len);
   // Copy the ip options header into the consolidated header.
-  memcpy(packet + iphdr_len, ip_opts_exts_hdr_raw, ip_opt_ext_hdr_raw_len);
+  memcpy(packet + iphdr_len, runner_packet.opts.ip_opts_exts_hdr_raw,
+         runner_packet.opts.ip_opt_ext_hdr_raw_len);
   // Copy the transport into the consolidated header.
-  memcpy(packet + iphdr_len + ip_opt_ext_hdr_raw_len, transport, transport_len);
+  memcpy(packet + iphdr_len + runner_packet.opts.ip_opt_ext_hdr_raw_len,
+         runner_packet.transport_packet.transport,
+         runner_packet.transport_packet.transport_len);
   // Copy the transport options into the consolidated header.
-  memcpy(packet + iphdr_len + ip_opt_ext_hdr_raw_len + transport_len,
-         transportoptionhdr, transportoptionhdr_len);
+  memcpy(packet + iphdr_len + runner_packet.opts.ip_opt_ext_hdr_raw_len +
+             runner_packet.transport_packet.transport_len,
+         runner_packet.transport_packet.transportoptionhdr,
+         runner_packet.transport_packet.transportoptionhdr_len);
   // Copy the body into the consolidated header!
-  memcpy(packet + iphdr_len + ip_opt_ext_hdr_raw_len + transport_len +
-             transportoptionhdr_len,
-         pgm_body.value.ptr.data, pgm_body.value.ptr.len);
+  memcpy(packet + iphdr_len + runner_packet.opts.ip_opt_ext_hdr_raw_len +
+             runner_packet.transport_packet.transport_len +
+             runner_packet.transport_packet.transportoptionhdr_len,
+         runner_packet.body.body, runner_packet.body.len);
 
   // The entire packet is reachable from .all, but ...
   compilation.packet.all.data = packet;
@@ -556,27 +714,33 @@ bool PacketRunner::execute(Compilation &compilation) {
 
   // ... there are views for different pieces ...
   compilation.packet.ip_opts_exts.data = packet + iphdr_len;
-  compilation.packet.ip_opts_exts.len = ip_opt_ext_hdr_raw_len;
+  compilation.packet.ip_opts_exts.len =
+      runner_packet.opts.ip_opt_ext_hdr_raw_len;
 
   // ... and ...
   compilation.packet.transport.data =
-      packet + iphdr_len + ip_opt_ext_hdr_raw_len;
-  compilation.packet.transport.len = transport_len;
+      packet + iphdr_len + runner_packet.opts.ip_opt_ext_hdr_raw_len;
+  compilation.packet.transport.len =
+      runner_packet.transport_packet.transport_len;
 
   compilation.packet.transport_options.data =
-      packet + iphdr_len + ip_opt_ext_hdr_raw_len + transport_len;
-  compilation.packet.transport_options.len = transportoptionhdr_len;
+      packet + iphdr_len + runner_packet.opts.ip_opt_ext_hdr_raw_len +
+      runner_packet.transport_packet.transport_len;
+  compilation.packet.transport_options.len =
+      runner_packet.transport_packet.transportoptionhdr_len;
 
   // ... and one more!
-  compilation.packet.body.data = packet + iphdr_len + ip_opt_ext_hdr_raw_len +
-                                 transport_len + transportoptionhdr_len;
-  compilation.packet.body.len = pgm_body.value.ptr.len;
+  compilation.packet.body.data =
+      packet + iphdr_len + runner_packet.opts.ip_opt_ext_hdr_raw_len +
+      runner_packet.transport_packet.transport_len +
+      runner_packet.transport_packet.transportoptionhdr_len;
+  compilation.packet.body.len = runner_packet.body.len;
 
   // Free what we allocated locally.
-  free(iphdr);
-  free(ip_opts_exts_hdr_raw);
-  free(transport);
-  free(transportoptionhdr);
+  free(runner_packet.ip_packet.hdr.ip);
+  free(runner_packet.opts.ip_opts_exts_hdr_raw);
+  free(runner_packet.transport_packet.transport);
+  free(runner_packet.transport_packet.transportoptionhdr);
 
   return true;
 }
@@ -603,7 +767,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -861,7 +1025,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
   }
 
   auto pisa_pgm_ip_version{
-      Pliney::from_pisa_version(pisa_target_address.family)};
+      Pliney::from_native_version(pisa_target_address.family)};
 
   struct sockaddr *destination = nullptr;
   int destination_len = ip_to_sockaddr(pisa_target_address, &destination);

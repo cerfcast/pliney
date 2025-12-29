@@ -12,12 +12,14 @@
 
 #define HANDLE_OVERFLOW(view, sum)                                             \
   if (view) {                                                                  \
+    sum += view;                                                               \
     view = 0;                                                                  \
-    sum += 1;                                                                  \
   }
 
-uint16_t compute_ones_compliment(void *start, void *stop) {
-  uint32_t cksum = 0;
+// Initial value should always be in host order.
+uint16_t compute_ones_compliment(uint16_t initial_value, void *start,
+                                 void *stop) {
+  uint32_t cksum = initial_value;
   uint16_t *cksumv = (uint16_t *)&cksum;
   size_t s{0};
 
@@ -61,14 +63,13 @@ uint16_t compute_udp6_cksum(struct ip6_hdr *hdr, struct udphdr *udp,
 
   // 1. The source and destination IPv6 addresses.
   uint16_t *source = (uint16_t *)&hdr->ip6_src;
-  cksum = compute_ones_compliment(source, source + 16);
+  cksum = compute_ones_compliment(0, source, source + 16);
 
   // 2. 32-bit length (of the udp header + body length)
   uint32_t length{
       htonl(static_cast<uint32_t>(sizeof(struct udphdr) + body.len))};
   uint16_t *lengthp{reinterpret_cast<uint16_t *>(&length)};
-  cksum += compute_ones_compliment(lengthp, lengthp + 2);
-  HANDLE_OVERFLOW(cksumv[1], cksum);
+  cksum = compute_ones_compliment(cksum, lengthp, lengthp + 2);
 
   // 3. 3 bytes of zeroes.
 
@@ -79,12 +80,10 @@ uint16_t compute_udp6_cksum(struct ip6_hdr *hdr, struct udphdr *udp,
   HANDLE_OVERFLOW(cksumv[1], cksum);
 
   // 5. The UDP header.
-  cksum += compute_ones_compliment(udp, udp + 1);
-  HANDLE_OVERFLOW(cksumv[1], cksum);
+  cksum = compute_ones_compliment(cksum, udp, udp + 1);
 
   // 6. The body.
-  cksum += compute_ones_compliment(body.data, body.data + body.len);
-  HANDLE_OVERFLOW(cksumv[1], cksum);
+  cksum = compute_ones_compliment(cksum, body.data, body.data + body.len);
 
   return htons(~(cksum & 0xffff));
 }
@@ -103,9 +102,7 @@ uint16_t compute_icmp_cksum(struct icmphdr *hdr, data_p body) {
   void *stop{static_cast<void *>(hdr + 1)};
   uint32_t cksum;
   uint16_t *cksumv = (uint16_t *)&cksum;
-  cksum = compute_ones_compliment(start, stop);
-  HANDLE_OVERFLOW(cksumv[1], cksum);
-  cksum += compute_ones_compliment(body.data, body.data + body.len);
-  HANDLE_OVERFLOW(cksumv[1], cksum);
+  cksum = compute_ones_compliment(0, start, stop);
+  cksum = compute_ones_compliment(cksum, body.data, body.data + body.len);
   return htons(~(cksum & 0xffff));
 }

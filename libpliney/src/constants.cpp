@@ -20,7 +20,7 @@ std::string to_string(const Pliney::Transport &transport) {
   }
 }
 
-Pliney::Transport from_pisa_transport(uint8_t transport) {
+Pliney::Transport from_native_transport(uint8_t transport) {
   switch (transport) {
     case PLINEY_TCP: {
       return Pliney::Transport::TCP;
@@ -68,10 +68,6 @@ uint8_t to_native_transport(const Transport &transport) {
   }
 }
 
-std::string to_string(const IpVersion &version);
-IpVersion from_pisa_version(uint8_t version);
-uint8_t to_pisa_version(const IpVersion &version);
-
 std::string to_string(const Pliney::IpVersion &version) {
   switch (version) {
     case Pliney::IpVersion::FOUR: {
@@ -85,12 +81,12 @@ std::string to_string(const Pliney::IpVersion &version) {
   }
 }
 
-Pliney::IpVersion from_pisa_version(uint8_t version) {
+Pliney::IpVersion from_native_version(uint8_t version) {
   switch (version) {
-    case PLINEY_IPVERSION4: {
+    case IP4_VERSION: {
       return Pliney::IpVersion::FOUR;
     }
-    case PLINEY_IPVERSION6: {
+    case IP6_VERSION: {
       return Pliney::IpVersion::SIX;
     }
     default:

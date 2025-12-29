@@ -26,7 +26,7 @@ namespace Pliney {
     };
 
     std::string to_string(const Transport &transport);
-    Transport from_pisa_transport(uint8_t transport);
+    Transport from_native_transport(uint8_t transport);
     uint8_t to_pisa_transport(const Transport &transport);
     uint8_t to_native_transport(const Transport &transport);
 
@@ -36,7 +36,7 @@ namespace Pliney {
     };
 
     std::string to_string(const IpVersion &version);
-    IpVersion from_pisa_version(uint8_t version);
+    IpVersion from_native_version(uint8_t version);
     uint8_t to_pisa_version(const IpVersion &version);
 
 

@@ -2,10 +2,12 @@
 #include "packetline/runner.hpp"
 
 #include "pisa/compilation.hpp"
+#include "pisa/pisa.h"
 
-#include <cstddef>
-#include <net/if.h>
-#include <packetline/runners/xdp/xdpsock.h>
+#include <cstdint>
+#include <net/ethernet.h>
+#include <packetline/runners/xdp/faux.h>
+#include <packetline/runners/xdp/xdpsupport.h>
 
 #include <cstring>
 #include <pthread.h>
@@ -19,30 +21,19 @@ static bool keep_running{true};
 
 static void int_exit(int sig) { keep_running = false; }
 
-void packet_processor(void *pkt) {
-  char *cpkt{static_cast<char *>(pkt)};
-  struct ether_header *eth{reinterpret_cast<struct ether_header *>(cpkt)};
-
-  struct iphdr *iph{
-      reinterpret_cast<struct iphdr *>(cpkt + sizeof(struct ether_header))};
-
-  iph->ttl = 22;
-  iph->check = 0;
-  iph->check = ip_fast_csum((const unsigned char *)iph, iph->ihl);
-}
-
-void xdp_process_ingress(int tapfd) {
+void xdp_process_ingress(int tapfd, process_packet_cb_t packet_processor) {
+  Logger::ActiveLogger()->log(Logger::DEBUG,
+                              "Starting xdp ingress processing.");
   for (;;) {
     for (int i = 0; i < num_socks; i++)
-      xdp_process_ingress(xsks[i], tapfd, packet_processor);
+      faux_process_transport_ingress(xsks[i], tapfd, packet_processor);
 
-    // Fix: Need a way to stop.
     if (!keep_running) {
-      Logger::ActiveLogger()->log(Logger::DEBUG,
-                                  "Stopping xdp ingress processing.");
       break;
     }
   }
+  Logger::ActiveLogger()->log(Logger::DEBUG,
+                              "Stopping xdp ingress processing.");
 }
 
 bool XdpRunner::execute(Compilation &compilation) {
@@ -88,25 +79,53 @@ bool XdpRunner::execute(Compilation &compilation) {
   signal(SIGTERM, int_exit);
   signal(SIGABRT, int_exit);
 
-  int tunfd =
-      tun_alloc_aper(m_ip_iface_name.c_str(), m_aped_iface_name.c_str());
+  int tunfd = faux_alloc_ip(m_ip_iface_name.c_str(), m_aped_iface_name.c_str());
   int rawi = if_nametoindex(m_aped_iface_name.c_str());
-  int rawfd = raw_alloc_aper(m_aped_iface_name.c_str());
+  int rawfd = faux_alloc_transport(m_aped_iface_name.c_str());
 
   pthread_t tap_handler_pt;
 
-  tap_process_egress_config_t egress_config;
+  faux_process_transport_egress_config_t egress_config;
 
   egress_config.tunfd = tunfd;
   egress_config.rawfd = rawfd;
   egress_config.rawi = rawi;
   egress_config.keep_going = &keep_running;
-  egress_config.packet_processor = packet_processor;
+  auto processor = [&compilation](void *raw, size_t len) {
+    struct ether_header *eth{reinterpret_cast<struct ether_header *>(raw)};
 
-  int tap_handler_create_result = pthread_create(
-      &tap_handler_pt, nullptr, tap_process_egress, (void *)&egress_config);
+    // Processor setup guarantees that we will only see IP-wrapped-in-ethernet
+    // packets.
 
-  xdp_process_ingress(tunfd);
+    // Generate a RunnerPacket from the raw data, if possible.
+    auto rp{RunnerPacket::from(
+        pisa_ptr_value_t{.data = (uint8_t *)raw, .len = len})};
+
+    // If there was an error parsing, ...
+    if (std::holds_alternative<std::string>(rp)) {
+      // TODO: Determine how to better handle an error. Just log it for now.
+      Logger::ActiveLogger()->log(Logger::ERROR,
+                                  std::format("Error processing packet."));
+    } else {
+      Logger::ActiveLogger()->log(Logger::DEBUG,
+                                  std::format("Processing a packet!"));
+      auto actual_rp{std::get<RunnerPacket>(rp)};
+      auto result = PacketRunner::execute(compilation, actual_rp);
+
+      memcpy(eth + 1, compilation.packet.all.data, len);
+
+      // TODO: Use our own version of checksumming.
+      struct iphdr *ip{reinterpret_cast<struct iphdr *>(eth + 1)};
+      ip->check = 0;
+      ip->check = ip_fast_csum((uint8_t *)ip, ip->ihl);
+    }
+  };
+  egress_config.packet_processor = processor;
+  int tap_handler_create_result =
+      pthread_create(&tap_handler_pt, nullptr, faux_process_transport_egress,
+                     (void *)&egress_config);
+
+  xdp_process_ingress(tunfd, processor);
 
   xdp_cleanup(xsks, 1);
 
