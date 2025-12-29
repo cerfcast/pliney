@@ -8,7 +8,7 @@ diff test/data/log_tests3.pcap ${RUNNER_TEMP}/testing.pcap
 
 result=$?
 
-sudo rm -f ${RUNNER_TEMP}/testing.pcap
+#sudo rm -f ${RUNNER_TEMP}/testing.pcap
 
 exit $result
 

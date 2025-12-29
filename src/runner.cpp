@@ -107,7 +107,8 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
         (struct iphdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
 
     // Now, copy over the contents.
-    // Do the copy here because it helps to know the IP version for final processing (see below).
+    // Do the copy here because it helps to know the IP version for final
+    // processing (see below).
     memcpy(res.ip_packet.hdr.ip, eth + 1, res.ip_packet.len);
 
     // Adjust the IP packet's total length to just the header size -- the
@@ -124,7 +125,8 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
         (struct ip6_hdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
 
     // Now, copy over the contents.
-    // Do the copy here because it helps to know the IP version for final processing (see below).
+    // Do the copy here because it helps to know the IP version for final
+    // processing (see below).
     memcpy(res.ip_packet.hdr.ip6, eth + 1, res.ip_packet.len);
 
     // Adjust the IP packet's total length to just the header size -- the
@@ -178,7 +180,7 @@ RunnerPacket::from(const unique_pisa_program_t &pisa_program) {
   }
 
   auto pisa_pgm_ip_version{
-      Pliney::from_native_version(pisa_target_address.family)};
+      Pliney::from_pisa_version(pisa_target_address.family)};
 
   Logger::ActiveLogger()->log(Logger::DEBUG,
                               std::format("PISA program IP version: {}",
@@ -261,9 +263,6 @@ bool PacketRunner::execute(Compilation &compilation,
   auto pisa_pgm_transport_type{
       Pliney::from_native_transport(runner_packet.ip_packet.hdr.ip->protocol)};
 
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("(From ethernet) transport type: {}",
-                                          to_string(pisa_pgm_transport_type)));
   // And, now let's follow instructions.
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
     switch (program->insts[insn_idx].op) {
@@ -434,26 +433,6 @@ bool PacketRunner::execute(Compilation &compilation,
                 program->insts[insn_idx].value.value.ptr.data;
             runner_packet.body.len =
                 program->insts[insn_idx].value.value.ptr.len;
-
-            // Update the total length field of the IP header.
-            if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
-              struct iphdr *typed_hdr =
-                  (struct iphdr *)runner_packet.ip_packet.hdr.ip;
-              typed_hdr->tot_len =
-                  htons(ntohs(typed_hdr->tot_len) + runner_packet.body.len);
-            } else {
-              struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
-              typed_hdr->ip6_plen = htons(runner_packet.body.len);
-            }
-
-            // Update the length of the transport (if udp)!
-            if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
-              struct udphdr *typed_hdr =
-                  (struct udphdr *)runner_packet.transport_packet.transport;
-              typed_hdr->len = htons(runner_packet.body.len +
-                                     Pliney::UDP_DEFAULT_HEADER_LENGTH);
-            }
-
             break;
           }
           case IPV6_ECN: {
@@ -631,7 +610,35 @@ bool PacketRunner::execute(Compilation &compilation,
       typed_hdr->ip6_nxt = ip_packet_next_header_value;
     }
   }
-  free_ip_opts_exts(runner_packet.opts.ip_opts_exts_hdr);
+
+  // Now that we are sure what the contents of the packet hold, we _may_
+  // need to update the len!
+  if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
+    struct ip6_hdr *typed_hdr{runner_packet.ip_packet.hdr.ip6};
+    typed_hdr->ip6_plen = htons(
+        ntohs(typed_hdr->ip6_plen) + runner_packet.opts.ip_opt_ext_hdr_raw_len +
+        runner_packet.transport_packet.transport_len +
+        runner_packet.transport_packet.transportoptionhdr_len +
+        runner_packet.body.len);
+  } else {
+    struct iphdr *typed_hdr{runner_packet.ip_packet.hdr.ip};
+    typed_hdr->tot_len = htons(
+        ntohs(typed_hdr->tot_len) + runner_packet.opts.ip_opt_ext_hdr_raw_len +
+        runner_packet.transport_packet.transport_len +
+        runner_packet.transport_packet.transportoptionhdr_len +
+        runner_packet.body.len);
+  }
+
+  // And, if the packet is UDP transport, we should update the length in the transport header!
+  if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
+    // Update the length of the transport (if udp)!
+    if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
+      struct udphdr *typed_hdr =
+          (struct udphdr *)runner_packet.transport_packet.transport;
+      typed_hdr->len =
+          htons(runner_packet.body.len + Pliney::UDP_DEFAULT_HEADER_LENGTH);
+    }
+  }
 
   // If we have a UDP packet (for v6), we _must_ calculate the checksum.
   if (pisa_pgm_transport_type == Pliney::Transport::UDP &&
@@ -658,21 +665,6 @@ bool PacketRunner::execute(Compilation &compilation,
     typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
   }
 
-  // Now that we are sure what the contents of the packet hold, we _may_
-  // need to update the len!
-  if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
-    struct ip6_hdr *typed_hdr{runner_packet.ip_packet.hdr.ip6};
-    typed_hdr->ip6_plen = htons(
-        ntohs(typed_hdr->ip6_plen) + runner_packet.opts.ip_opt_ext_hdr_raw_len +
-        runner_packet.transport_packet.transport_len +
-        runner_packet.transport_packet.transportoptionhdr_len + runner_packet.body.len);
-  } else {
-    struct iphdr *typed_hdr{runner_packet.ip_packet.hdr.ip};
-    typed_hdr->tot_len = htons(
-        ntohs(typed_hdr->tot_len) + runner_packet.opts.ip_opt_ext_hdr_raw_len +
-        runner_packet.transport_packet.transport_len +
-        runner_packet.transport_packet.transportoptionhdr_len + runner_packet.body.len);
-  }
 
   // Create a buffer that holds the generated packet.
   size_t total_len{runner_packet.ip_packet.len +
@@ -737,6 +729,7 @@ bool PacketRunner::execute(Compilation &compilation,
   compilation.packet.body.len = runner_packet.body.len;
 
   // Free what we allocated locally.
+  free_ip_opts_exts(runner_packet.opts.ip_opts_exts_hdr);
   free(runner_packet.ip_packet.hdr.ip);
   free(runner_packet.opts.ip_opts_exts_hdr_raw);
   free(runner_packet.transport_packet.transport);

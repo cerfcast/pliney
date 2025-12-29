@@ -37,8 +37,8 @@ namespace Pliney {
 
     std::string to_string(const IpVersion &version);
     IpVersion from_native_version(uint8_t version);
+    IpVersion from_pisa_version(uint8_t version);
     uint8_t to_pisa_version(const IpVersion &version);
-
 
 }
 

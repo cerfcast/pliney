@@ -94,6 +94,19 @@ Pliney::IpVersion from_native_version(uint8_t version) {
   }
 }
 
+Pliney::IpVersion from_pisa_version(uint8_t version) {
+  switch (version) {
+    case PLINEY_IPVERSION4: {
+      return Pliney::IpVersion::FOUR;
+    }
+    case PLINEY_IPVERSION6: {
+      return Pliney::IpVersion::SIX;
+    }
+    default:
+      std::unreachable();
+  }
+}
+
 uint8_t to_pisa_version(const IpVersion &version) {
   switch (version) {
     case Pliney::IpVersion::FOUR: {
