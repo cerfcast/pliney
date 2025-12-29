@@ -629,7 +629,8 @@ bool PacketRunner::execute(Compilation &compilation,
         runner_packet.body.len);
   }
 
-  // And, if the packet is UDP transport, we should update the length in the transport header!
+  // And, if the packet is UDP transport, we should update the length in the
+  // transport header!
   if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
     // Update the length of the transport (if udp)!
     if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
@@ -664,7 +665,6 @@ bool PacketRunner::execute(Compilation &compilation,
     typed_hdr->checksum = 0;
     typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
   }
-
 
   // Create a buffer that holds the generated packet.
   size_t total_len{runner_packet.ip_packet.len +
@@ -760,7 +760,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};

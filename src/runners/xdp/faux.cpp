@@ -46,9 +46,9 @@
 #include <linux/if_tun.h>
 #include <sys/ioctl.h>
 
+#include <packetline/runners/xdp/faux.h>
 #include <packetline/runners/xdp/netlink.h>
 #include <packetline/runners/xdp/xdpsupport.h>
-#include <packetline/runners/xdp/faux.h>
 
 #include <format>
 
@@ -64,7 +64,6 @@ static u32 opt_batch_size = 64;
 struct sockaddr_ll sockaddr_from_ethernet(const struct ether_header *ether,
                                           int rawi);
 
-
 static void int_exit(int sig) {}
 
 static void __exit_with_error(int error, const char *file, const char *func,
@@ -77,7 +76,7 @@ static void __exit_with_error(int error, const char *file, const char *func,
 #define exit_with_error(error)                                                 \
   __exit_with_error(error, __FILE__, __func__, __LINE__)
 void faux_process_transport_ingress(struct xsk_socket_info *xsk, int tunfd,
-                         process_packet_cb_t packet_processor) {
+                                    process_packet_cb_t packet_processor) {
 
   u32 idx_rx = 0, idx_tx = 0, frags_done = 0;
   unsigned int rcvd, i, eop_cnt = 0;

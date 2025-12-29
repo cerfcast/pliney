@@ -46,9 +46,9 @@
 #include <linux/if_tun.h>
 #include <sys/ioctl.h>
 
+#include <packetline/runners/xdp/faux.h>
 #include <packetline/runners/xdp/netlink.h>
 #include <packetline/runners/xdp/xdpsupport.h>
-#include <packetline/runners/xdp/faux.h>
 
 #include <format>
 
