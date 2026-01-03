@@ -1,7 +1,7 @@
 #include "packetline/constants.hpp"
 #include "pisa/pisa.h"
-#include <netinet/in.h>
 #include <lib/safety.hpp>
+#include <netinet/in.h>
 
 namespace Pliney {
 std::string to_string(const Pliney::Transport &transport) {
