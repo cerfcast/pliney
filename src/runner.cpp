@@ -15,7 +15,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <format>
+#include <linux/if_ether.h>
 #include <net/ethernet.h>
+#include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
@@ -89,9 +91,10 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
   const struct ether_header *eth{
       reinterpret_cast<const struct ether_header *>(data.data)};
 
-  if (eth->ether_type != htons(ETH_P_IP)) {
+  if (eth->ether_type != htons(ETH_P_IP) &&
+      eth->ether_type != htons(ETH_P_IPV6)) {
     return "Cannot create a RunnerPacket from a non-IP enclosing ethernet "
-           "packet.";
+           "packet";
   }
 
   const struct iphdr *iph{reinterpret_cast<const struct iphdr *>(eth + 1)};
@@ -102,6 +105,7 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
         Logger::DEBUG, std::format("(From ethernet) found an IP v4 packet."));
     const struct iphdr *iph{reinterpret_cast<const struct iphdr *>(eth + 1)};
     // TODO: Check.
+    res.ip_packet.version = Pliney::IpVersion::FOUR;
     res.ip_packet.len = Pliney::IPV4_DEFAULT_HEADER_LENGTH;
     res.ip_packet.hdr.ip =
         (struct iphdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
@@ -117,8 +121,11 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
 
     transport_type = Pliney::from_native_transport(iph->protocol);
   } else {
+    Logger::ActiveLogger()->log(
+        Logger::DEBUG, std::format("(From ethernet) found an IP v6 packet."));
     const struct ip6_hdr *iph{
         reinterpret_cast<const struct ip6_hdr *>(eth + 1)};
+    res.ip_packet.version = Pliney::IpVersion::SIX;
     // TODO: Check.
     res.ip_packet.len = Pliney::IPV6_DEFAULT_HEADER_LENGTH;
     res.ip_packet.hdr.ip6 =
@@ -131,7 +138,7 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
 
     // Adjust the IP packet's total length to just the header size -- the
     // execution process will readjust (see above).
-    res.ip_packet.hdr.ip6->ip6_plen = htons(Pliney::IPV6_DEFAULT_HEADER_LENGTH);
+    res.ip_packet.hdr.ip6->ip6_plen = htons(0);
 
     transport_type = Pliney::from_native_transport(iph->ip6_nxt);
   }
@@ -258,8 +265,7 @@ bool PacketRunner::execute(Compilation &compilation,
   auto &program = compilation.program;
   ip_addr_t pisa_target_address{};
 
-  auto pisa_pgm_ip_version{
-      Pliney::from_native_version(runner_packet.ip_packet.hdr.ip->version)};
+  auto pisa_pgm_ip_version{runner_packet.ip_packet.version};
   auto pisa_pgm_transport_type{Pliney::from_native_transport(
       pisa_pgm_ip_version == Pliney::IpVersion::FOUR
           ? runner_packet.ip_packet.hdr.ip->protocol
@@ -693,29 +699,58 @@ bool PacketRunner::execute(Compilation &compilation,
     }
   }
 
-  // If we have a UDP packet (for v6), we _must_ calculate the checksum.
-  if (pisa_pgm_transport_type == Pliney::Transport::UDP &&
-      pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
-    struct udphdr *typed_hdr =
-        (struct udphdr *)runner_packet.transport_packet.transport;
+  // We can calculate the IP checksum now!
+  if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
+    struct iphdr *typed_hdr{runner_packet.ip_packet.hdr.ip};
+    if (typed_hdr->version == Pliney::IP4_VERSION) {
+      typed_hdr->check = 0;
+      typed_hdr->check = compute_ip4_cksum(typed_hdr);
+    }
+  }
 
-    data_p body{
-        .len = runner_packet.body.len,
-        .data = (uint8_t *)runner_packet.body.body,
-    };
-    typed_hdr->check = compute_udp_cksum(pisa_pgm_ip_version,
-                                         (void *)runner_packet.ip_packet.hdr.ip,
-                                         typed_hdr, body);
-  } else if (pisa_pgm_transport_type == Pliney::Transport::ICMP) {
-    struct icmphdr *typed_hdr =
-        (struct icmphdr *)runner_packet.transport_packet.transport;
-    data_p body{
-        .len = runner_packet.body.len,
-        .data = (uint8_t *)runner_packet.body.body,
-    };
-    // Calculate the checksum with the checksum value set to 0.
-    typed_hdr->checksum = 0;
-    typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
+  // If we have a UDP packet (for v6), we _must_ calculate the checksum.
+  if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
+
+    if (pisa_pgm_ip_version == Pliney::IpVersion::SIX) {
+      struct udphdr *typed_hdr =
+          (struct udphdr *)runner_packet.transport_packet.transport;
+
+      data_p body{
+          .len = runner_packet.body.len,
+          .data = (uint8_t *)runner_packet.body.body,
+      };
+      typed_hdr->check = compute_udp_cksum(
+          pisa_pgm_ip_version, (void *)runner_packet.ip_packet.hdr.ip,
+          typed_hdr, body);
+    }
+  } else if (pisa_pgm_transport_type == Pliney::Transport::ICMP ||
+             pisa_pgm_transport_type == Pliney::Transport::ICMP6) {
+    if (pisa_pgm_transport_type == Pliney::Transport::ICMP) {
+
+      struct icmphdr *typed_hdr =
+          (struct icmphdr *)runner_packet.transport_packet.transport;
+      data_p body{
+          .len = runner_packet.body.len,
+          .data = (uint8_t *)runner_packet.body.body,
+      };
+      // Calculate the checksum with the checksum value set to 0.
+      typed_hdr->checksum = 0;
+      typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
+    } else {
+      Logger::ActiveLogger()->log(Logger::WARN,
+                                  std::format("Doing ICMPv6 checksumming."));
+
+      struct icmp6_hdr *typed_hdr =
+          (struct icmp6_hdr *)runner_packet.transport_packet.transport;
+      data_p body{
+          .len = runner_packet.body.len,
+          .data = (uint8_t *)runner_packet.body.body,
+      };
+      // Calculate the checksum with the checksum value set to 0.
+      typed_hdr->icmp6_cksum = 0;
+      typed_hdr->icmp6_cksum =
+          compute_icmp6_cksum(runner_packet.ip_packet.hdr.ip6, typed_hdr, body);
+    }
   }
 
   // Create a buffer that holds the generated packet.
@@ -812,7 +847,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};

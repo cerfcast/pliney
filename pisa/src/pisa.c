@@ -75,7 +75,9 @@ bool pisa_program_find_meta_value(pisa_program_t *pgm, const char *key,
 
 bool pisa_program_find_target_value(pisa_program_t *pgm, pisa_value_t *value) {
   if (!pisa_program_find_field_value(pgm, IPV4_TARGET, value) &&
-      !pisa_program_find_field_value(pgm, IPV6_TARGET, value)) {
+      !pisa_program_find_field_value(pgm, IPV6_TARGET, value) &&
+      !pisa_program_find_field_value(pgm, IPV4_SOURCE, value) &&
+      !pisa_program_find_field_value(pgm, IPV6_SOURCE, value)) {
     return false;
   }
   return true;
