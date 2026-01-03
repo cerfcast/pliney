@@ -317,7 +317,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case ICMP_CODE: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
-                "Will not set an ICMP field when building/modifying a non-ICMP PISA packet");
+                "Will not set an ICMP field when building/modifying a non-ICMP "
+                "PISA packet");
             struct icmphdr *typed_hdr =
                 (struct icmphdr *)runner_packet.transport_packet.transport;
             typed_hdr->code = program->insts[insn_idx].value.value.byte;
@@ -326,7 +327,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case ICMP_TYPE: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
-                "Will not set an ICMP field when building/modifying a non-ICMP PISA packet");
+                "Will not set an ICMP field when building/modifying a non-ICMP "
+                "PISA packet");
             struct icmphdr *typed_hdr =
                 (struct icmphdr *)runner_packet.transport_packet.transport;
             typed_hdr->type = program->insts[insn_idx].value.value.byte;
@@ -335,7 +337,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case ICMP_DEPENDS: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::Transport::ICMP, pisa_pgm_transport_type,
-                "Will not set an ICMP field when building/modifying a non-ICMP PISA packet");
+                "Will not set an ICMP field when building/modifying a non-ICMP "
+                "PISA packet");
             struct icmphdr *typed_hdr =
                 (struct icmphdr *)runner_packet.transport_packet.transport;
             typed_hdr->un.echo.id =
@@ -397,7 +400,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case IPV4_TARGET: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
-                "Will not set an IPv4 target when building/modifying a non-IPv4 PISA packet.");
+                "Will not set an IPv4 target when building/modifying a "
+                "non-IPv4 PISA packet.");
 
             // Do not actually set the target address to 0! It's an internal
             // signal but not something that we actually obey.
@@ -415,7 +419,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case IPV6_TARGET: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::SIX, pisa_pgm_ip_version,
-                "Will not set an IPv6 target when building/modifying a non-IPv6 PISA packet.");
+                "Will not set an IPv6 target when building/modifying a "
+                "non-IPv6 PISA packet.");
 
             // Do not actually set the target address to 0! It's an internal
             // signal but not something that we actually obey.
@@ -438,7 +443,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case IPV4_SOURCE: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
-                "Will not set an IPv4 source when building/modifying a non-IPv4 PISA packet.");
+                "Will not set an IPv4 source when building/modifying a "
+                "non-IPv4 PISA packet.");
 
             // Do not actually set the target address to 0! It's an internal
             // signal but not something that we actually obey.
@@ -454,7 +460,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case IPV6_SOURCE: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::SIX, pisa_pgm_ip_version,
-                "Will not set an IPv6 source when building/modifying a non-IPv6 PISA packet.");
+                "Will not set an IPv6 source when building/modifying a "
+                "non-IPv6 PISA packet.");
 
             // Do not actually set the target address to 0! It's an internal
             // signal but not something that we actually obey.
@@ -494,10 +501,10 @@ bool PacketRunner::execute(Compilation &compilation,
             break;
           }
           case IPV6_ECN: {
-            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::SIX,
-                                        pisa_pgm_ip_version,
-                                        "Will not set an IPv6 ECN value when building/modifying a "
-                                        "non-IPv6 PISA packet.");
+            PISA_COWARDLY_VERSION_CHECK(
+                Pliney::IpVersion::SIX, pisa_pgm_ip_version,
+                "Will not set an IPv6 ECN value when building/modifying a "
+                "non-IPv6 PISA packet.");
             int ecn = program->insts[insn_idx].value.value.byte;
             struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_flow &= ~(htonl(0x3 << 20));
@@ -506,10 +513,10 @@ bool PacketRunner::execute(Compilation &compilation,
             break;
           }
           case IPV4_ECN: {
-            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::FOUR,
-                                        pisa_pgm_ip_version,
-                                        "Will not set an IPv4 ECN value when building/modifying a "
-                                        "non-IPv4 PISA packet.");
+            PISA_COWARDLY_VERSION_CHECK(
+                Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
+                "Will not set an IPv4 ECN value when building/modifying a "
+                "non-IPv4 PISA packet.");
             int ecn = program->insts[insn_idx].value.value.byte;
             struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
             // First, remove the previous ECN value.
@@ -519,10 +526,10 @@ bool PacketRunner::execute(Compilation &compilation,
             break;
           }
           case IPV6_DSCP: {
-            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::SIX,
-                                        pisa_pgm_ip_version,
-                                        "Will not set an IPv6 DSCP value when building/modifying a "
-                                        "non-IPv6 PISA packet.");
+            PISA_COWARDLY_VERSION_CHECK(
+                Pliney::IpVersion::SIX, pisa_pgm_ip_version,
+                "Will not set an IPv6 DSCP value when building/modifying a "
+                "non-IPv6 PISA packet.");
             int dscp = program->insts[insn_idx].value.value.byte;
             struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_flow &= ~(htonl(0xfc << 20));
@@ -531,10 +538,10 @@ bool PacketRunner::execute(Compilation &compilation,
             break;
           }
           case IPV4_DSCP: {
-            PISA_COWARDLY_VERSION_CHECK(Pliney::IpVersion::FOUR,
-                                        pisa_pgm_ip_version,
-                                        "Will not set an IPv4 DSCP value when building/modifying a "
-                                        "non-IPv4 PISA packet.");
+            PISA_COWARDLY_VERSION_CHECK(
+                Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
+                "Will not set an IPv4 DSCP value when building/modifying a "
+                "non-IPv4 PISA packet.");
             int dscp = program->insts[insn_idx].value.value.byte;
             struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
             typed_hdr->tos &= 0x3;
@@ -544,7 +551,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case IPV6_HL: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::SIX, pisa_pgm_ip_version,
-                "Will not set a hoplimit when building/modifying a non-IPv6 PISA packet.");
+                "Will not set a hoplimit when building/modifying a non-IPv6 "
+                "PISA packet.");
             int hl = program->insts[insn_idx].value.value.byte;
             struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_hlim = hl;
@@ -553,7 +561,8 @@ bool PacketRunner::execute(Compilation &compilation,
           case IPV4_TTL: {
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
-                "Will not set a ttl when building/modifying a non-IPv4 PISA packet.");
+                "Will not set a ttl when building/modifying a non-IPv4 PISA "
+                "packet.");
             int ttl = program->insts[insn_idx].value.value.byte;
             struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
             typed_hdr->ttl = ttl;
@@ -847,7 +856,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs{};
+  struct sockaddr_storage saddrs {};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
