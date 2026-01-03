@@ -31,4 +31,5 @@ jobs:
         with:
             submodules: recursive
       - run: |
+          cmake -B build -S .
           ./test/run_unit_tests.sh
