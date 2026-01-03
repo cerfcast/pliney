@@ -108,6 +108,16 @@ uint16_t compute_icmp_cksum(struct icmphdr *hdr, data_p body) {
   return htons(~(cksum & 0xffff));
 }
 
+// We assume no options!
+uint16_t compute_ip4_cksum(struct iphdr *hdr) {
+  void *start{static_cast<void *>(hdr)};
+  void *stop{static_cast<void *>(hdr + 1)};
+  uint32_t cksum;
+  uint16_t *cksumv = (uint16_t *)&cksum;
+  cksum = compute_ones_compliment(0, start, stop);
+  return htons(~(cksum & 0xffff));
+}
+
 uint16_t compute_icmp6_cksum(struct ip6_hdr *hdr, struct icmp6_hdr *icmp,
                             data_p body) {
 
