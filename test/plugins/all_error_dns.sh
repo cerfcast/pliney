@@ -6,7 +6,7 @@ diff test/data/all_error_dns.pcap ${RUNNER_TEMP}/testing.pcap
 
 result=$?
 
-sudo rm -f ${RUNNER_TEMP}/testing.pcap
+#sudo rm -f ${RUNNER_TEMP}/testing.pcap
 
 exit $result
 
