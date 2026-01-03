@@ -14,7 +14,7 @@ for i in ${tests}; do
 done
 
 ./test/run_unit_tests.sh
-if [ $? -ne 0]; then
+if [ $? -ne 0 ]; then
 	echo "Unit tests failed."
 	exit 1
 fi
