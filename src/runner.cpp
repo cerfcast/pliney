@@ -340,6 +340,11 @@ bool PacketRunner::execute(Compilation &compilation,
           }
           case IPV6_TARGET_PORT:
           case IPV4_TARGET_PORT: {
+            // We do nothing when asked to set the port to 0.
+            if (!program->insts[insn_idx].value.value.ipaddr.port) {
+              break;
+            }
+
             if (!transport_has_port(pisa_pgm_transport_type)) {
               PISA_WARN_NOOP("Setting the target port",
                              to_string(pisa_pgm_transport_type));
@@ -359,6 +364,11 @@ bool PacketRunner::execute(Compilation &compilation,
           }
           case IPV4_SOURCE_PORT:
           case IPV6_SOURCE_PORT: {
+            // We do nothing when asked to set the port to 0.
+            if (!program->insts[insn_idx].value.value.ipaddr.port) {
+              break;
+            }
+
             if (!transport_has_port(pisa_pgm_transport_type)) {
               PISA_WARN_NOOP("Setting the target port",
                              to_string(pisa_pgm_transport_type));
@@ -383,6 +393,12 @@ bool PacketRunner::execute(Compilation &compilation,
                 Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
                 "Will not set an IPv4 target when building/modifying a non-IPv4 PISA packet.");
 
+            // Do not actually set the target address to 0! It's an internal
+            // signal but not something that we actually obey.
+            if (!program->insts[insn_idx].value.value.ipaddr.addr.ipv4.s_addr) {
+              break;
+            }
+
             struct iphdr *typed_hdr =
                 (struct iphdr *)runner_packet.ip_packet.hdr.ip;
             typed_hdr->daddr =
@@ -394,6 +410,20 @@ bool PacketRunner::execute(Compilation &compilation,
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                 "Will not set an IPv6 target when building/modifying a non-IPv6 PISA packet.");
+
+            // Do not actually set the target address to 0! It's an internal
+            // signal but not something that we actually obey.
+            if (!program->insts[insn_idx]
+                     .value.value.ipaddr.addr.ipv6.s6_addr32[0] &&
+                !program->insts[insn_idx]
+                     .value.value.ipaddr.addr.ipv6.s6_addr32[1] &&
+                !program->insts[insn_idx]
+                     .value.value.ipaddr.addr.ipv6.s6_addr32[2] &&
+                !program->insts[insn_idx]
+                     .value.value.ipaddr.addr.ipv6.s6_addr32[3]) {
+              break;
+            }
+
             struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_dst =
                 program->insts[insn_idx].value.value.ipaddr.addr.ipv6;
@@ -403,6 +433,13 @@ bool PacketRunner::execute(Compilation &compilation,
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
                 "Will not set an IPv4 source when building/modifying a non-IPv4 PISA packet.");
+
+            // Do not actually set the target address to 0! It's an internal
+            // signal but not something that we actually obey.
+            if (!program->insts[insn_idx].value.value.ipaddr.addr.ipv4.s_addr) {
+              break;
+            }
+
             struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
             typed_hdr->saddr =
                 program->insts[insn_idx].value.value.ipaddr.addr.ipv4.s_addr;
@@ -412,6 +449,20 @@ bool PacketRunner::execute(Compilation &compilation,
             PISA_COWARDLY_VERSION_CHECK(
                 Pliney::IpVersion::SIX, pisa_pgm_ip_version,
                 "Will not set an IPv6 source when building/modifying a non-IPv6 PISA packet.");
+
+            // Do not actually set the target address to 0! It's an internal
+            // signal but not something that we actually obey.
+            if (!program->insts[insn_idx]
+                     .value.value.ipaddr.addr.ipv6.s6_addr32[0] &&
+                !program->insts[insn_idx]
+                     .value.value.ipaddr.addr.ipv6.s6_addr32[1] &&
+                !program->insts[insn_idx]
+                     .value.value.ipaddr.addr.ipv6.s6_addr32[2] &&
+                !program->insts[insn_idx]
+                     .value.value.ipaddr.addr.ipv6.s6_addr32[3]) {
+              break;
+            }
+
             struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
             typed_hdr->ip6_src =
                 program->insts[insn_idx].value.value.ipaddr.addr.ipv6;
