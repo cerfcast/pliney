@@ -23,3 +23,12 @@ jobs:
       - run: |
           docker build -t packetline:latest -f docker/Dockerfile .
           docker run packetline:latest
+  test-unit-tests:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+            submodules: recursive
+      - run: |
+          ./test/run_unit_tests.sh

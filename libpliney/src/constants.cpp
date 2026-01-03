@@ -1,7 +1,7 @@
 #include "packetline/constants.hpp"
 #include "pisa/pisa.h"
 #include <netinet/in.h>
-#include <utility>
+#include <lib/safety.hpp>
 
 namespace Pliney {
 std::string to_string(const Pliney::Transport &transport) {
@@ -19,7 +19,7 @@ std::string to_string(const Pliney::Transport &transport) {
       return "ICMPv6";
     }
     default:
-      std::unreachable();
+      PLINEY_UNREACHABLE
   }
 }
 
@@ -38,7 +38,7 @@ Pliney::Transport from_native_transport(uint8_t transport) {
       return Pliney::Transport::ICMP6;
     }
     default:
-      std::unreachable();
+      PLINEY_UNREACHABLE
   }
 }
 
@@ -57,7 +57,7 @@ uint8_t to_pisa_transport(const Transport &transport) {
       return PLINEY_ICMP6;
     }
     default:
-      std::unreachable();
+      PLINEY_UNREACHABLE
   }
 }
 
@@ -76,7 +76,7 @@ uint8_t to_native_transport(const Transport &transport) {
       return IPPROTO_ICMPV6;
     }
     default:
-      std::unreachable();
+      PLINEY_UNREACHABLE
   }
 }
 
@@ -89,7 +89,7 @@ std::string to_string(const Pliney::IpVersion &version) {
       return "IP Version 6";
     }
     default:
-      std::unreachable();
+      PLINEY_UNREACHABLE
   }
 }
 
@@ -102,7 +102,7 @@ Pliney::IpVersion from_native_version(uint8_t version) {
       return Pliney::IpVersion::SIX;
     }
     default:
-      std::unreachable();
+      PLINEY_UNREACHABLE
   }
 }
 
@@ -115,7 +115,7 @@ Pliney::IpVersion from_pisa_version(uint8_t version) {
       return Pliney::IpVersion::SIX;
     }
     default:
-      std::unreachable();
+      PLINEY_UNREACHABLE
   }
 }
 
@@ -128,7 +128,7 @@ uint8_t to_pisa_version(const IpVersion &version) {
       return PLINEY_IPVERSION6;
     }
     default:
-      std::unreachable();
+      PLINEY_UNREACHABLE
   }
 }
 } // namespace Pliney
