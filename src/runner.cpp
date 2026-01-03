@@ -206,6 +206,7 @@ RunnerPacket::from(const unique_pisa_program_t &pisa_program) {
 
   // Put some initial values into the packet.
   if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
+    res.ip_packet.version = Pliney::IpVersion::FOUR;
     struct iphdr *typed_hdr = res.ip_packet.hdr.ip;
     typed_hdr->version = Pliney::IP4_VERSION;
     typed_hdr->ihl = Pliney::IPV4_DEFAULT_HEADER_LENGTH_OCTETS;
@@ -219,6 +220,7 @@ RunnerPacket::from(const unique_pisa_program_t &pisa_program) {
     }
   } else {
     struct ip6_hdr *typed_hdr = res.ip_packet.hdr.ip6;
+    res.ip_packet.version = Pliney::IpVersion::SIX;
     typed_hdr->ip6_vfc |= Pliney::IP6_VERSION << 4;
     if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
       typed_hdr->ip6_nxt = IPPROTO_TCP;
