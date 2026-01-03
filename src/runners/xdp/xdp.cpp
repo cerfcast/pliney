@@ -13,6 +13,7 @@
 #include <packetline/runners/xdp/xdpsupport.h>
 
 #include <cstring>
+#include <format>
 #include <pthread.h>
 #include <signal.h>
 
