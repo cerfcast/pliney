@@ -8,4 +8,7 @@
 uint16_t compute_udp_cksum(Pliney::IpVersion type, void *ip, struct udphdr *udp,
                            data_p body);
 uint16_t compute_icmp_cksum(struct icmphdr *hdr, data_p body);
+uint16_t compute_icmp6_cksum(struct ip6_hdr *hdr, struct icmp6_hdr *icmp,
+                            data_p body);
+
 #endif

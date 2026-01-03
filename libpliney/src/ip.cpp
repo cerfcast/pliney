@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
@@ -104,5 +105,44 @@ uint16_t compute_icmp_cksum(struct icmphdr *hdr, data_p body) {
   uint16_t *cksumv = (uint16_t *)&cksum;
   cksum = compute_ones_compliment(0, start, stop);
   cksum = compute_ones_compliment(cksum, body.data, body.data + body.len);
+  return htons(~(cksum & 0xffff));
+}
+
+uint16_t compute_icmp6_cksum(struct ip6_hdr *hdr, struct icmp6_hdr *icmp,
+                            data_p body) {
+
+  // During computation, cksum is in host order.
+  // Only at the end is it turned into network order.
+  uint32_t cksum = 0;
+  // cksumv is a 16-bit view over the 32-bit cksum (to use for detecting)
+  // overflow.
+  uint16_t *cksumv = (uint16_t *)&cksum;
+
+  // The pseudoheader consists of  ...
+
+  // 1. The source and destination IPv6 addresses.
+  uint16_t *source = (uint16_t *)&hdr->ip6_src;
+  cksum = compute_ones_compliment(0, source, source + 16);
+
+  // 2. 32-bit length (of the udp header + body length)
+  uint32_t length{
+      htonl(static_cast<uint32_t>(Pliney::ICMP6_DEFAULT_HEADER_LENGTH + body.len))};
+  uint16_t *lengthp{reinterpret_cast<uint16_t *>(&length)};
+  cksum = compute_ones_compliment(cksum, lengthp, lengthp + 2);
+
+  // 3. 3 bytes of zeroes.
+
+  // 4. 1 byte for the UDP protocol value.
+  // (Note: If we could guarantee that this was a little endian machine, we
+  // would not need to be so cautious.)
+  cksum += ntohs(htons(uint8_t(Pliney::to_native_transport(Pliney::Transport::ICMP6))));
+  HANDLE_OVERFLOW(cksumv[1], cksum);
+
+  // 5. The ICMP header.
+  cksum = compute_ones_compliment(cksum, icmp, (uint8_t*)icmp + Pliney::ICMP_DEFAULT_HEADER_LENGTH);
+
+  // 6. The body.
+  cksum = compute_ones_compliment(cksum, body.data, body.data + body.len);
+
   return htons(~(cksum & 0xffff));
 }
