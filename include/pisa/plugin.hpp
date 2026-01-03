@@ -6,6 +6,7 @@
 #include "packetline/packetline.hpp"
 
 #include <filesystem>
+#include <optional>
 #include <vector>
 
 typedef std::optional<std::string> plugin_cleanup_result_tt;
