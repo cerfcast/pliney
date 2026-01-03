@@ -95,12 +95,11 @@ void xdp_apply_setsockopt(struct xsk_socket_info *xsk) {
     exit_with_error(errno);
 }
 
-void xdp_cleanup(struct xsk_socket_info **xsks, int num_socks) {
-  struct xsk_umem *umem = xsks[0]->umem->umem;
+void xdp_cleanup_sock(struct xsk_socket_info *xsk) {
+  struct xsk_umem *umem = xsk->umem->umem;
   int i, cmd = CLOSE_CONN;
 
-  for (i = 0; i < 1; i++)
-    xsk_socket__delete(xsks[i]->xsk);
+  xsk_socket__delete(xsk->xsk);
   (void)xsk_umem__delete(umem);
 }
 

@@ -204,6 +204,6 @@ void xdp_apply_setsockopt(struct xsk_socket_info *xsk);
 uint16_t ip_fast_csum(const unsigned char *iph, unsigned int ihl);
 
 void enter_xsks_into_map(struct xsk_socket_info **xsks, int num_socks);
-void xdp_cleanup(struct xsk_socket_info **xsks, int num_socks);
+void xdp_cleanup_sock(struct xsk_socket_info *xsks);
 
 #endif

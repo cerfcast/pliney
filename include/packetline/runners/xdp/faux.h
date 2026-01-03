@@ -10,20 +10,20 @@
 
 typedef std::function<void(void *, size_t)> process_packet_cb_t;
 
-void faux_process_transport_ingress(struct xsk_socket_info *xsk, int tapfd,
+void faux_process_transport_ingress(struct xsk_socket_info *xsk, int ip_fd,
                          process_packet_cb_t packet_processor);
 
 /*
  * Allocate handles for the faux IP and transport interfaces.
  */
-
-int faux_alloc_ip(const char *dev, const char *ip_dev_name);
-int faux_alloc_transport(const char *transport_dev_name);
+int faux_alloc_ip(const char *to_make, const char *to_ape);
+int faux_alloc_transport(const char *transport_dev_name, int transport_idx);
 
 typedef struct {
-  int tunfd;
-  int rawfd;
-  int rawi;
+  // A file descriptor to the IP (TAP) interface.
+  int ip_fd;
+  int transport_fd;
+  int transport_iface_idx;
   volatile bool *keep_going;
   process_packet_cb_t packet_processor;
 } faux_process_transport_egress_config_t;

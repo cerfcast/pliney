@@ -75,7 +75,7 @@ static void __exit_with_error(int error, const char *file, const char *func,
 
 #define exit_with_error(error)                                                 \
   __exit_with_error(error, __FILE__, __func__, __LINE__)
-void faux_process_transport_ingress(struct xsk_socket_info *xsk, int tunfd,
+void faux_process_transport_ingress(struct xsk_socket_info *xsk, int ip_fd,
                                     process_packet_cb_t packet_processor) {
 
   u32 idx_rx = 0, idx_tx = 0, frags_done = 0;
@@ -110,11 +110,11 @@ void faux_process_transport_ingress(struct xsk_socket_info *xsk, int tunfd,
     // If the packet is an IP packet, then we will do the work. Otherwise,
     // leave it alone.
     struct ether_header *eth = (struct ether_header *)pkt;
-    if (eth->ether_type == htons(ETH_P_IP)) {
+    if (eth->ether_type == htons(ETH_P_IP) || eth->ether_type == htons(ETH_P_IPV6)) {
       packet_processor(pkt, len);
     }
 
-    if (write(tunfd, pkt, len) < 0) {
+    if (write(ip_fd, pkt, len) < 0) {
       Logger::ActiveLogger()->log(
           Logger::ERROR,
           std::format(
@@ -135,7 +135,7 @@ void faux_process_transport_ingress(struct xsk_socket_info *xsk, int tunfd,
   xsk->outstanding_tx += frags_done;
 }
 
-int faux_alloc_transport(const char *dev_to_ape_name) {
+int faux_alloc_transport(const char *dev_to_ape_name, int idx) {
   int raw = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 
   if (raw < 0) {
@@ -145,7 +145,7 @@ int faux_alloc_transport(const char *dev_to_ape_name) {
   struct sockaddr_ll sl;
 
   memset(&sl, 0, sizeof(struct sockaddr_ll));
-  sl.sll_ifindex = if_nametoindex(dev_to_ape_name);
+  sl.sll_ifindex = idx;
   sl.sll_family = PF_PACKET;
   sl.sll_protocol = htons(ETH_P_ALL);
   if (bind(raw, (struct sockaddr *)&sl, sizeof(struct sockaddr_ll)) < 0) {
@@ -178,7 +178,7 @@ void *faux_process_transport_egress(void *config) {
 
   while (tap_handler_config->keep_going) {
     char buffer[1500];
-    int just_read = read(tap_handler_config->tunfd, buffer, 1500);
+    int just_read = read(tap_handler_config->ip_fd, buffer, 1500);
     if (just_read < 0) {
       Logger::ActiveLogger()->log(
           Logger::ERROR,
@@ -190,14 +190,14 @@ void *faux_process_transport_egress(void *config) {
 
     struct ether_header *ether = (struct ether_header *)buffer;
 
-    if (ether->ether_type == htons(ETH_P_IP)) {
+    if (ether->ether_type == htons(ETH_P_IP) || ether->ether_type == htons(ETH_P_IPV6)) {
       tap_handler_config->packet_processor(ether, just_read);
     }
 
     struct sockaddr_ll outgoing_address =
-        sockaddr_from_ethernet(ether, tap_handler_config->rawi);
+        sockaddr_from_ethernet(ether, tap_handler_config->transport_iface_idx);
 
-    int just_wrote = sendto(tap_handler_config->rawfd, buffer, just_read, 0,
+    int just_wrote = sendto(tap_handler_config->transport_fd, buffer, just_read, 0,
                             (struct sockaddr *)&outgoing_address,
                             sizeof(struct sockaddr_ll));
     if (just_wrote < 0) {
