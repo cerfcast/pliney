@@ -15,7 +15,7 @@ target_compile_definitions(pliney PRIVATE ${EXTRA_DEFINITIONS})
 set_property(TARGET pliney PROPERTY CXX_STANDARD 23)
 set_property(TARGET pliney PROPERTY C_STANDARD 23)
 target_link_options(pliney PRIVATE "-Wl,--export-dynamic")
-target_link_options(pliney PRIVATE "-lbpf" "-lxdp")
+target_link_libraries(pliney PRIVATE "bpf" "xdp")
 
 add_library(target SHARED "plugins/target.c")
 list(APPEND PLUGIN_PLUGIN_SRCS "plugins/target.c")

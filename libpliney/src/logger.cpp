@@ -1,4 +1,5 @@
 #include "lib/logger.hpp"
+#include <format>
 #include <iostream>
 
 extern "C" {

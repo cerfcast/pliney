@@ -10,6 +10,7 @@
 #include "pisa/plugin.h"
 #include "pisa/utils.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>

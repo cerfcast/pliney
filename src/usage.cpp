@@ -1,5 +1,7 @@
 #include <packetline/usage.hpp>
 
+#include <format>
+
 std::ostream &Usage::usage(std::ostream &os, const char *program,
                            Pipeline &&pipeline) {
   os << std::format("{} Usage:\n", program);
