@@ -15,6 +15,9 @@ std::string to_string(const Pliney::Transport &transport) {
     case Pliney::Transport::ICMP: {
       return "ICMP";
     }
+    case Pliney::Transport::ICMP6: {
+      return "ICMPv6";
+    }
     default:
       std::unreachable();
   }
@@ -30,6 +33,9 @@ Pliney::Transport from_native_transport(uint8_t transport) {
     }
     case PLINEY_ICMP: {
       return Pliney::Transport::ICMP;
+    }
+    case PLINEY_ICMP6: {
+      return Pliney::Transport::ICMP6;
     }
     default:
       std::unreachable();
@@ -47,6 +53,9 @@ uint8_t to_pisa_transport(const Transport &transport) {
     case Pliney::Transport::ICMP: {
       return PLINEY_ICMP;
     }
+    case Pliney::Transport::ICMP6: {
+      return PLINEY_ICMP6;
+    }
     default:
       std::unreachable();
   }
@@ -62,6 +71,9 @@ uint8_t to_native_transport(const Transport &transport) {
     }
     case Pliney::Transport::ICMP: {
       return IPPROTO_ICMP;
+    }
+    case Pliney::Transport::ICMP6: {
+      return IPPROTO_ICMPV6;
     }
     default:
       std::unreachable();

@@ -39,6 +39,7 @@ typedef struct {
 #define PLINEY_TCP 6
 #define PLINEY_UDP 17
 #define PLINEY_ICMP 1
+#define PLINEY_ICMP6 58
 
 typedef struct {
   uint8_t family;

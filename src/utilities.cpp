@@ -42,6 +42,9 @@ size_t transport_header_size(Pliney::Transport transport) {
     case Pliney::Transport::ICMP: {
       return Pliney::ICMP_DEFAULT_HEADER_LENGTH;
     }
+    case Pliney::Transport::ICMP6: {
+      return Pliney::ICMP6_DEFAULT_HEADER_LENGTH;
+    }
     case Pliney::Transport::TCP: {
       return Pliney::TCP_DEFAULT_HEADER_LENGTH;
     }
@@ -54,7 +57,8 @@ size_t transport_header_size(Pliney::Transport transport) {
 
 size_t transport_has_port(Pliney::Transport transport) {
   switch (transport) {
-    case Pliney::Transport::ICMP: {
+    case Pliney::Transport::ICMP:
+    case Pliney::Transport::ICMP6: {
       return false;
     }
     default:
