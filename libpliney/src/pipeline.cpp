@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <format>
 #include <ranges>
 #include <string_view>
 
