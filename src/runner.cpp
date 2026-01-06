@@ -503,52 +503,32 @@ bool PacketRunner::execute(Compilation &compilation,
                 program->insts[insn_idx].value.value.ptr.len;
             break;
           }
-          case IPV6_ECN: {
-            PISA_COWARDLY_VERSION_CHECK(
-                Pliney::IpVersion::SIX, pisa_pgm_ip_version,
-                "Will not set an IPv6 ECN value when building/modifying a "
-                "non-IPv6 PISA packet.");
+          case IP_ECN: {
             int ecn = program->insts[insn_idx].value.value.byte;
-            struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
-            typed_hdr->ip6_flow &= ~(htonl(0x3 << 20));
-            typed_hdr->ip6_flow |= htonl(ecn << 20);
+            if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
+              struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
+              typed_hdr->tos &= 0xfc;
+              typed_hdr->tos |= ecn;
 
+            } else {
+              struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
+              typed_hdr->ip6_flow &= ~(htonl(0x3 << 20));
+              typed_hdr->ip6_flow |= htonl(ecn << 20);
+            }
             break;
           }
-          case IPV4_ECN: {
-            PISA_COWARDLY_VERSION_CHECK(
-                Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
-                "Will not set an IPv4 ECN value when building/modifying a "
-                "non-IPv4 PISA packet.");
-            int ecn = program->insts[insn_idx].value.value.byte;
-            struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
-            // First, remove the previous ECN value.
-            typed_hdr->tos &= 0xfc;
-            // Now, set the ECN.
-            typed_hdr->tos |= ecn;
-            break;
-          }
-          case IPV6_DSCP: {
-            PISA_COWARDLY_VERSION_CHECK(
-                Pliney::IpVersion::SIX, pisa_pgm_ip_version,
-                "Will not set an IPv6 DSCP value when building/modifying a "
-                "non-IPv6 PISA packet.");
+          case IP_DSCP: {
             int dscp = program->insts[insn_idx].value.value.byte;
-            struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
-            typed_hdr->ip6_flow &= ~(htonl(0xfc << 20));
-            typed_hdr->ip6_flow |= htonl(dscp << 20);
+            if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
+              struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
+              typed_hdr->tos &= 0x3;
+              typed_hdr->tos |= dscp;
+            } else {
+              struct ip6_hdr *typed_hdr = runner_packet.ip_packet.hdr.ip6;
+              typed_hdr->ip6_flow &= ~(htonl(0xfc << 20));
+              typed_hdr->ip6_flow |= htonl(dscp << 20);
+            }
 
-            break;
-          }
-          case IPV4_DSCP: {
-            PISA_COWARDLY_VERSION_CHECK(
-                Pliney::IpVersion::FOUR, pisa_pgm_ip_version,
-                "Will not set an IPv4 DSCP value when building/modifying a "
-                "non-IPv4 PISA packet.");
-            int dscp = program->insts[insn_idx].value.value.byte;
-            struct iphdr *typed_hdr = runner_packet.ip_packet.hdr.ip;
-            typed_hdr->tos &= 0x3;
-            typed_hdr->tos |= dscp;
             break;
           }
           case IPV6_HL: {
