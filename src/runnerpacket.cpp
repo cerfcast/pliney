@@ -1,5 +1,5 @@
-#include "packetline/runner.hpp"
 #include "packetline/constants.hpp"
+#include "packetline/runner.hpp"
 
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
@@ -26,7 +26,6 @@
 #include <sys/types.h>
 
 #include <variant>
-
 
 std::variant<RunnerPacket, std::string>
 RunnerPacket::from(const pisa_ptr_value_t data) {
@@ -107,7 +106,8 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
       if (!from_raw_ip_opts_exts(WITH_OFFSET(data.data, parsing_offset),
                                  next_header, &ext, &next_header)) {
         Logger::ActiveLogger()->log(
-            Logger::DEBUG, std::format("There was an error parsing an IPv6 extension header ... bad news."));
+            Logger::DEBUG, std::format("There was an error parsing an IPv6 "
+                                       "extension header ... bad news."));
       }
 
       add_ip_opt_ext(&res.opts.ip_opts_exts_hdr, ext);

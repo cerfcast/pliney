@@ -118,7 +118,7 @@ void faux_process_transport_ingress(struct xsk_socket_info *xsk, int ip_fd,
     if (eth->ether_type == htons(ETH_P_IP) ||
         eth->ether_type == htons(ETH_P_IPV6)) {
       must_free = true;
-      data_to_write = (char*)packet_processor(pkt, len, &len_to_write);
+      data_to_write = (char *)packet_processor(pkt, len, &len_to_write);
     }
 
     if (write(ip_fd, data_to_write, len_to_write) < 0) {
@@ -206,15 +206,16 @@ void *faux_process_transport_egress(void *config) {
     char *data_to_write{buffer};
     if (ether->ether_type == htons(ETH_P_IP) ||
         ether->ether_type == htons(ETH_P_IPV6)) {
-      data_to_write = (char*)tap_handler_config->packet_processor(ether, just_read, &len_to_write);
+      data_to_write = (char *)tap_handler_config->packet_processor(
+          ether, just_read, &len_to_write);
       must_free = true;
     }
     struct sockaddr_ll outgoing_address =
         sockaddr_from_ethernet(ether, tap_handler_config->transport_iface_idx);
 
-    int just_wrote = sendto(tap_handler_config->transport_fd,data_to_write, len_to_write,
-                            0, (struct sockaddr *)&outgoing_address,
-                            sizeof(struct sockaddr_ll));
+    int just_wrote = sendto(
+        tap_handler_config->transport_fd, data_to_write, len_to_write, 0,
+        (struct sockaddr *)&outgoing_address, sizeof(struct sockaddr_ll));
     if (just_wrote < 0) {
       Logger::ActiveLogger()->log(
           Logger::ERROR, std::format("Error sending out egress interface: {}",

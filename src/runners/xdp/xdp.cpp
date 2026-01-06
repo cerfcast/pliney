@@ -107,13 +107,15 @@ bool XdpRunner::execute(Compilation &compilation) {
       auto actual_rp{std::get<RunnerPacket>(rp)};
       auto result = PacketRunner::execute(compilation, actual_rp);
 
-      char *new_packet{(char*)malloc(sizeof(struct ether_header) + compilation.packet.all.len)};
+      char *new_packet{(char *)malloc(sizeof(struct ether_header) +
+                                      compilation.packet.all.len)};
 
       memcpy(new_packet, raw, sizeof(struct ether_header));
-      memcpy(new_packet + sizeof(struct ether_header), compilation.packet.all.data, compilation.packet.all.len);
+      memcpy(new_packet + sizeof(struct ether_header),
+             compilation.packet.all.data, compilation.packet.all.len);
 
       *new_len = compilation.packet.all.len + sizeof(struct ether_header);
-      return (void*)new_packet;
+      return (void *)new_packet;
     }
   };
   egress_config.packet_processor = processor;
