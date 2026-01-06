@@ -43,17 +43,9 @@ generate_result_t generate(pisa_program_t *program, void *cookie) {
   result.success = false;
 
   if (cookie != 0) {
-    uint8_t target_family = 0;
-
-    if (!pisa_program_find_target_family(program, &target_family)) {
-      result.success = 0;
-      return result;
-    }
-
     pisa_inst_t set_ecn_inst;
     set_ecn_inst.op = SET_FIELD;
-    set_ecn_inst.fk.field =
-        target_family == PLINEY_IPVERSION4 ? IPV4_DSCP : IPV6_DSCP;
+    set_ecn_inst.fk.field = IP_DSCP;
     set_ecn_inst.value.tpe = BYTE;
     set_ecn_inst.value.value.byte = (*(uint8_t *)cookie) << 2;
     result.success = pisa_program_add_inst(program, &set_ecn_inst);

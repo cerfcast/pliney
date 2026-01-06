@@ -10,7 +10,7 @@
 #include "pisa/compilation.hpp"
 #include "pisa/pisa.h"
 
-struct IpRunnerPacket {
+struct RunnerPacketIpHdr {
   Pliney::IpVersion version;
   size_t len;
   union {
@@ -19,13 +19,13 @@ struct IpRunnerPacket {
   } hdr;
 };
 
-struct RunnerPacketOpts {
+struct RunnerPacketIpOpts {
   size_t ip_opt_ext_hdr_raw_len{0};
   uint8_t *ip_opts_exts_hdr_raw{nullptr};
   pisa_ip_opts_exts_t ip_opts_exts_hdr{};
 };
 
-struct TransportRunnerPacket {
+struct RunnerPacketTransportHdr {
   size_t transport_len{0};
   void *transport{nullptr};
   size_t transportoptionhdr_len{0};
@@ -38,9 +38,9 @@ struct RunnerPacketBody {
 };
 
 struct RunnerPacket {
-  IpRunnerPacket ip_packet;
-  RunnerPacketOpts opts;
-  TransportRunnerPacket transport_packet;
+  RunnerPacketIpHdr ip_packet;
+  RunnerPacketIpOpts opts;
+  RunnerPacketTransportHdr transport_packet;
   RunnerPacketBody body;
 
   static std::variant<RunnerPacket, std::string>

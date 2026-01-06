@@ -110,17 +110,27 @@ void faux_process_transport_ingress(struct xsk_socket_info *xsk, int ip_fd,
     // If the packet is an IP packet, then we will do the work. Otherwise,
     // leave it alone.
     struct ether_header *eth = (struct ether_header *)pkt;
+
+    bool must_free{false};
+    size_t len_to_write{len};
+    char *data_to_write{pkt};
+
     if (eth->ether_type == htons(ETH_P_IP) ||
         eth->ether_type == htons(ETH_P_IPV6)) {
-      packet_processor(pkt, len);
+      must_free = true;
+      data_to_write = (char*)packet_processor(pkt, len, &len_to_write);
     }
 
-    if (write(ip_fd, pkt, len) < 0) {
+    if (write(ip_fd, data_to_write, len_to_write) < 0) {
       Logger::ActiveLogger()->log(
           Logger::ERROR,
           std::format(
               "There was an error writing to the TAP interface: {}, {}.\n",
               errno, strerror(errno)));
+    }
+
+    if (must_free) {
+      free(data_to_write);
     }
 
     Logger::ActiveLogger()->log(Logger::TRACE, "Forwarding down the tap ...");
@@ -191,21 +201,28 @@ void *faux_process_transport_egress(void *config) {
 
     struct ether_header *ether = (struct ether_header *)buffer;
 
+    bool must_free{false};
+    size_t len_to_write{static_cast<size_t>(just_read)};
+    char *data_to_write{buffer};
     if (ether->ether_type == htons(ETH_P_IP) ||
         ether->ether_type == htons(ETH_P_IPV6)) {
-      tap_handler_config->packet_processor(ether, just_read);
+      data_to_write = (char*)tap_handler_config->packet_processor(ether, just_read, &len_to_write);
+      must_free = true;
     }
-
     struct sockaddr_ll outgoing_address =
         sockaddr_from_ethernet(ether, tap_handler_config->transport_iface_idx);
 
-    int just_wrote = sendto(tap_handler_config->transport_fd, buffer, just_read,
+    int just_wrote = sendto(tap_handler_config->transport_fd,data_to_write, len_to_write,
                             0, (struct sockaddr *)&outgoing_address,
                             sizeof(struct sockaddr_ll));
     if (just_wrote < 0) {
       Logger::ActiveLogger()->log(
           Logger::ERROR, std::format("Error sending out egress interface: {}",
                                      strerror(errno)));
+    }
+
+    if (must_free) {
+      free(data_to_write);
     }
   }
 

@@ -8,7 +8,7 @@
 #include <functional>
 
 
-typedef std::function<void(void *, size_t)> process_packet_cb_t;
+typedef std::function<void*(void *, size_t, size_t*)> process_packet_cb_t;
 
 void faux_process_transport_ingress(struct xsk_socket_info *xsk, int ip_fd,
                          process_packet_cb_t packet_processor);

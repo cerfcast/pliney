@@ -40,16 +40,16 @@ bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len) {
 size_t transport_header_size(Pliney::Transport transport) {
   switch (transport) {
     case Pliney::Transport::ICMP: {
-      return Pliney::ICMP_DEFAULT_HEADER_LENGTH;
+      return Pliney::ICMP_BASE_HEADER_LENGTH;
     }
     case Pliney::Transport::ICMP6: {
-      return Pliney::ICMP6_DEFAULT_HEADER_LENGTH;
+      return Pliney::ICMP6_BASE_HEADER_LENGTH;
     }
     case Pliney::Transport::TCP: {
-      return Pliney::TCP_DEFAULT_HEADER_LENGTH;
+      return Pliney::TCP_BASE_HEADER_LENGTH;
     }
     case Pliney::Transport::UDP: {
-      return Pliney::UDP_DEFAULT_HEADER_LENGTH;
+      return Pliney::UDP_BASE_HEADER_LENGTH;
     }
   }
   std::unreachable();
@@ -64,4 +64,11 @@ size_t transport_has_port(Pliney::Transport transport) {
     default:
       return true;
   }
+}
+
+bool is_protocol_transport(uint8_t native_ip_protocol) {
+  return native_ip_protocol == Pliney::UDP_PROTOCOL ||
+         native_ip_protocol == Pliney::TCP_PROTOCOL ||
+         native_ip_protocol == Pliney::ICMP_PROTOCOL ||
+         native_ip_protocol == Pliney::ICMP6_PROTOCOL;
 }

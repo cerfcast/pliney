@@ -83,7 +83,7 @@ bool XdpRunner::execute(Compilation &compilation) {
   egress_config.transport_fd = transport_fd;
   egress_config.transport_iface_idx = transport_iface_idx;
   egress_config.keep_going = &keep_running;
-  auto processor = [&compilation](void *raw, size_t len) {
+  auto processor = [&compilation](void *raw, size_t len, size_t *new_len) {
     struct ether_header *eth{reinterpret_cast<struct ether_header *>(raw)};
 
     // Processor setup guarantees that we will only see IP-wrapped-in-ethernet
@@ -99,13 +99,21 @@ bool XdpRunner::execute(Compilation &compilation) {
       Logger::ActiveLogger()->log(Logger::ERROR,
                                   std::format("Error processing packet: {}.",
                                               std::get<std::string>(rp)));
+      *new_len = len;
+      return raw;
     } else {
       Logger::ActiveLogger()->log(Logger::DEBUG,
                                   std::format("Processing a packet!"));
       auto actual_rp{std::get<RunnerPacket>(rp)};
       auto result = PacketRunner::execute(compilation, actual_rp);
 
-      memcpy(eth + 1, compilation.packet.all.data, len);
+      char *new_packet{(char*)malloc(sizeof(struct ether_header) + compilation.packet.all.len)};
+
+      memcpy(new_packet, raw, sizeof(struct ether_header));
+      memcpy(new_packet + sizeof(struct ether_header), compilation.packet.all.data, compilation.packet.all.len);
+
+      *new_len = compilation.packet.all.len + sizeof(struct ether_header);
+      return (void*)new_packet;
     }
   };
   egress_config.packet_processor = processor;

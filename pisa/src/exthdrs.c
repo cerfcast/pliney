@@ -126,6 +126,31 @@ pisa_ip_opt_ext_t coalesce_ip_opts_exts(pisa_ip_opts_exts_t extensions,
   return coalesced_ip_opt;
 }
 
+uint8_t to_native_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type) {
+  switch (op_ext_type.ext_type) {
+    case IPV6_DSTOPTS: {
+      return IPPROTO_DSTOPTS;
+    }
+    case IPV6_HOPOPTS: {
+      return IPPROTO_HOPOPTS;
+    }
+  }
+}
+
+pisa_ip_opt_or_ext_type_t
+from_native_ext_type_ip_opts_exts(uint8_t op_ext_type) {
+  pisa_ip_opt_or_ext_type_t res;
+  switch (op_ext_type) {
+    case IPPROTO_DSTOPTS: {
+      res.ext_type = IPV6_DSTOPTS;
+    }
+    case IPPROTO_HOPOPTS: {
+      res.ext_type = IPV6_HOPOPTS;
+    }
+  }
+  return res;
+}
+
 bool to_raw_ip_opts_exts(pisa_ip_opt_ext_t extension, size_t *len,
                          uint8_t **raw) {
   *len = ((2 /* for extension header T/L */ + extension.len + (8 - 1)) / 8) * 8;
@@ -139,21 +164,32 @@ bool to_raw_ip_opts_exts(pisa_ip_opt_ext_t extension, size_t *len,
   return true;
 }
 
+bool from_raw_ip_opts_exts(uint8_t *data, uint8_t this_header_raw,
+                           pisa_ip_opt_ext_t *extension,
+                           uint8_t *next_header_raw) {
+  // There is an extension header.
+  size_t parsing_offset = 0;
+
+  *next_header_raw = *(uint8_t *)WITH_OFFSET(data, 0);
+
+  parsing_offset += sizeof(uint8_t);
+  uint32_t ext_length =
+      (((*(uint8_t *)WITH_OFFSET(data, parsing_offset)) + 1) * 8) -
+      2 /* For T/L */;
+  parsing_offset += sizeof(uint8_t);
+  uint8_t *ext_data = WITH_OFFSET(data, parsing_offset);
+
+  extension->oe = from_native_ext_type_ip_opts_exts(this_header_raw);
+  extension->len = ext_length;
+  extension->data = ext_data;
+
+  return true;
+}
+
 static uint8_t SUPPORTED_EXTS[] = {IPV6_HOPOPTS, IPV6_DSTOPTS};
 static uint8_t SUPPORTED_EXTS_COUNT = 2;
 
 uint8_t *supported_exts_ip_opts_exts(size_t *count) {
   *count = SUPPORTED_EXTS_COUNT;
   return SUPPORTED_EXTS;
-}
-
-uint8_t to_native_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type) {
-  switch (op_ext_type.ext_type) {
-    case IPV6_DSTOPTS: {
-      return IPPROTO_DSTOPTS;
-    }
-    case IPV6_HOPOPTS: {
-      return IPPROTO_HOPOPTS;
-    }
-  }
 }

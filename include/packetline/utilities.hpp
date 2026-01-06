@@ -65,6 +65,7 @@ public:
 
     if (result < 0) {
       m_success = false;
+      return;
     }
     m_current = value_to_set;
     m_success = true;
@@ -99,4 +100,5 @@ bool extend_cmsg(struct msghdr *mhdr, size_t additional_payload_len);
 
 size_t transport_header_size(Pliney::Transport transport);
 size_t transport_has_port(Pliney::Transport transport);
+bool is_protocol_transport(uint8_t native_ip_protocol);
 #endif

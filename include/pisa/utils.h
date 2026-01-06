@@ -42,6 +42,8 @@ void debug(const char *fmt, ...);
 void warn(const char *fmt, ...);
 void error(const char *fmt, ...);
 
+#define WITH_OFFSET(x, y) ((uint8_t *)x + y)
+
 #ifdef __cplusplus
 }
 #endif

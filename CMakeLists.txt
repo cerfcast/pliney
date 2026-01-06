@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 project(pliney DESCRIPTION "Make packets.")
 
 set(PLINEY_MAIN src/packetline.cpp)
-set(PLINEY_SRCS src/cli.cpp src/utilities.cpp src/usage.cpp src/runner.cpp libpliney/src/logger.cpp libpliney/src/pipeline.cpp libpliney/src/ip.cpp libpliney/src/constants.cpp src/runners/xdp/xdp.cpp src/runners/xdp/faux.cpp src/runners/xdp/xdpsupport.cpp src/runners/xdp/netlink.c)
+set(PLINEY_SRCS src/cli.cpp src/utilities.cpp src/usage.cpp src/runner.cpp libpliney/src/logger.cpp libpliney/src/pipeline.cpp libpliney/src/ip.cpp libpliney/src/constants.cpp src/runners/xdp/xdp.cpp src/runners/xdp/faux.cpp src/runners/xdp/xdpsupport.cpp src/runners/xdp/netlink.c src/runnerpacket.cpp)
 set(PISA_SRCS pisa/src/pisa.c pisa/src/exthdrs.c pisa/src/utils.c pisa/src/compiler.cpp pisa/src/plugin.cpp)
 set(PLUGIN_PLUGIN_SRCS)
 

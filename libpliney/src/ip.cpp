@@ -136,7 +136,7 @@ uint16_t compute_icmp6_cksum(struct ip6_hdr *hdr, struct icmp6_hdr *icmp,
 
   // 2. 32-bit length (of the udp header + body length)
   uint32_t length{htonl(
-      static_cast<uint32_t>(Pliney::ICMP6_DEFAULT_HEADER_LENGTH + body.len))};
+      static_cast<uint32_t>(Pliney::ICMP6_BASE_HEADER_LENGTH + body.len))};
   uint16_t *lengthp{reinterpret_cast<uint16_t *>(&length)};
   cksum = compute_ones_compliment(cksum, lengthp, lengthp + 2);
 
@@ -151,7 +151,7 @@ uint16_t compute_icmp6_cksum(struct ip6_hdr *hdr, struct icmp6_hdr *icmp,
 
   // 5. The ICMP header.
   cksum = compute_ones_compliment(
-      cksum, icmp, (uint8_t *)icmp + Pliney::ICMP_DEFAULT_HEADER_LENGTH);
+      cksum, icmp, (uint8_t *)icmp + Pliney::ICMP6_BASE_HEADER_LENGTH);
 
   // 6. The body.
   cksum = compute_ones_compliment(cksum, body.data, body.data + body.len);

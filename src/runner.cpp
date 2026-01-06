@@ -81,167 +81,6 @@ bool Runner::find_program_target_transport(const unique_pisa_program_t &program,
   return true;
 }
 
-std::variant<RunnerPacket, std::string>
-RunnerPacket::from(const pisa_ptr_value_t data) {
-  RunnerPacket res{};
-
-  // DO simple first: no handling special "things"
-
-  // Check that what we have is an ethernet packet containing an IP packet.
-
-  const struct ether_header *eth{
-      reinterpret_cast<const struct ether_header *>(data.data)};
-
-  if (eth->ether_type != htons(ETH_P_IP) &&
-      eth->ether_type != htons(ETH_P_IPV6)) {
-    return "Cannot create a RunnerPacket from a non-IP enclosing ethernet "
-           "packet";
-  }
-
-  const struct iphdr *iph{reinterpret_cast<const struct iphdr *>(eth + 1)};
-  auto transport_type{Pliney::Transport::UDP};
-
-  if (iph->version == Pliney::IP4_VERSION) {
-    Logger::ActiveLogger()->log(
-        Logger::DEBUG, std::format("(From ethernet) found an IP v4 packet."));
-    const struct iphdr *iph{reinterpret_cast<const struct iphdr *>(eth + 1)};
-    // TODO: Check.
-    res.ip_packet.version = Pliney::IpVersion::FOUR;
-    res.ip_packet.len = Pliney::IPV4_DEFAULT_HEADER_LENGTH;
-    res.ip_packet.hdr.ip =
-        (struct iphdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
-
-    // Now, copy over the contents.
-    // Do the copy here because it helps to know the IP version for final
-    // processing (see below).
-    memcpy(res.ip_packet.hdr.ip, eth + 1, res.ip_packet.len);
-
-    // Adjust the IP packet's total length to just the header size -- the
-    // execution process will readjust (see above).
-    res.ip_packet.hdr.ip->tot_len = htons(Pliney::IPV4_DEFAULT_HEADER_LENGTH);
-
-    transport_type = Pliney::from_native_transport(iph->protocol);
-  } else {
-    Logger::ActiveLogger()->log(
-        Logger::DEBUG, std::format("(From ethernet) found an IP v6 packet."));
-    const struct ip6_hdr *iph{
-        reinterpret_cast<const struct ip6_hdr *>(eth + 1)};
-    res.ip_packet.version = Pliney::IpVersion::SIX;
-    // TODO: Check.
-    res.ip_packet.len = Pliney::IPV6_DEFAULT_HEADER_LENGTH;
-    res.ip_packet.hdr.ip6 =
-        (struct ip6_hdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
-
-    // Now, copy over the contents.
-    // Do the copy here because it helps to know the IP version for final
-    // processing (see below).
-    memcpy(res.ip_packet.hdr.ip6, eth + 1, res.ip_packet.len);
-
-    // Adjust the IP packet's total length to just the header size -- the
-    // execution process will readjust (see above).
-    res.ip_packet.hdr.ip6->ip6_plen = htons(0);
-
-    transport_type = Pliney::from_native_transport(iph->ip6_nxt);
-  }
-
-  // We assume that there are no options.
-
-  // Next, let's check out the transport!
-  void *transport_start =
-      (uint8_t *)data.data + sizeof(struct ether_header) + res.ip_packet.len;
-  res.transport_packet.transport_len = transport_header_size(transport_type);
-  res.transport_packet.transport = reinterpret_cast<void *>(
-      calloc(res.transport_packet.transport_len, sizeof(uint8_t)));
-  memcpy(res.transport_packet.transport, (uint8_t *)transport_start,
-         res.transport_packet.transport_len);
-
-  res.body.len = (data.len - sizeof(struct ether_header) - res.ip_packet.len -
-                  res.transport_packet.transport_len);
-  res.body.body =
-      reinterpret_cast<void *>(calloc(res.body.len, sizeof(uint8_t)));
-  memcpy(res.body.body,
-         (uint8_t *)transport_start + res.transport_packet.transport_len,
-         res.body.len);
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("(From ethernet) Transport len: {}",
-                                          res.transport_packet.transport_len));
-  Logger::ActiveLogger()->log(
-      Logger::DEBUG, std::format("(From ethernet) Body len: {}", res.body.len));
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("(From ethernet) IP version: {}",
-                                          to_string(res.ip_packet.version)));
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("(From ethernet) transport type: {}",
-                                          to_string(transport_type)));
-  return res;
-}
-
-std::variant<RunnerPacket, std::string>
-RunnerPacket::from(const unique_pisa_program_t &pisa_program) {
-  RunnerPacket res{};
-  ip_addr_t pisa_target_address{};
-  Pliney::Transport pisa_pgm_transport_type{};
-
-  if (!Runner::find_program_target_transport(pisa_program, pisa_target_address,
-                                             pisa_pgm_transport_type)) {
-    return "Could not find the target and/or transport in the PISA program";
-  }
-
-  auto pisa_pgm_ip_version{
-      Pliney::from_pisa_version(pisa_target_address.family)};
-
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("PISA program IP version: {}",
-                                          to_string(pisa_pgm_ip_version)));
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("PISA program transport type: {}",
-                                          to_string(pisa_pgm_transport_type)));
-
-  // Let's say that there is an IP header -- make one as big as legal
-  // (appropriate to the type).
-  res.ip_packet.len = pisa_pgm_ip_version == Pliney::IpVersion::FOUR
-                          ? Pliney::IPV4_DEFAULT_HEADER_LENGTH
-                          : Pliney::IPV6_DEFAULT_HEADER_LENGTH;
-  res.ip_packet.hdr.ip =
-      (struct iphdr *)calloc(res.ip_packet.len, sizeof(uint8_t));
-
-  // Put some initial values into the packet.
-  if (pisa_pgm_ip_version == Pliney::IpVersion::FOUR) {
-    res.ip_packet.version = Pliney::IpVersion::FOUR;
-    struct iphdr *typed_hdr = res.ip_packet.hdr.ip;
-    typed_hdr->version = Pliney::IP4_VERSION;
-    typed_hdr->ihl = Pliney::IPV4_DEFAULT_HEADER_LENGTH_OCTETS;
-    typed_hdr->tot_len = htons(Pliney::IPV4_DEFAULT_HEADER_LENGTH_OCTETS * 4);
-    if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
-      typed_hdr->protocol = IPPROTO_TCP;
-    } else if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
-      typed_hdr->protocol = IPPROTO_UDP;
-    } else if (pisa_pgm_transport_type == Pliney::Transport::ICMP) {
-      typed_hdr->protocol = IPPROTO_ICMP;
-    }
-  } else {
-    struct ip6_hdr *typed_hdr = res.ip_packet.hdr.ip6;
-    res.ip_packet.version = Pliney::IpVersion::SIX;
-    typed_hdr->ip6_vfc |= Pliney::IP6_VERSION << 4;
-    if (pisa_pgm_transport_type == Pliney::Transport::TCP) {
-      typed_hdr->ip6_nxt = IPPROTO_TCP;
-    } else if (pisa_pgm_transport_type == Pliney::Transport::UDP) {
-      typed_hdr->ip6_nxt = IPPROTO_UDP;
-    } else if (pisa_pgm_transport_type == Pliney::Transport::ICMP) {
-      typed_hdr->ip6_nxt = IPPROTO_ICMP;
-    }
-  }
-
-  // Let's say that there is a transport header -- make one of the appropriate
-  // size.
-  res.transport_packet.transport_len =
-      transport_header_size(pisa_pgm_transport_type);
-  res.transport_packet.transport =
-      (void *)calloc(res.transport_packet.transport_len, sizeof(uint8_t));
-
-  return res;
-}
-
 bool PacketRunner::execute(Compilation &compilation) {
 
   if (!compilation) {
@@ -571,7 +410,7 @@ bool PacketRunner::execute(Compilation &compilation,
     }
   }
 
-  if (runner_packet.opts.ip_opts_exts_hdr.opts_exts_count > 0) {
+  if (runner_packet.opts.ip_opts_exts_hdr.opts_exts_count) {
     Logger::ActiveLogger()->log(Logger::WARN,
                                 std::format("There are extension headers."));
     if (pisa_pgm_ip_version != Pliney::IpVersion::SIX) {
@@ -641,6 +480,9 @@ bool PacketRunner::execute(Compilation &compilation,
                    runner_packet.opts.ip_opt_ext_hdr_raw_len,
                full_extension_header, full_extension_header_len);
 
+        Logger::ActiveLogger()->log(
+            Logger::WARN, std::format("full_extension_header_len: {}.",
+                                      full_extension_header_len));
         runner_packet.opts.ip_opt_ext_hdr_raw_len += full_extension_header_len;
 
         free_ip_opt_ext(coalesced_ext);
@@ -687,7 +529,7 @@ bool PacketRunner::execute(Compilation &compilation,
       struct udphdr *typed_hdr =
           (struct udphdr *)runner_packet.transport_packet.transport;
       typed_hdr->len =
-          htons(runner_packet.body.len + Pliney::UDP_DEFAULT_HEADER_LENGTH);
+          htons(runner_packet.body.len + Pliney::UDP_BASE_HEADER_LENGTH);
     }
   }
 
@@ -839,7 +681,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
 
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
-  struct sockaddr_storage saddrs {};
+  struct sockaddr_storage saddrs{};
   size_t saddrs_len{0};
   if (iphdr->version == 0x4) {
     struct sockaddr_in *saddri{reinterpret_cast<struct sockaddr_in *>(&saddrs)};
@@ -974,19 +816,8 @@ bool SocketBuilderRunner::execute_set_field(
       pisa_pgm_body = instruction.value;
       break;
     }
-    case IPV6_ECN:
-    case IPV4_ECN: {
+    case IP_ECN: {
       int ecn = instruction.value.value.byte;
-
-      uint8_t set_type = instruction.fk.field == IPV6_ECN ? PLINEY_IPVERSION6
-                                                          : PLINEY_IPVERSION4;
-      if (pliney_destination.family != set_type) {
-        // Better error message.
-        Logger::ActiveLogger()->log(
-            Logger::WARN, std::format("Will not set ECN value on socket "
-                                      "with mismatched IP version"));
-        break;
-      }
       if (m_toss) {
         (*m_toss).again(ecn, 0x3);
       } else {
@@ -1006,19 +837,8 @@ bool SocketBuilderRunner::execute_set_field(
       }
       break;
     }
-    case IPV6_DSCP:
-    case IPV4_DSCP: {
+    case IP_DSCP: {
       int dscp = instruction.value.value.byte;
-
-      uint8_t set_type = instruction.fk.field == IPV6_DSCP ? PLINEY_IPVERSION6
-                                                           : PLINEY_IPVERSION4;
-      if (pliney_destination.family != set_type) {
-        // Better error message.
-        Logger::ActiveLogger()->log(
-            Logger::WARN, std::format("Will not set DSCP value on socket "
-                                      "with mismatched IP version"));
-        break;
-      }
       if (m_toss) {
         (*m_toss).again(dscp, 0xfc);
       } else {
