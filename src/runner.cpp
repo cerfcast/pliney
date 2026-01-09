@@ -2,10 +2,10 @@
 #include "lib/ip.hpp"
 #include "packetline/constants.hpp"
 
+#include "lib/exthdrs.hpp"
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
 #include "pisa/compilation.hpp"
-#include "lib/exthdrs.hpp"
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
 #include "pisa/utils.h"
@@ -1046,9 +1046,9 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           return false;
         }
 
-        auto result =
-            setsockopt(m_socket, IPPROTO_IPV6, to_sockopt_ext_type_ip_opts_exts(ext_type), full_extension_header,
-                       full_extension_header_len);
+        auto result = setsockopt(
+            m_socket, IPPROTO_IPV6, to_sockopt_ext_type_ip_opts_exts(ext_type),
+            full_extension_header, full_extension_header_len);
         if (result < 0) {
           Logger::ActiveLogger().log(
               Logger::ERROR,

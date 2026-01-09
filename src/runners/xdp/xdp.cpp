@@ -90,8 +90,7 @@ bool XdpRunner::execute(Compilation &compilation) {
     // packets.
 
     // Generate a RunnerPacket from the raw data, if possible.
-    auto rp{PlineyPacket::from(
-        data_p{.len = len, .data = (uint8_t *)raw})};
+    auto rp{PlineyPacket::from(data_p{.len = len, .data = (uint8_t *)raw})};
 
     // If there was an error parsing, ...
     if (std::holds_alternative<std::string>(rp)) {

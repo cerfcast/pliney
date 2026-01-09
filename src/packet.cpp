@@ -1,12 +1,12 @@
 #include "packetline/constants.hpp"
 #include "packetline/runner.hpp"
 
+#include "lib/exthdrs.hpp"
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
 #include "pisa/compilation.hpp"
 #include "pisa/pisa.h"
 #include "pisa/utils.h"
-#include "lib/exthdrs.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -27,8 +27,7 @@
 
 #include <variant>
 
-std::variant<PlineyPacket, std::string>
-PlineyPacket::from(const data_p data) {
+std::variant<PlineyPacket, std::string> PlineyPacket::from(const data_p data) {
   PlineyPacket res{};
 
   // DO simple first: no handling special "things"

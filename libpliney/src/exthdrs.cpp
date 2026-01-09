@@ -140,7 +140,8 @@ uint8_t to_native_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type) {
   PLINEY_UNREACHABLE;
 }
 
-uint8_t to_sockopt_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type) {
+uint8_t
+to_sockopt_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type) {
   return op_ext_type.ext_type;
 }
 
@@ -195,7 +196,8 @@ bool from_raw_ip_opts_exts(uint8_t *data, uint8_t this_header_raw,
   return true;
 }
 
-static pisa_ip_opt_or_ext_type_t SUPPORTED_EXTS[] = {{.ext_type = IPV6_HOPOPTS}, {.ext_type = IPV6_DSTOPTS}};
+static pisa_ip_opt_or_ext_type_t SUPPORTED_EXTS[] = {
+    {.ext_type = IPV6_HOPOPTS}, {.ext_type = IPV6_DSTOPTS}};
 static uint8_t SUPPORTED_EXTS_COUNT = 2;
 
 pisa_ip_opt_or_ext_type_t *supported_exts_ip_opts_exts(size_t *count) {
