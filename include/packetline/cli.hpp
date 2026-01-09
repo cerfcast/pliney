@@ -4,7 +4,6 @@
 #include <cstddef>
 
 #include "lib/logger.hpp"
-#include "packetline/constants.hpp"
 
 class Cli {
 public:

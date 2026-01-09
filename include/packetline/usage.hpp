@@ -3,8 +3,6 @@
 
 #include <iosfwd>
 
-#include "lib/pipeline.hpp"
-
 class Pipeline;
 
 class Usage {

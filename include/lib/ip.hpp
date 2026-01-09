@@ -3,7 +3,6 @@
 
 #include <cstdint>
 
-#include "packetline/constants.hpp"
 #include "lib/types.hpp"
 
 namespace Pliney {
