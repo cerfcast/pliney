@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <endian.h>
 #include <asm/int-ll64.h>
+// IWYU pragma: no_include "asm/int-ll64.h"
 #include <linux/types.h>
 #include <stdint.h>
 #include <linux/if_link.h>
