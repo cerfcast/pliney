@@ -1,10 +1,10 @@
 #include "lib/pipeline.hpp"
 
-#include <stdlib.h>
 #include <algorithm>
 #include <cstring>
 #include <format>
 #include <ranges>
+#include <stdlib.h>
 #include <string_view>
 
 #include "lib/logger.hpp"

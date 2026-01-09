@@ -1,7 +1,7 @@
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
 #include "lib/safety.hpp"
 #include "pisa/exthdr.h"

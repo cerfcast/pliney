@@ -1,13 +1,13 @@
 #include "lib/ip.hpp"
 
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/udp.h>
 #include <arpa/inet.h>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
 
 #include "lib/types.hpp"
 #include "packetline/constants.hpp"

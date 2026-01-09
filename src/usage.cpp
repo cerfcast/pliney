@@ -1,6 +1,6 @@
-#include <packetline/usage.hpp>
 #include <format>
 #include <ostream>
+#include <packetline/usage.hpp>
 #include <string>
 
 #include "lib/pipeline.hpp"

@@ -3,18 +3,18 @@
 
 // IWYU pragma: no_include <asm/int-ll64.h>
 #include <arpa/inet.h>
-#include <errno.h>
 #include <endian.h>
-#include <linux/types.h>
-#include <stdint.h>
+#include <errno.h>
 #include <linux/if_link.h>
 #include <linux/if_xdp.h>
+#include <linux/types.h>
+#include <packetline/runners/xdp/xdpsupport.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <xdp/xsk.h>
-#include <packetline/runners/xdp/xdpsupport.h>
 
 #if 0
 static int num_socks;

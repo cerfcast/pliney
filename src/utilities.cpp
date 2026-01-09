@@ -1,9 +1,9 @@
+#include <cstring>
+#include <memory>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <cstring>
 #include <utility>
-#include <memory>
 
 #include "packetline/constants.hpp"
 #include "packetline/utilities.hpp"

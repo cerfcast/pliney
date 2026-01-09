@@ -1,25 +1,25 @@
+#include <cstdint>
+#include <cstring>
+#include <errno.h>
+#include <format>
 #include <net/ethernet.h>
+#include <net/if.h>
 #include <packetline/runners/xdp/faux.h>
 #include <packetline/runners/xdp/xdpsupport.h>
 #include <pthread.h>
 #include <signal.h>
-#include <errno.h>
-#include <net/if.h>
 #include <stdlib.h>
-#include <sys/mman.h>
-#include <xdp/xsk.h>
-#include <cstdint>
-#include <cstring>
-#include <format>
 #include <string>
+#include <sys/mman.h>
 #include <variant>
 #include <vector>
+#include <xdp/xsk.h>
 
 #include "lib/logger.hpp"
-#include "packetline/runner.hpp"
-#include "pisa/compilation.hpp"
 #include "lib/types.hpp"
 #include "packetline/packet.hpp"
+#include "packetline/runner.hpp"
+#include "pisa/compilation.hpp"
 
 static bool keep_running{true};
 
