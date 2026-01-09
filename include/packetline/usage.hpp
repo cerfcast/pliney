@@ -1,7 +1,11 @@
-#ifndef _USAGE_HPP
-#define _USAGE_HPP
+#ifndef __PLINEY_USAGE_HPP
+#define __PLINEY_USAGE_HPP
+
+#include <iosfwd>
 
 #include "lib/pipeline.hpp"
+
+class Pipeline;
 
 class Usage {
 public:

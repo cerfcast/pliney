@@ -1,56 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright(c) 2017 - 2022 Intel Corporation. */
 
-#include "lib/logger.hpp"
 #include <arpa/inet.h>
-#include <asm-generic/socket.h>
 #include <errno.h>
-#include <getopt.h>
-#include <libgen.h>
-#include <linux/bpf.h>
-#include <linux/if_ether.h>
+#include <asm/int-ll64.h>
+#include <endian.h>
+#include <linux/types.h>
+#include <stdint.h>
 #include <linux/if_link.h>
 #include <linux/if_xdp.h>
-#include <linux/ip.h>
-#include <linux/limits.h>
-#include <linux/udp.h>
-#include <locale.h>
-#include <net/ethernet.h>
-#include <net/if.h>
-#include <netinet/ether.h>
-#include <netinet/in.h>
-#include <poll.h>
-#include <pthread.h>
-#include <sched.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/resource.h>
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <time.h>
-#include <unistd.h>
-
-#include <xdp/libxdp.h>
 #include <xdp/xsk.h>
-
-#include <bpf/bpf.h>
-#include <bpf/libbpf.h>
-
-#include <fcntl.h>
-#include <linux/if.h>
-#include <linux/if_packet.h>
-#include <linux/if_tun.h>
-#include <sys/ioctl.h>
-
-#include <packetline/runners/xdp/faux.h>
-#include <packetline/runners/xdp/netlink.h>
 #include <packetline/runners/xdp/xdpsupport.h>
-
-#include <format>
 
 #if 0
 static int num_socks;

@@ -1,19 +1,14 @@
-#include <arpa/inet.h>
-#include <bits/types/struct_iovec.h>
-#include <cstdio>
+#include <errno.h>
 #include <cstdlib>
-#include <cstring>
-#include <dlfcn.h>
-#include <endian.h>
 #include <filesystem>
 #include <format>
 #include <iostream>
 #include <memory>
-#include <netinet/in.h>
 #include <numeric>
-#include <sys/socket.h>
-#include <unistd.h>
 #include <utility>
+#include <optional>
+#include <string>
+#include <type_traits>
 #include <variant>
 
 #include "lib/logger.hpp"
@@ -25,10 +20,6 @@
 #include "pisa/compiler.hpp"
 #include "pisa/pisa.h"
 #include "pisa/plugin.hpp"
-
-#include <unistd.h>
-
-#include <errno.h>
 
 extern int errno;
 

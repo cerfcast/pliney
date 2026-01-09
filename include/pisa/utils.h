@@ -1,5 +1,5 @@
-#ifndef _UTILS_H
-#define _UTILS_H
+#ifndef __PISA_UTILS_H
+#define __PISA_UTILS_H
 
 #include "pisa.h"
 #include <sys/socket.h>

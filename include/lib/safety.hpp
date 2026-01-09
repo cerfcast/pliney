@@ -1,5 +1,5 @@
-#ifndef __SAFETY_HPP
-#define __SAFETY_HPP
+#ifndef __PLINEY_SAFETY_HPP
+#define __PLINEY_SAFETY_HPP
 
 #include <exception>
 struct PlineyUnreachable : public std::exception {};

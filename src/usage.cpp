@@ -1,6 +1,9 @@
 #include <packetline/usage.hpp>
-
 #include <format>
+#include <ostream>
+#include <string>
+
+#include "lib/pipeline.hpp"
 
 std::ostream &Usage::usage(std::ostream &os, const char *program,
                            Pipeline &&pipeline) {

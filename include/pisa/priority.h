@@ -1,5 +1,5 @@
-#ifndef _PRIORITY_H
-#define _PRIORITY_H
+#ifndef __PISA_PRIORITY_H
+#define __PISA_PRIORITY_H
 
 #include <stdint.h>
 

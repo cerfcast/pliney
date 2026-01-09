@@ -1,5 +1,5 @@
-#ifndef _COMPILATION_HPP
-#define _COMPILATION_HPP
+#ifndef __PLINEY_COMPILATION_HPP
+#define __PLINEY_COMPILATION_HPP
 
 #include "lib/pipeline.hpp"
 #include "pisa/pisa.h"

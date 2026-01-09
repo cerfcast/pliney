@@ -1,12 +1,11 @@
-#include "lib/safety.hpp"
-#include "pisa/exthdr.h"
-#include "pisa/pisa.h"
-#include "pisa/utils.h"
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
-#include <assert.h>
+#include "lib/safety.hpp"
+#include "pisa/exthdr.h"
+#include "pisa/utils.h"
 
 bool add_ip_opt_ext(pisa_ip_opts_exts_t *extensions,
                     pisa_ip_opt_ext_t opt_ext_to_add) {

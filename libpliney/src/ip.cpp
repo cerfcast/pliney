@@ -1,15 +1,16 @@
 #include "lib/ip.hpp"
-#include "lib/types.h"
-#include "packetline/constants.hpp"
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <netinet/icmp6.h>
-#include <netinet/in.h>
+
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/udp.h>
+#include <arpa/inet.h>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+
+#include "lib/types.hpp"
+#include "packetline/constants.hpp"
 
 #define HANDLE_OVERFLOW(view, sum)                                             \
   if (view) {                                                                  \

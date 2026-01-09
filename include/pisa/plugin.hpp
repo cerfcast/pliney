@@ -1,13 +1,17 @@
-#ifndef _PACKETLINE_PLUGIN_H
-#define _PACKETLINE_PLUGIN_H
+#ifndef __PLINEY_PLUGIN_HPP
+#define __PLINEY_PLUGIN_HPP
+
+#include <stddef.h>
+#include <filesystem>
+#include <optional>
+#include <vector>
+#include <string>
+#include <string_view>
+#include <variant>
 
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
 #include "packetline/packetline.hpp"
-
-#include <filesystem>
-#include <optional>
-#include <vector>
 
 typedef std::optional<std::string> plugin_cleanup_result_tt;
 

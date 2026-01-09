@@ -1,8 +1,10 @@
 #include "packetline/cli.hpp"
-#include "lib/logger.hpp"
 
 #include <ranges>
 #include <string>
+#include <tuple>
+
+#include "lib/logger.hpp"
 
 bool Cli::find_pipeline_start(size_t argc, const char **args,
                               size_t *position) {

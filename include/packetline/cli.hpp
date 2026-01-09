@@ -1,9 +1,10 @@
-#ifndef _CLI_HPP
-#define _CLI_HPP
+#ifndef __PLINEY_CLI_HPP
+#define __PLINEY_CLI_HPP
+
+#include <cstddef>
 
 #include "lib/logger.hpp"
 #include "packetline/constants.hpp"
-#include <cstddef>
 
 class Cli {
 public:

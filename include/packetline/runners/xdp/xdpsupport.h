@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright(c) 2017 - 2022 Intel Corporation. */
 
-#ifndef __XDPSOCK_H
-#define __XDPSOCK_H
+#ifndef __RUNNERS_XDP_XDPSOCK_H
+#define __RUNNERS_XDP_XDPSOCK_H
 
 #include <arpa/inet.h>
 #include <getopt.h>

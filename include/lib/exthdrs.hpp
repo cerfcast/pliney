@@ -1,5 +1,5 @@
-#ifndef __EXTHDRS_HPP
-#define __EXTHDRS_HPP
+#ifndef __PLINEY_EXTHDRS_HPP
+#define __PLINEY_EXTHDRS_HPP
 
 #include <cstddef>
 #include <cstdint>

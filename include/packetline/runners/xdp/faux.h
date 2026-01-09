@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright(c) 2017 - 2022 Intel Corporation. */
 
-#ifndef __FAUX_H
-#define __FAUX_H
+#ifndef __RUNNERS_XDP_FAUX_H
+#define __RUNNERS_XDP_FAUX_H
 
 #include "packetline/runners/xdp/xdpsupport.h"
 #include <functional>

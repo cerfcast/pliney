@@ -1,23 +1,5 @@
 #include "packetline/runner.hpp"
-#include "lib/ip.hpp"
-#include "packetline/constants.hpp"
 
-#include "lib/exthdrs.hpp"
-#include "lib/logger.hpp"
-#include "packetline/utilities.hpp"
-#include "pisa/compilation.hpp"
-#include "pisa/pisa.h"
-#include "pisa/plugin.h"
-#include "pisa/utils.h"
-
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <format>
-#include <linux/if_ether.h>
-#include <net/ethernet.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -25,12 +7,31 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <optional>
 #include <sys/socket.h>
-#include <sys/types.h>
-
+#include <arpa/inet.h>
+#include <errno.h>
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <format>
+#include <optional>
 #include <iostream>
 #include <variant>
+#include <string_view>
+#include <vector>
+
+#include "lib/ip.hpp"
+#include "packetline/constants.hpp"
+#include "lib/exthdrs.hpp"
+#include "lib/logger.hpp"
+#include "packetline/utilities.hpp"
+#include "pisa/compilation.hpp"
+#include "pisa/pisa.h"
+#include "pisa/plugin.h"
+#include "pisa/utils.h"
+#include "lib/types.hpp"
+#include "packetline/packet.hpp"
 
 #define PISA_COWARDLY_VERSION_CHECK(expected, actual, message)                 \
   if (actual != expected) {                                                    \

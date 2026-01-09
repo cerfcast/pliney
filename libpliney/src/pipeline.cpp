@@ -1,12 +1,14 @@
 #include "lib/pipeline.hpp"
-#include "lib/logger.hpp"
-#include "pisa/plugin.h"
 
+#include <stdlib.h>
 #include <algorithm>
 #include <cstring>
 #include <format>
 #include <ranges>
 #include <string_view>
+
+#include "lib/logger.hpp"
+#include "pisa/plugin.h"
 
 template <typename W>
 class Trimit : public std::ranges::range_adaptor_closure<Trimit<W>> {

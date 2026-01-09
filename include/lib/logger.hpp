@@ -1,12 +1,14 @@
-#ifndef _LOGGER_H
-#define _LOGGER_H
-
-#include "pisa/utils.h"
-#include "lib/safety.hpp"
+#ifndef __PLINEY_LOGGER_HPP
+#define __PLINEY_LOGGER_HPP
 
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <string_view>
+
+#include "pisa/utils.h"
+#include "lib/safety.hpp"
 
 extern "C" {
   extern int plugin_debug_level;

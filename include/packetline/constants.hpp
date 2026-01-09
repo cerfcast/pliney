@@ -1,5 +1,5 @@
-#ifndef __CONSTANTS_HPP
-#define __CONSTANTS_HPP
+#ifndef __PLINEY_CONSTANTS_HPP
+#define __PLINEY_CONSTANTS_HPP
 
 #include <cstdint>
 #include <string>

@@ -1,30 +1,26 @@
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <format>
+#include <string>
+
 #include "packetline/constants.hpp"
 #include "packetline/runner.hpp"
-
 #include "lib/exthdrs.hpp"
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
 #include "pisa/compilation.hpp"
 #include "pisa/pisa.h"
 #include "pisa/utils.h"
-
-#include <cassert>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <format>
+#include "lib/types.hpp"
+#include "packetline/packet.hpp"
+#include "pisa/exthdr.h"
 #include <linux/if_ether.h>
+#include <arpa/inet.h>
 #include <net/ethernet.h>
-#include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-
 #include <variant>
 
 std::variant<PlineyPacket, std::string> PlineyPacket::from(const data_p data) {

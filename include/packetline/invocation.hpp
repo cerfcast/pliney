@@ -1,5 +1,5 @@
-#ifndef _INVOCATION_H
-#define _INVOCATION_H
+#ifndef __PLINEY_INVOCATION_H
+#define __PLINEY_INVOCATION_H
 
 #include <string>
 #include <vector>

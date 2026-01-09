@@ -1,8 +1,13 @@
+#include <stdint.h>
+#include <stdlib.h>
+#include <sys/socket.h>
 #include <cstring>
 #include <utility>
+#include <memory>
 
 #include "packetline/constants.hpp"
 #include "packetline/utilities.hpp"
+#include "pisa/pisa.h"
 
 bool operator==(const ip_addr_t &left, const ip_addr_t &right) {
   return !memcmp(&left, &right, sizeof(ip_addr_t));

@@ -16,6 +16,8 @@ set_property(TARGET pliney PROPERTY CXX_STANDARD 23)
 set_property(TARGET pliney PROPERTY C_STANDARD 23)
 target_link_options(pliney PRIVATE "-Wl,--export-dynamic")
 target_link_libraries(pliney PRIVATE "bpf" "xdp")
+#set_property(TARGET pliney PROPERTY CXX_INCLUDE_WHAT_YOU_USE include-what-you-use -Xiwyu --error_always)
+set_property(TARGET pliney PROPERTY CXX_INCLUDE_WHAT_YOU_USE include-what-you-use)
 
 add_library(target SHARED "plugins/target.c")
 list(APPEND PLUGIN_PLUGIN_SRCS "plugins/target.c")

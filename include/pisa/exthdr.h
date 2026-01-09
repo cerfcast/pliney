@@ -1,5 +1,5 @@
-#ifndef __PISA_EXTHDRS_H
-#define __PISA_EXTHDRS_H
+#ifndef __PISA_EXTHDR_H
+#define __PISA_EXTHDR_H
 
 #ifdef __cplusplus 
 extern "C" {

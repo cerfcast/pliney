@@ -1,15 +1,21 @@
+#include <format>
+#include <memory>
+#include <functional>
+#include <iterator>
+#include <map>
+#include <string>
+#include <utility>
+#include <variant>
+
 #include "lib/logger.hpp"
 #include "pisa/compiler.hpp"
 #include "pisa/compilation.hpp"
-
-#include "pisa/pisa.h"
 #include "pisa/plugin.h"
+#include "lib/pipeline.hpp"
+#include "packetline/invocation.hpp"
+#include "pisa/plugin.hpp"
 
-#include <cstring>
-#include <format>
-#include <memory>
-#include <netinet/in.h>
-#include <sys/socket.h>
+class Runner;
 
 Compilation BasicCompiler::compile(unique_pisa_program_t program,
                                          const Pipeline *pipeline) {

@@ -1,8 +1,8 @@
 /* Copyright (c) John Millikin <john@john-millikin.com> */
 /* SPDX-License-Identifier: 0BSD */
 
-#ifndef _NETLINK_H
-#define _NETLINK_H
+#ifndef _RUNNERS_XDP_NETLINK_H
+#define _RUNNERS_XDP_NETLINK_H
 
 #ifdef __cplusplus
 extern "C" {

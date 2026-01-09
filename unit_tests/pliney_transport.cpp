@@ -1,7 +1,10 @@
-#include "lib/safety.hpp"
 #include <gtest/gtest.h>
 #include <packetline/constants.hpp>
 #include <pisa/pisa.h>
+#include <string>
+
+#include "lib/safety.hpp"
+#include "gtest/gtest.h"
 
 TEST(PlineyTransport, from_native_transport) {
   EXPECT_EQ(Pliney::Transport::ICMP, Pliney::from_native_transport(PLINEY_ICMP));

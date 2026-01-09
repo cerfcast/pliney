@@ -1,11 +1,11 @@
-#ifndef _PISA_H
-#define _PISA_H
+#ifndef __PISA_PISA_H
+#define __PISA_PISA_H
 
 #include <stddef.h>
 #include <stdint.h>
 #include <netinet/in.h>
 
-#include "lib/types.h"
+#include "lib/types.hpp"
 #include "exthdr.h"
 
 #ifdef __cplusplus

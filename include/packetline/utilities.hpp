@@ -1,5 +1,5 @@
-#ifndef __UTILITIES_HPP
-#define __UTILITIES_HPP
+#ifndef __PLINEY_UTILITIES_HPP
+#define __PLINEY_UTILITIES_HPP
 
 #include "packetline/constants.hpp"
 #include "pisa/pisa.h"

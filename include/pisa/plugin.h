@@ -1,5 +1,5 @@
-#ifndef _PLUGIN_H
-#define _PLUGIN_H
+#ifndef __PISA_PLUGIN_H
+#define __PISA_PLUGIN_H
 
 #include <netinet/in.h>
 #include <stdint.h>

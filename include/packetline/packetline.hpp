@@ -1,5 +1,5 @@
-#ifndef _PACKETLINE_H
-#define _PACKETLINE_H
+#ifndef __PLINEY_PACKETLINE_H
+#define __PLINEY_PACKETLINE_H
 
 #include <string>
 #include <variant>

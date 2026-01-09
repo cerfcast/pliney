@@ -1,10 +1,7 @@
 #include "pisa/plugin.hpp"
-#include "pisa/plugin.h"
-#include "lib/logger.hpp"
-#include "pisa/pisa.h"
 
-#include <algorithm>
 #include <dlfcn.h>
+#include <algorithm>
 #include <format>
 #include <iostream>
 #include <iterator>
@@ -12,6 +9,11 @@
 #include <regex>
 #include <system_error>
 #include <utility>
+#include <compare>
+
+#include "pisa/plugin.h"
+#include "lib/logger.hpp"
+#include "pisa/pisa.h"
 
 bool Plugin::load() {
   void *loaded = dlopen(m_path.c_str(), RTLD_NOW);

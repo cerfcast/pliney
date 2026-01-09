@@ -1,5 +1,5 @@
-#ifndef _PIPELINE_EXECUTORS_HPP
-#define _PIPELINE_EXECUTORS_HPP
+#ifndef __PLINEY_COMPILER_HPP
+#define __PLINEY_COMPILER_HPP
 
 #include "lib/pipeline.hpp"
 

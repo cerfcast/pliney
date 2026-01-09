@@ -1,7 +1,14 @@
-#ifndef _PIPELINE_H
-#define _PIPELINE_H
+#ifndef __PLINEY_PIPELINE_HPP
+#define __PLINEY_PIPELINE_HPP
 
 #include <vector>
+#include <format>
+#include <iterator>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
 #include "pisa/plugin.hpp"
 #include "packetline/invocation.hpp"
 

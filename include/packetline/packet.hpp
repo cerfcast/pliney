@@ -1,9 +1,8 @@
-#ifndef __PACKET_HPP
-#define __PACKET_HPP
+#ifndef __PLINEY_PACKET_HPP
+#define __PLINEY_PACKET_HPP
 
 #include "packetline/constants.hpp"
 #include "pisa/compilation.hpp"
-#include "pisa/pisa.h"
 #include <variant>
 
 struct PlineyPacketIpHdr {

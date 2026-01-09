@@ -1,9 +1,14 @@
-#ifndef __LIB_IP_HPP
-#define __LIB_IP_HPP
+#ifndef __PLINEY_IP_HPP
+#define __PLINEY_IP_HPP
+
+#include <cstdint>
 
 #include "packetline/constants.hpp"
-#include "lib/types.h"
-#include <cstdint>
+#include "lib/types.hpp"
+
+namespace Pliney {
+enum class IpVersion;
+}  // namespace Pliney
 
 uint16_t compute_udp_cksum(Pliney::IpVersion type, void *ip, struct udphdr *udp,
                            data_p body);
