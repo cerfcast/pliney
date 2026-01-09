@@ -6,47 +6,11 @@
 #include <sys/socket.h>
 
 #include "packetline/constants.hpp"
+#include "packetline/packet.hpp"
 #include "packetline/utilities.hpp"
 #include "pisa/compilation.hpp"
 #include "pisa/pisa.h"
-
-struct RunnerPacketIpHdr {
-  Pliney::IpVersion version;
-  size_t len;
-  union {
-    struct iphdr *ip;
-    struct ip6_hdr *ip6;
-  } hdr;
-};
-
-struct RunnerPacketIpOpts {
-  size_t ip_opt_ext_hdr_raw_len{0};
-  uint8_t *ip_opts_exts_hdr_raw{nullptr};
-  pisa_ip_opts_exts_t ip_opts_exts_hdr{};
-};
-
-struct RunnerPacketTransportHdr {
-  size_t transport_len{0};
-  void *transport{nullptr};
-  size_t transportoptionhdr_len{0};
-  uint8_t *transportoptionhdr{nullptr};
-};
-
-struct RunnerPacketBody {
-  size_t len{0};
-  void *body{nullptr};
-};
-
-struct RunnerPacket {
-  RunnerPacketIpHdr ip_packet;
-  RunnerPacketIpOpts opts;
-  RunnerPacketTransportHdr transport_packet;
-  RunnerPacketBody body;
-
-  static std::variant<RunnerPacket, std::string>
-  from(const unique_pisa_program_t &pisa_program);
-  static std::variant<RunnerPacket, std::string> from(const pisa_ptr_value_t data);
-};
+;
 
 class Runner {
 public:
@@ -68,7 +32,7 @@ public:
 class PacketRunner : public Runner {
 public:
   bool execute(Compilation &compilation) override;
-  static bool execute(Compilation &compilation, RunnerPacket packet);
+  static bool execute(Compilation &compilation, PlineyPacket packet);
 };
 
 class PacketSenderRunner : public PacketRunner {

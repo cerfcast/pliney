@@ -6,26 +6,11 @@
 #include <netinet/in.h>
 
 #include "lib/types.h"
+#include "exthdr.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef union {
-  uint8_t opt;
-  uint8_t ext_type;
-} pisa_ip_opt_or_ext_type_t;
-
-typedef struct {
-  pisa_ip_opt_or_ext_type_t oe;
-  uint8_t len;
-  uint8_t *data;
-} pisa_ip_opt_ext_t;
-
-typedef struct {
-  size_t opts_exts_count;
-  pisa_ip_opt_ext_t *opt_ext_values;
-} pisa_ip_opts_exts_t;
 
 typedef struct {
   uint8_t diffserv;

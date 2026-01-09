@@ -90,8 +90,8 @@ bool XdpRunner::execute(Compilation &compilation) {
     // packets.
 
     // Generate a RunnerPacket from the raw data, if possible.
-    auto rp{RunnerPacket::from(
-        pisa_ptr_value_t{.data = (uint8_t *)raw, .len = len})};
+    auto rp{PlineyPacket::from(
+        data_p{.len = len, .data = (uint8_t *)raw})};
 
     // If there was an error parsing, ...
     if (std::holds_alternative<std::string>(rp)) {
@@ -104,7 +104,7 @@ bool XdpRunner::execute(Compilation &compilation) {
     } else {
       Logger::ActiveLogger().log(Logger::DEBUG,
                                  std::format("Processing a packet!"));
-      auto actual_rp{std::get<RunnerPacket>(rp)};
+      auto actual_rp{std::get<PlineyPacket>(rp)};
       auto result = PacketRunner::execute(compilation, actual_rp);
 
       char *new_packet{(char *)malloc(sizeof(struct ether_header) +

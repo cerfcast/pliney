@@ -4,9 +4,9 @@
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
 #include "pisa/compilation.hpp"
-#include "pisa/exthdrs.h"
 #include "pisa/pisa.h"
 #include "pisa/utils.h"
+#include "lib/exthdrs.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -27,9 +27,9 @@
 
 #include <variant>
 
-std::variant<RunnerPacket, std::string>
-RunnerPacket::from(const pisa_ptr_value_t data) {
-  RunnerPacket res{};
+std::variant<PlineyPacket, std::string>
+PlineyPacket::from(const data_p data) {
+  PlineyPacket res{};
 
   // DO simple first: no handling special "things"
 
@@ -138,9 +138,9 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
   return res;
 }
 
-std::variant<RunnerPacket, std::string>
-RunnerPacket::from(const unique_pisa_program_t &pisa_program) {
-  RunnerPacket res{};
+std::variant<PlineyPacket, std::string>
+PlineyPacket::from(const unique_pisa_program_t &pisa_program) {
+  PlineyPacket res{};
   ip_addr_t pisa_target_address{};
   Pliney::Transport pisa_pgm_transport_type{};
 

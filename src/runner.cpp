@@ -5,7 +5,7 @@
 #include "lib/logger.hpp"
 #include "packetline/utilities.hpp"
 #include "pisa/compilation.hpp"
-#include "pisa/exthdrs.h"
+#include "lib/exthdrs.hpp"
 #include "pisa/pisa.h"
 #include "pisa/plugin.h"
 #include "pisa/utils.h"
@@ -89,20 +89,39 @@ bool PacketRunner::execute(Compilation &compilation) {
 
   auto &program = compilation.program;
 
-  auto maybe_runner_packet{RunnerPacket::from(program)};
+  auto maybe_runner_packet{PlineyPacket::from(program)};
 
   if (std::holds_alternative<std::string>(maybe_runner_packet)) {
     compilation.error = std::get<std::string>(maybe_runner_packet);
     return false;
   }
 
-  auto runner_packet = std::get<RunnerPacket>(maybe_runner_packet);
+  auto runner_packet = std::get<PlineyPacket>(maybe_runner_packet);
 
-  return PacketRunner::execute(compilation, runner_packet);
+  if (!PacketRunner::execute(compilation, runner_packet)) {
+    return false;
+  }
+
+  // For the packet sender, because we built a packet, it's time to let
+  // the after-packet-built callbacks have their time to shine!
+  for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count;
+       insn_idx++) {
+    if (compilation.program->insts[insn_idx].op == EXEC_AFTER_PACKET_BUILT) {
+      pisa_callback_t cb_info{
+          compilation.program->insts[insn_idx].value.value.callback};
+
+      exec_packet_builder_cb cb{
+          reinterpret_cast<exec_packet_builder_cb>(cb_info.callback)};
+
+      cb(compilation.packet, cb_info.cookie);
+    }
+  }
+
+  return true;
 }
 
 bool PacketRunner::execute(Compilation &compilation,
-                           RunnerPacket runner_packet) {
+                           PlineyPacket runner_packet) {
 
   auto &program = compilation.program;
   ip_addr_t pisa_target_address{};
@@ -664,21 +683,6 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
     return false;
   }
 
-  // For the packet sender, because we built a packet, it's time to let
-  // the after-packet-built callbacks have their time to shine!
-  for (size_t insn_idx{0}; insn_idx < compilation.program->inst_count;
-       insn_idx++) {
-    if (compilation.program->insts[insn_idx].op == EXEC_AFTER_PACKET_BUILT) {
-      pisa_callback_t cb_info{
-          compilation.program->insts[insn_idx].value.value.callback};
-
-      exec_packet_builder_cb cb{
-          reinterpret_cast<exec_packet_builder_cb>(cb_info.callback)};
-
-      cb(compilation.packet, cb_info.cookie);
-    }
-  }
-
   // Find out the target and transport.
   struct iphdr *iphdr = (struct iphdr *)compilation.packet.ip.data;
   struct sockaddr_storage saddrs {};
@@ -1043,7 +1047,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
         }
 
         auto result =
-            setsockopt(m_socket, IPPROTO_IPV6, ext_type, full_extension_header,
+            setsockopt(m_socket, IPPROTO_IPV6, to_sockopt_ext_type_ip_opts_exts(ext_type), full_extension_header,
                        full_extension_header_len);
         if (result < 0) {
           Logger::ActiveLogger().log(

@@ -1,3 +1,5 @@
+#include "lib/safety.hpp"
+#include "pisa/exthdr.h"
 #include "pisa/pisa.h"
 #include "pisa/utils.h"
 #include <netinet/in.h>
@@ -135,6 +137,11 @@ uint8_t to_native_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type) {
       return IPPROTO_HOPOPTS;
     }
   }
+  PLINEY_UNREACHABLE;
+}
+
+uint8_t to_sockopt_ext_type_ip_opts_exts(pisa_ip_opt_or_ext_type_t op_ext_type) {
+  return op_ext_type.ext_type;
 }
 
 pisa_ip_opt_or_ext_type_t
@@ -143,12 +150,14 @@ from_native_ext_type_ip_opts_exts(uint8_t op_ext_type) {
   switch (op_ext_type) {
     case IPPROTO_DSTOPTS: {
       res.ext_type = IPV6_DSTOPTS;
+      return res;
     }
     case IPPROTO_HOPOPTS: {
       res.ext_type = IPV6_HOPOPTS;
+      return res;
     }
   }
-  return res;
+  PLINEY_UNREACHABLE;
 }
 
 bool to_raw_ip_opts_exts(pisa_ip_opt_ext_t extension, size_t *len,
@@ -186,10 +195,10 @@ bool from_raw_ip_opts_exts(uint8_t *data, uint8_t this_header_raw,
   return true;
 }
 
-static uint8_t SUPPORTED_EXTS[] = {IPV6_HOPOPTS, IPV6_DSTOPTS};
+static pisa_ip_opt_or_ext_type_t SUPPORTED_EXTS[] = {{.ext_type = IPV6_HOPOPTS}, {.ext_type = IPV6_DSTOPTS}};
 static uint8_t SUPPORTED_EXTS_COUNT = 2;
 
-uint8_t *supported_exts_ip_opts_exts(size_t *count) {
+pisa_ip_opt_or_ext_type_t *supported_exts_ip_opts_exts(size_t *count) {
   *count = SUPPORTED_EXTS_COUNT;
   return SUPPORTED_EXTS;
 }
