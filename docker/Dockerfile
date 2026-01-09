@@ -2,7 +2,7 @@ FROM fedora:42
 
 RUN <<EOF
 dnf update
-dnf -y install @development-tools libpcap-devel cmake clang++ libxdp-devel
+dnf -y install @development-tools libpcap-devel cmake clang++ libxdp-devel iwyu
 mkdir /usr/local/packetline
 EOF
 
