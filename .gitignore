@@ -2,3 +2,4 @@ build/*
 .cache/*
 compile_commands.json
 cicd/clang-format-configure
+third_party/include-what-you-use
