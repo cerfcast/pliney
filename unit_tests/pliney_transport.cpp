@@ -1,4 +1,3 @@
-#include <gtest/gtest.h>
 #include <packetline/constants.hpp>
 #include <pisa/pisa.h>
 #include <string>

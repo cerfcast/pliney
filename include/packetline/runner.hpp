@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include "packetline/constants.hpp"
 #include "packetline/packet.hpp"
