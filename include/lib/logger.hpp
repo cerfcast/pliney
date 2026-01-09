@@ -2,21 +2,15 @@
 #define _LOGGER_H
 
 #include "pisa/utils.h"
+#include "lib/safety.hpp"
+
 #include <array>
+#include <cstdint>
 #include <memory>
-#include <string_view>
 
 extern "C" {
   extern int plugin_debug_level;
 }
-
-class LoggerImpl {
-public:
-  LoggerImpl(std::string prefix): m_prefix(prefix) {}
-  void log(std::string_view v);
-private:
-  std::string m_prefix;
-};
 
 class Logger {
 public:
@@ -28,13 +22,16 @@ public:
     MAX,
   };
 
-  static std::shared_ptr<Logger> ActiveLogger() {
-    // Quite annoying.
-    struct enable_access: public Logger {
-      enable_access(Level level): Logger(std::forward<Level>(level)) {}
-    };
+  class LoggerImpl {
+  public:
+    LoggerImpl(std::string prefix): m_prefix(prefix) {}
+    void log(std::string_view v);
+  private:
+    std::string m_prefix;
+  };
 
-    static auto  active_logger = std::make_shared<enable_access>(ERROR);
+  static Logger &ActiveLogger() {
+    static auto  active_logger{Logger(Level::ERROR)};
 
     return active_logger;
   }
@@ -60,30 +57,41 @@ public:
       return;
     }
 
-    // Lazy initialize the logger.
-    if (!m_active_logger[l]) {
-      m_active_logger[l] = std::make_shared<LoggerImpl>(LevelString(l));
-    }
-
     m_active_logger[l]->log(msg);
   }
 
-  void log(std::string_view v);
+  Logger(Logger &&) = delete;
+  Logger(const Logger &) = delete;
+  Logger &operator=(const Logger &) = delete;
+  Logger &operator=(Logger &&) = delete;
 
 private:
-  Logger(Level level): m_level(level), m_active_logger() {}
+  Logger(Level level): m_level(level), m_active_logger() {
+    for (uint8_t level = Level::ERROR; level < Level::MAX; level++) {
+      m_active_logger[level] = std::make_shared<LoggerImpl>(LevelString(static_cast<Level>(level)));
+    }
+  }
+
+  ~Logger() {
+    for (uint8_t level = Level::ERROR; level < Level::MAX; level++) {
+      m_active_logger[level].reset();
+    }
+  }
+
   Level m_level;
   std::array<std::shared_ptr<LoggerImpl>, Level::MAX> m_active_logger;
 
   std::string LevelString(Logger::Level l) {
     if (l == ERROR) {
       return "ERROR";
-    } else if (l == DEBUG) {
-      return "DEBUG";
     } else if (l == WARN) {
       return "WARN";
+    } else if (l == DEBUG) {
+      return "DEBUG";
+    } else if (l == TRACE) {
+      return "TRACE";
     }
-    return "UNKNOWN";
+    PLINEY_UNREACHABLE;
   }
 
 };

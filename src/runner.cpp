@@ -34,14 +34,14 @@
 
 #define PISA_COWARDLY_VERSION_CHECK(expected, actual, message)                 \
   if (actual != expected) {                                                    \
-    Logger::ActiveLogger()->log(Logger::WARN, std::format(message));           \
+    Logger::ActiveLogger().log(Logger::WARN, std::format(message));            \
     break;                                                                     \
   }
 
 #define PISA_WARN_NOOP(op, fr)                                                 \
   {                                                                            \
-    Logger::ActiveLogger()->log(Logger::WARN,                                  \
-                                std::format("{} is a noop for {}", op, fr));   \
+    Logger::ActiveLogger().log(Logger::WARN,                                   \
+                               std::format("{} is a noop for {}", op, fr));    \
     break;                                                                     \
   }
 
@@ -54,13 +54,13 @@ bool Runner::find_program_target_transport(const unique_pisa_program_t &program,
 
   // First, find the destination. The program must set one.
   if (!pisa_program_find_target_value(program.get(), &pgm_target)) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR, "Could not find the target address in the PISA program");
     return false;
   }
   // Second, find the destination port. The program may set one.
   if (!pisa_program_find_target_value(program.get(), &pgm_target_port)) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         "Could not find the target address int the PISA program");
     return false;
@@ -72,7 +72,7 @@ bool Runner::find_program_target_transport(const unique_pisa_program_t &program,
   // Now, find out the transport type. The program must set one.
   if (!pisa_program_find_meta_value(program.get(), "TRANSPORT",
                                     &pisa_transport_value)) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR, "Could not find the transport type in the PISA program");
     return false;
   }
@@ -117,13 +117,13 @@ bool PacketRunner::execute(Compilation &compilation,
   for (size_t insn_idx{0}; insn_idx < program->inst_count; insn_idx++) {
     switch (program->insts[insn_idx].op) {
       case EXEC_AFTER_PACKET_BUILT: {
-        Logger::ActiveLogger()->log(
+        Logger::ActiveLogger().log(
             Logger::DEBUG,
             std::format("EXEC_PACKET_BUILDER is handled by downstream runners; "
                         "it is a no-op for Packet Runner."));
       }
       case SET_META: {
-        Logger::ActiveLogger()->log(
+        Logger::ActiveLogger().log(
             Logger::DEBUG,
             std::format("SET_META is a no-op for Packet Runner."));
         break;
@@ -149,7 +149,7 @@ bool PacketRunner::execute(Compilation &compilation,
           auto ip_ext{program->insts[insn_idx].value.value.ext};
           add_ip_opt_ext(&runner_packet.opts.ip_opts_exts_hdr, ip_ext);
         } else {
-          Logger::ActiveLogger()->log(
+          Logger::ActiveLogger().log(
               Logger::ERROR, std::format("IP Options are not yet supported"));
         }
         break;
@@ -391,7 +391,7 @@ bool PacketRunner::execute(Compilation &compilation,
             break;
           }
           default: {
-            Logger::ActiveLogger()->log(
+            Logger::ActiveLogger().log(
                 Logger::WARN,
                 std::format(
                     "Packet Runner does not yet handle fields of kind {}",
@@ -401,7 +401,7 @@ bool PacketRunner::execute(Compilation &compilation,
         break;
       } // SET_FIELD
       default: {
-        Logger::ActiveLogger()->log(
+        Logger::ActiveLogger().log(
             Logger::WARN,
             std::format(
                 "Packet Runner does not yet handle operations of kind {}",
@@ -411,10 +411,10 @@ bool PacketRunner::execute(Compilation &compilation,
   }
 
   if (runner_packet.opts.ip_opts_exts_hdr.opts_exts_count) {
-    Logger::ActiveLogger()->log(Logger::WARN,
-                                std::format("There are extension headers."));
+    Logger::ActiveLogger().log(Logger::WARN,
+                               std::format("There are extension headers."));
     if (pisa_pgm_ip_version != Pliney::IpVersion::SIX) {
-      Logger::ActiveLogger()->log(
+      Logger::ActiveLogger().log(
           Logger::WARN, std::format("The PISA program added extension headers "
                                     "for an IPv4 packet. Skipping."));
     } else {
@@ -480,9 +480,9 @@ bool PacketRunner::execute(Compilation &compilation,
                    runner_packet.opts.ip_opt_ext_hdr_raw_len,
                full_extension_header, full_extension_header_len);
 
-        Logger::ActiveLogger()->log(
-            Logger::WARN, std::format("full_extension_header_len: {}.",
-                                      full_extension_header_len));
+        Logger::ActiveLogger().log(Logger::WARN,
+                                   std::format("full_extension_header_len: {}.",
+                                               full_extension_header_len));
         runner_packet.opts.ip_opt_ext_hdr_raw_len += full_extension_header_len;
 
         free_ip_opt_ext(coalesced_ext);
@@ -571,8 +571,8 @@ bool PacketRunner::execute(Compilation &compilation,
       typed_hdr->checksum = 0;
       typed_hdr->checksum = compute_icmp_cksum(typed_hdr, body);
     } else {
-      Logger::ActiveLogger()->log(Logger::WARN,
-                                  std::format("Doing ICMPv6 checksumming."));
+      Logger::ActiveLogger().log(Logger::WARN,
+                                 std::format("Doing ICMPv6 checksumming."));
 
       struct icmp6_hdr *typed_hdr =
           (struct icmp6_hdr *)runner_packet.transport_packet.transport;
@@ -701,7 +701,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
                          IPPROTO_RAW)};
 
   if (send_socket < 0) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("Could not open a raw socket: {}", strerror(errno)));
     return false;
@@ -710,7 +710,7 @@ bool PacketSenderRunner::execute(Compilation &compilation) {
   if (sendto(send_socket, compilation.packet.all.data,
              compilation.packet.all.len, 0, (struct sockaddr *)&saddrs,
              saddrs_len) < 0) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("Could not send constructed packet: {}", strerror(errno)));
     return false;
@@ -726,7 +726,7 @@ bool SocketBuilderRunner::execute_set_field(
 
   switch (instruction.fk.field) {
     default: {
-      Logger::ActiveLogger()->log(
+      Logger::ActiveLogger().log(
           Logger::WARN,
           std::format(
               "Socket Builder Runner does not handle setting the field {}",
@@ -809,7 +809,7 @@ bool SocketBuilderRunner::execute_set_field(
     case APPLICATION_BODY: {
       if (instruction.value.tpe != PTR) {
         std::string error = "Will not set a body from a non-pointer value.";
-        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        Logger::ActiveLogger().log(Logger::ERROR, error);
         compilation.error = error;
         return false;
       };
@@ -831,7 +831,7 @@ bool SocketBuilderRunner::execute_set_field(
         std::string error{std::format(
             "There was an error setting the ECN on the socket: {}\n",
             std::strerror(errno))};
-        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        Logger::ActiveLogger().log(Logger::ERROR, error);
         compilation.error = error;
         return false;
       }
@@ -852,7 +852,7 @@ bool SocketBuilderRunner::execute_set_field(
         std::string error{std::format(
             "There was an error setting the DSCP on the socket: {}\n",
             std::strerror(errno))};
-        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        Logger::ActiveLogger().log(Logger::ERROR, error);
         compilation.error = error;
         return false;
       }
@@ -885,7 +885,7 @@ bool SocketBuilderRunner::execute_set_field(
         std::string error{std::format(
             "There was an error setting the TTL on the socket: {}\n",
             std::strerror(errno))};
-        Logger::ActiveLogger()->log(Logger::ERROR, error);
+        Logger::ActiveLogger().log(Logger::ERROR, error);
         compilation.error = error;
         return false;
       }
@@ -925,7 +925,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     std::string error{
         "Error occurred converting the target address generated by "
         "the PISA program into a system-compatible address."};
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    Logger::ActiveLogger().log(Logger::ERROR, error);
     compilation.error = error;
     compilation.success = false;
     return false;
@@ -940,7 +940,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     auto error{std::format("Invalid transport type ({}); only TCP and UDP are "
                            "allowed for the Socket Builder Runner.",
                            to_string(pisa_pgm_transport_type))};
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    Logger::ActiveLogger().log(Logger::ERROR, error);
     compilation.error = error;
     compilation.success = false;
     return false;
@@ -960,7 +960,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
                     "{}.",
                     to_string(pisa_pgm_transport_type),
                     stringify_ip(pisa_target_address), reason);
-    Logger::ActiveLogger()->log(Logger::ERROR, error);
+    Logger::ActiveLogger().log(Logger::ERROR, error);
     compilation.error = error;
     return false;
   }
@@ -978,7 +978,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           auto ip_ext{program->insts[insn_idx].value.value.ext};
           add_ip_opt_ext(&m_ip_opts_exts_hdr, ip_ext);
         } else {
-          Logger::ActiveLogger()->log(
+          Logger::ActiveLogger().log(
               Logger::ERROR, std::format("IP Options are not yet supported"));
         }
         break;
@@ -991,7 +991,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
         break;
       } // SET_FIELD
       default: {
-        Logger::ActiveLogger()->log(
+        Logger::ActiveLogger().log(
             Logger::ERROR,
             std::format("Socket Builder Runner does not handle {} operations",
                         pisa_opcode_name(program->insts[insn_idx].op)));
@@ -1005,7 +1005,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
     if (bind(m_socket, source_saddr, saddr_size) < 0) {
       auto error = std::format("Failed to bind to the source address: {}",
                                strerror(errno));
-      Logger::ActiveLogger()->log(Logger::ERROR, error);
+      Logger::ActiveLogger().log(Logger::ERROR, error);
       compilation.error = error;
       return false;
     };
@@ -1013,7 +1013,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
 
   if (m_ip_opts_exts_hdr.opts_exts_count > 0) {
     if (pisa_pgm_ip_version != Pliney::IpVersion::SIX) {
-      Logger::ActiveLogger()->log(
+      Logger::ActiveLogger().log(
           Logger::WARN, std::format("The PISA program added extension headers "
                                     "for an IPv4 connection. Skipping."));
     } else {
@@ -1037,7 +1037,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
           auto error =
               std::format("Could not convert the PISA program-generated IP "
                           "options into their wire format.");
-          Logger::ActiveLogger()->log(Logger::ERROR, error);
+          Logger::ActiveLogger().log(Logger::ERROR, error);
           compilation.error = error;
           return false;
         }
@@ -1046,7 +1046,7 @@ bool SocketBuilderRunner::execute(Compilation &compilation) {
             setsockopt(m_socket, IPPROTO_IPV6, ext_type, full_extension_header,
                        full_extension_header_len);
         if (result < 0) {
-          Logger::ActiveLogger()->log(
+          Logger::ActiveLogger().log(
               Logger::ERROR,
               std::format("Error occurred setting an extension option: {}",
                           strerror(errno)));
@@ -1073,7 +1073,7 @@ bool CliRunner::execute(Compilation &compilation) {
   auto packet_observer_runner_result =
       packet_observer_runner.execute(compilation);
   if (!packet_observer_runner_result) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::DEBUG,
         "Error occurred running the packet observer on the PISA program.\n");
   }
@@ -1100,7 +1100,7 @@ bool CliRunner::execute(Compilation &compilation) {
 
   if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
     compilation.error = "Could not connect the socket.";
-    Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
+    Logger::ActiveLogger().log(Logger::ERROR, "Could not connect the socket.");
     return false;
   }
 
@@ -1113,7 +1113,7 @@ bool CliRunner::execute(Compilation &compilation) {
                                  "write to the socket: {}",
                                  strerror(errno));
 
-    Logger::ActiveLogger()->log(Logger::ERROR, error_msg);
+    Logger::ActiveLogger().log(Logger::ERROR, error_msg);
     compilation.error = error_msg;
     return false;
   }
@@ -1138,7 +1138,7 @@ bool ForkRunner::execute(Compilation &compilation) {
 
   if (connect(m_socket, m_destination->get(), m_destination_len) < 0) {
     compilation.error = "Could not connect the socket.";
-    Logger::ActiveLogger()->log(Logger::ERROR, "Could not connect the socket.");
+    Logger::ActiveLogger().log(Logger::ERROR, "Could not connect the socket.");
     return false;
   }
 

@@ -51,7 +51,7 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
   auto transport_type{Pliney::Transport::UDP};
 
   if (iph->version == Pliney::IP4_VERSION) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::DEBUG, std::format("(From ethernet) found an IP v4 packet."));
     const struct iphdr *iph{reinterpret_cast<const struct iphdr *>(
         WITH_OFFSET(data.data, parsing_offset))};
@@ -76,7 +76,7 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
     // We assume that there are no options IPv4 options.
 
   } else {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::DEBUG, std::format("(From ethernet) found an IP v6 packet."));
     const struct ip6_hdr *iph{reinterpret_cast<const struct ip6_hdr *>(
         WITH_OFFSET(data.data, parsing_offset))};
@@ -105,7 +105,7 @@ RunnerPacket::from(const pisa_ptr_value_t data) {
       pisa_ip_opt_ext_t ext{};
       if (!from_raw_ip_opts_exts(WITH_OFFSET(data.data, parsing_offset),
                                  next_header, &ext, &next_header)) {
-        Logger::ActiveLogger()->log(
+        Logger::ActiveLogger().log(
             Logger::DEBUG, std::format("There was an error parsing an IPv6 "
                                        "extension header ... bad news."));
       }
@@ -152,12 +152,12 @@ RunnerPacket::from(const unique_pisa_program_t &pisa_program) {
   auto pisa_pgm_ip_version{
       Pliney::from_pisa_version(pisa_target_address.family)};
 
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("PISA program IP version: {}",
-                                          to_string(pisa_pgm_ip_version)));
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              std::format("PISA program transport type: {}",
-                                          to_string(pisa_pgm_transport_type)));
+  Logger::ActiveLogger().log(Logger::DEBUG,
+                             std::format("PISA program IP version: {}",
+                                         to_string(pisa_pgm_ip_version)));
+  Logger::ActiveLogger().log(Logger::DEBUG,
+                             std::format("PISA program transport type: {}",
+                                         to_string(pisa_pgm_transport_type)));
 
   // Let's say that there is an IP header -- make one as big as legal
   // (appropriate to the type).

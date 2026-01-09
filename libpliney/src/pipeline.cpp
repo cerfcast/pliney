@@ -89,14 +89,14 @@ void Pipeline::parse(const std::vector<std::string_view> args) {
     }
 
     const auto plugin_name = pipeline_args.front();
-    Logger::ActiveLogger()->log(Logger::DEBUG,
-                                std::format("Plugin name: {}", plugin_name));
+    Logger::ActiveLogger().log(Logger::DEBUG,
+                               std::format("Plugin name: {}", plugin_name));
 
     std::vector<std::string> args{std::next(pipeline_args.begin()),
                                   pipeline_args.end()};
 
     for (auto i = 0; i < args.size(); i++) {
-      Logger::ActiveLogger()->log(
+      Logger::ActiveLogger().log(
           Logger::DEBUG,
           std::format("Plugin {}'s arg #{}: {}", plugin_name, i + 1, args[i]));
     }

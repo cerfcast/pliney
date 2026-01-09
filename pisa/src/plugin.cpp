@@ -30,7 +30,7 @@ bool Plugin::load() {
     return false;
   }
 
-  Logger::ActiveLogger()->log(
+  Logger::ActiveLogger().log(
       Logger::DEBUG, std::format("Load of plugin at path {} was successful!\n",
                                  m_path.c_str()));
 
@@ -45,13 +45,13 @@ bool Plugin::load() {
 
 plugin_cleanup_result_tt Plugin::cleanup(void *cookie) {
   if (info.cleanup == nullptr) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("Plugin {} specified no cleanup actions.", name()));
     return {};
   }
 
-  Logger::ActiveLogger()->log(
+  Logger::ActiveLogger().log(
       Logger::TRACE,
       std::format("Cleaning up {} plugin.", name()));
 
@@ -104,14 +104,14 @@ std::variant<Plugins, std::string> PluginDir::plugins() {
 
   std::ranges::for_each(dir, [&](auto v) {
     if (std::regex_match(v.path().filename().c_str(), plugin_matcher)) {
-      Logger::ActiveLogger()->log(
+      Logger::ActiveLogger().log(
           Logger::DEBUG, std::format("Attempting to load plugin at {} ...",
                                      v.path().filename().c_str()));
 
       Plugin p{v};
 
       if (p.load()) {
-        Logger::ActiveLogger()->log(
+        Logger::ActiveLogger().log(
             Logger::DEBUG,
             std::format("Successfully loaded --{}-- plugin.", p.name()));
 

@@ -122,7 +122,7 @@ void faux_process_transport_ingress(struct xsk_socket_info *xsk, int ip_fd,
     }
 
     if (write(ip_fd, data_to_write, len_to_write) < 0) {
-      Logger::ActiveLogger()->log(
+      Logger::ActiveLogger().log(
           Logger::ERROR,
           std::format(
               "There was an error writing to the TAP interface: {}, {}.\n",
@@ -133,7 +133,7 @@ void faux_process_transport_ingress(struct xsk_socket_info *xsk, int ip_fd,
       free(data_to_write);
     }
 
-    Logger::ActiveLogger()->log(Logger::TRACE, "Forwarding down the tap ...");
+    Logger::ActiveLogger().log(Logger::TRACE, "Forwarding down the tap ...");
     // xdp_hex_dump(pkt, len, addr);
   }
 
@@ -182,8 +182,8 @@ struct sockaddr_ll sockaddr_from_ethernet(const struct ether_header *ether,
 
 void *faux_process_transport_egress(void *config) {
 
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              "Starting the tap egress processor...");
+  Logger::ActiveLogger().log(Logger::DEBUG,
+                             "Starting the tap egress processor...");
   faux_process_transport_egress_config_t *tap_handler_config =
       (faux_process_transport_egress_config_t *)config;
 
@@ -191,12 +191,12 @@ void *faux_process_transport_egress(void *config) {
     char buffer[1500];
     int just_read = read(tap_handler_config->ip_fd, buffer, 1500);
     if (just_read < 0) {
-      Logger::ActiveLogger()->log(
+      Logger::ActiveLogger().log(
           Logger::ERROR,
           std::format("Error reading from tunnel: {}", strerror(errno)));
     }
 
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::TRACE, std::format("Got {} bytes to egress.\n", just_read));
 
     struct ether_header *ether = (struct ether_header *)buffer;
@@ -217,7 +217,7 @@ void *faux_process_transport_egress(void *config) {
         tap_handler_config->transport_fd, data_to_write, len_to_write, 0,
         (struct sockaddr *)&outgoing_address, sizeof(struct sockaddr_ll));
     if (just_wrote < 0) {
-      Logger::ActiveLogger()->log(
+      Logger::ActiveLogger().log(
           Logger::ERROR, std::format("Error sending out egress interface: {}",
                                      strerror(errno)));
     }
@@ -235,7 +235,7 @@ int faux_alloc_ip(const char *reqd_tap_name, const char *aped_dev_name) {
   int fd, err;
 
   if ((fd = open("/dev/net/tun", O_RDWR, O_NONBLOCK)) < 0) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("There was an error creating the tun/tap interface: {}\n",
                     strerror(errno)));
@@ -264,7 +264,7 @@ int faux_alloc_ip(const char *reqd_tap_name, const char *aped_dev_name) {
   // Now, up the link.
   int nl = netlink_connect();
   if (nl < 0) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("There was an error getting the netlink socket: {}\n",
                     strerror(errno)));
@@ -272,7 +272,7 @@ int faux_alloc_ip(const char *reqd_tap_name, const char *aped_dev_name) {
   }
 
   if (netlink_link_up(nl, reqd_tap_name) < 0) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("There was an error up'ng the tap interface: {}\n",
                     strerror(errno)));
@@ -281,7 +281,7 @@ int faux_alloc_ip(const char *reqd_tap_name, const char *aped_dev_name) {
 
   struct sockaddr aperaddr;
   if (netlink_get_addr(nl, aped_dev_name, &aperaddr) < 0) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format(
             "There was an error getting the address of the link to ape: {}\n",
@@ -298,7 +298,7 @@ int faux_alloc_ip(const char *reqd_tap_name, const char *aped_dev_name) {
   */
 
   if (netlink_set_addr(fd, reqd_tap_name, &aperaddr) < 0) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("There was an error setting the address of the tap: {}\n",
                     strerror(errno)));
@@ -306,7 +306,7 @@ int faux_alloc_ip(const char *reqd_tap_name, const char *aped_dev_name) {
   }
 
   if (netlink_close(nl) < 0) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("There was an error closing the netlink socket: {}\n",
                     strerror(errno)));

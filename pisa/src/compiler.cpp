@@ -18,7 +18,7 @@ Compilation BasicCompiler::compile(unique_pisa_program_t program,
     auto result = invocation.plugin.generate(program.get(), invocation.cookie);
 
     if (std::holds_alternative<generate_result_t>(result)) {
-      Logger::ActiveLogger()->log(Logger::DEBUG,
+      Logger::ActiveLogger().log(Logger::DEBUG,
                                   std::format("Got a result from '{}' plugin!",
                                               invocation.plugin.name()));
       generate_result_t x = std::get<generate_result_t>(result);

@@ -37,7 +37,7 @@ bool XdpRunner::execute(Compilation &compilation) {
 
   auto transport_iface_idx = if_nametoindex(m_aped_iface_name.c_str());
   if (!transport_iface_idx) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR, std::format("Cannot ape interface {}: it does not exist",
                                    m_aped_iface_name));
     return false;
@@ -48,7 +48,7 @@ bool XdpRunner::execute(Compilation &compilation) {
   int ip_fd = faux_alloc_ip(m_ip_iface_name.c_str(), m_aped_iface_name.c_str());
   auto ip_iface_idx = if_nametoindex(m_ip_iface_name.c_str());
   if (!ip_iface_idx) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR,
         std::format("Cannot use {} as the IP interface: it does not exist",
                     m_ip_iface_name));
@@ -59,7 +59,7 @@ bool XdpRunner::execute(Compilation &compilation) {
   bufs = mmap(NULL, NUM_FRAMES * XSK_UMEM__DEFAULT_FRAME_SIZE,
               PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (bufs == MAP_FAILED) {
-    Logger::ActiveLogger()->log(
+    Logger::ActiveLogger().log(
         Logger::ERROR, std::format("There was an error performing mmap when "
                                    "allocating XDP buffers: {}",
                                    strerror(errno)));
@@ -96,14 +96,14 @@ bool XdpRunner::execute(Compilation &compilation) {
     // If there was an error parsing, ...
     if (std::holds_alternative<std::string>(rp)) {
       // TODO: Determine how to better handle an error. Just log it for now.
-      Logger::ActiveLogger()->log(Logger::ERROR,
-                                  std::format("Error processing packet: {}.",
-                                              std::get<std::string>(rp)));
+      Logger::ActiveLogger().log(Logger::ERROR,
+                                 std::format("Error processing packet: {}.",
+                                             std::get<std::string>(rp)));
       *new_len = len;
       return raw;
     } else {
-      Logger::ActiveLogger()->log(Logger::DEBUG,
-                                  std::format("Processing a packet!"));
+      Logger::ActiveLogger().log(Logger::DEBUG,
+                                 std::format("Processing a packet!"));
       auto actual_rp{std::get<RunnerPacket>(rp)};
       auto result = PacketRunner::execute(compilation, actual_rp);
 
@@ -123,8 +123,7 @@ bool XdpRunner::execute(Compilation &compilation) {
       pthread_create(&tap_handler_pt, nullptr, faux_process_transport_egress,
                      (void *)&egress_config);
 
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              "Starting xdp ingress processing.");
+  Logger::ActiveLogger().log(Logger::DEBUG, "Starting xdp ingress processing.");
   for (;;) {
     faux_process_transport_ingress(xsk, ip_fd, processor);
 
@@ -132,8 +131,7 @@ bool XdpRunner::execute(Compilation &compilation) {
       break;
     }
   }
-  Logger::ActiveLogger()->log(Logger::DEBUG,
-                              "Stopping xdp ingress processing.");
+  Logger::ActiveLogger().log(Logger::DEBUG, "Stopping xdp ingress processing.");
 
   xdp_cleanup_sock(xsk);
 

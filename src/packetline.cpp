@@ -160,14 +160,13 @@ int main(int argc, const char **argv) {
     break;
   }
 
-  auto logger = Logger::ActiveLogger();
   // Now that the user had a chance to configure their preferred log level,
   // let's set it and use it.
-  logger->set_level(cli_logger_level);
+  Logger::ActiveLogger().set_level(cli_logger_level);
 
   // If there is no maybe_pipeline_compiler_runner, then we go with the default.
   if (!maybe_pipeline_compiler_runner) {
-    Logger::ActiveLogger()->log(Logger::DEBUG, "Using the default runner.");
+    Logger::ActiveLogger().log(Logger::DEBUG, "Using the default runner.");
     maybe_pipeline_compiler_runner = std::make_pair(
         std::make_unique<CliCompiler>(), std::make_unique<CliRunner>());
   }
@@ -240,8 +239,8 @@ int main(int argc, const char **argv) {
           compilation_result.error);
       return 1;
     } else {
-      Logger::ActiveLogger()->log(Logger::DEBUG,
-                                  "Execution of network connection succeeded.");
+      Logger::ActiveLogger().log(Logger::DEBUG,
+                                 "Execution of network connection succeeded.");
     }
 
     return 0;
