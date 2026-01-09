@@ -31,7 +31,7 @@ jobs:
         with:
             submodules: recursive
       - run: |
-          sudo apt-get install -y libxdp-dev
+          sudo apt-get install -y libxdp-dev iwyu
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
           cmake --build build
           ./test/run_unit_tests.sh
