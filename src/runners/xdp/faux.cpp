@@ -14,7 +14,6 @@
 #include <linux/if_tun.h>
 #include <linux/if_xdp.h>
 #include <net/ethernet.h>
-#include <net/if.h>
 #include <netinet/in.h>
 #include <packetline/runners/xdp/faux.h>
 #include <packetline/runners/xdp/netlink.h>
@@ -22,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>

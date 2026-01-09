@@ -16,7 +16,6 @@
 #include <linux/udp.h>
 #include <locale.h>
 #include <net/ethernet.h>
-#include <net/if.h>
 #include <netinet/ether.h>
 #include <poll.h>
 #include <pthread.h>
