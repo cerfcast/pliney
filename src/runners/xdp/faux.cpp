@@ -5,6 +5,9 @@
 #include <errno.h>
 
 #include "lib/logger.hpp"
+#include "packetline/runners/xdp/faux.h"
+#include "packetline/runners/xdp/netlink.h"
+#include "packetline/runners/xdp/xdpsupport.h"
 #include <fcntl.h>
 #include <format>
 #include <linux/if.h>
@@ -14,16 +17,13 @@
 #include <linux/if_xdp.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
-#include "packetline/runners/xdp/faux.h"
-#include "packetline/runners/xdp/netlink.h"
-#include "packetline/runners/xdp/xdpsupport.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <string>
 #include <xdp/xsk.h>
 
 #if 0
