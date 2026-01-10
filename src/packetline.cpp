@@ -1,3 +1,5 @@
+// IWYU pragma: no_include <type_traits>
+
 #include <cstdlib>
 #include <errno.h>
 #include <filesystem>
@@ -7,7 +9,6 @@
 #include <numeric>
 #include <optional>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <variant>
 

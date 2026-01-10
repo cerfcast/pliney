@@ -5,9 +5,8 @@
 #define __RUNNERS_XDP_FAUX_H
 
 #include "packetline/runners/xdp/xdpsupport.h"
-#include <functional>
 
-
+#include <functional> // IWYU pragma: export
 typedef std::function<void*(void *, size_t, size_t*)> process_packet_cb_t;
 
 void faux_process_transport_ingress(struct xsk_socket_info *xsk, int ip_fd,

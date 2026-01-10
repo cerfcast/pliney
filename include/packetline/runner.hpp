@@ -10,15 +10,13 @@
 
 #include "packetline/utilities.hpp"
 #include "pisa/compilation.hpp"
-#include "pisa/pisa.h"
 #include "pisa/exthdr.h"
+#include "pisa/pisa.h"
 
 namespace Pliney {
 enum class Transport;
-}  // namespace Pliney
+}
 struct PlineyPacket;
-
-;
 
 class Runner {
 public:

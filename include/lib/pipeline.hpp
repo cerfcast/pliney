@@ -2,7 +2,6 @@
 #define __PLINEY_PIPELINE_HPP
 
 #include <vector>
-#include <format>
 #include <iterator>
 #include <optional>
 #include <string>

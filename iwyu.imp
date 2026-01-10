@@ -1,0 +1,5 @@
+[
+{ "symbol": ["std::pair", "private", "<utility>", "public"] },
+{ "symbol": ["std::vector", "private", "<vector>", "public"] }
+]
+
